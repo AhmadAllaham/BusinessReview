@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>User Settings · Business Review</title>
+  <link rel="stylesheet" href="portal.css">
+</head>
+<body class="portal-page">
+  <main class="portal-shell">
+    <header class="portal-topbar">
+      <div class="portal-brand">
+        <div class="portal-brand-mark">BR</div>
+        <div><h1>User Settings</h1><p>Create users and assign country access</p></div>
+      </div>
+      <nav class="portal-nav">
+        <a class="portal-link secondary" href="index.html">Dashboard</a>
+        <a class="portal-link" href="admin.html">Data Admin</a>
+        <button id="logoutButton" class="portal-button ghost" type="button">Sign out</button>
+      </nav>
+    </header>
+
+    <div class="portal-grid">
+      <section class="portal-card">
+        <div class="portal-card-head">
+          <span class="portal-eyebrow">New account</span>
+          <h2>Create user</h2>
+        </div>
+        <form id="createUserForm" class="portal-card-body">
+          <div class="portal-row">
+            <div class="portal-field">
+              <label for="displayName">Display name</label>
+              <input id="displayName" required placeholder="Full name">
+            </div>
+            <div class="portal-field">
+              <label for="newEmail">Email / Username</label>
+              <input id="newEmail" type="email" required placeholder="name@company.com">
+            </div>
+          </div>
+          <div class="portal-row">
+            <div class="portal-field">
+              <label for="newPassword">Temporary password</label>
+              <input id="newPassword" type="password" required minlength="8" autocomplete="new-password">
+            </div>
+            <div class="portal-field">
+              <label for="newRole">Role</label>
+              <select id="newRole">
+                <option value="user">User</option>
+                <option value="admin">Administrator</option>
+              </select>
+            </div>
+          </div>
+          <div class="portal-field">
+            <label>Allowed countries</label>
+            <div id="newCountryList" class="country-list"><div class="portal-empty">No countries uploaded yet.</div></div>
+          </div>
+          <div class="portal-actions">
+            <button id="createUserButton" class="portal-button" type="submit">Create user</button>
+          </div>
+          <div id="createUserStatus" class="portal-status"></div>
+        </form>
+      </section>
+
+      <section class="portal-card">
+        <div class="portal-card-head">
+          <span class="portal-eyebrow">Access editor</span>
+          <h2>Edit selected user</h2>
+        </div>
+        <form id="editUserForm" class="portal-card-body">
+          <div class="portal-field">
+            <label for="editUserSelect">User</label>
+            <select id="editUserSelect"><option value="">Select a user</option></select>
+          </div>
+          <div class="portal-row">
+            <div class="portal-field">
+              <label for="editDisplayName">Display name</label>
+              <input id="editDisplayName" disabled>
+            </div>
+            <div class="portal-field">
+              <label for="editRole">Role</label>
+              <select id="editRole" disabled>
+                <option value="user">User</option>
+                <option value="admin">Administrator</option>
+              </select>
+            </div>
+          </div>
+          <div class="portal-field">
+            <label><input id="editActive" type="checkbox" disabled> Account active</label>
+          </div>
+          <div class="portal-field">
+            <label>Allowed countries</label>
+            <div id="editCountryList" class="country-list"><div class="portal-empty">Select a user.</div></div>
+          </div>
+          <div class="portal-actions">
+            <button id="saveUserButton" class="portal-button" type="submit" disabled>Save permissions</button>
+          </div>
+          <div id="editUserStatus" class="portal-status"></div>
+        </form>
+      </section>
+
+      <section class="portal-card wide">
+        <div class="portal-card-head">
+          <span class="portal-eyebrow">Current access</span>
+          <h2>Users</h2>
+        </div>
+        <div class="portal-card-body">
+          <div id="usersTable" class="portal-empty">Loading users…</div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="firebase-client.js"></script>
+  <script src="setting.js"></script>
+</body>
+</html>
