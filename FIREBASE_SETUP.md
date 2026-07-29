@@ -48,6 +48,7 @@ firebase deploy --only firestore:rules,firestore:indexes
 ## 6. Monthly report files
 
 - Upload the Sales workbook once with report type `sales`; it feeds Sales Analysis and IMS FOC Analysis.
+- Upload Stock Level as report type `stock`.
 - Upload Selling & Marketing Expenses as report type `sm`.
 - Upload P&L as report type `pnl`.
 - Each report type keeps its own active dataset.
