@@ -17,7 +17,8 @@
     sales:"Sales · Sales Analysis & IMS FOC",
     stock:"Stock Level",
     sm:"Selling & Marketing Expenses",
-    pnl:"P&L"
+    pnl:"P&L",
+    profitability:"Product Profitability · Sales & IMS FOC"
   };
 
   function show(id,message,type="") {
@@ -62,6 +63,20 @@
     });
   }
 
+  function profitabilityHeaderIndex(matrix) {
+    const marketNames = new Set(["market","country","countryname"]);
+    const productNames = new Set(["sku","product","productname"]);
+    const gpNames = new Set(["gp","gppercent","grossprofitpercent","budgetgppercent"]);
+    const profitabilityNames = new Set(["profitability","profitabilityclass","classification"]);
+    return matrix.findIndex(row => {
+      const headers = row.map(normalizeHeader);
+      return headers.some(header => marketNames.has(header)) &&
+        headers.some(header => productNames.has(header)) &&
+        headers.some(header => gpNames.has(header)) &&
+        headers.some(header => profitabilityNames.has(header));
+    });
+  }
+
   function headerValue(row,names) {
     const key = Object.keys(row).find(item =>
       names.includes(String(item).trim().toLowerCase())
@@ -80,7 +95,9 @@
       });
       const headerIndex = reportType === "pnl"
         ? pnlHeaderIndex(matrix)
-        : firstNonEmptyRow(matrix);
+        : reportType === "profitability"
+          ? profitabilityHeaderIndex(matrix)
+          : firstNonEmptyRow(matrix);
       if (headerIndex < 0) return;
       const headers = matrix[headerIndex].map((value,index) =>
         String(value || `Column ${index + 1}`).trim()
@@ -110,6 +127,11 @@
     if (reportType === "pnl" && !parsedSheets.length) {
       throw new Error(
         "No valid P&L table was found. The header must include Scenario/Period, Market/Country, and P&L value columns."
+      );
+    }
+    if (reportType === "profitability" && !parsedSheets.length) {
+      throw new Error(
+        "No valid profitability table was found. The header must include Market/Country, SKU/Product, GP %, and Profitability."
       );
     }
 
