@@ -515,6 +515,51 @@ function cell(v,i,foc){
   return `<td class="${cls}${hi?' highlight':''}">${isPct?v:fmt(v)}</td>`;
 }
 
+const countryFlagCodes={
+  jordan:'JO',
+  ksa:'SA',
+  saudiarabia:'SA',
+  saudi:'SA',
+  algeria:'DZ',
+  iraq:'IQ',
+  oman:'OM',
+  uae:'AE',
+  unitedarabemirates:'AE',
+  emirates:'AE',
+  qatar:'QA',
+  bahrain:'BH',
+  kuwait:'KW',
+  yemen:'YE',
+  egypt:'EG',
+  libya:'LY',
+  sudan:'SD',
+  somalia:'SO',
+  morocco:'MA',
+  tunisia:'TN',
+  palestine:'PS',
+  lebanon:'LB',
+  syria:'SY',
+  turkey:'TR',
+  iran:'IR'
+};
+
+function countryFlag(country){
+  const key=String(country || '').toLowerCase().replace(/[^a-z]/g,'');
+  const code=countryFlagCodes[key];
+  return code
+    ? [...code].map(letter=>String.fromCodePoint(127397 + letter.charCodeAt(0))).join('')
+    : '🌍';
+}
+
+function setCountryModalTitle(title){
+  $('countryModalTitle').textContent=title;
+  const flag=$('countryModalFlag');
+  if(flag){
+    flag.textContent=countryFlag(activeCountry);
+    flag.title=activeCountry;
+  }
+}
+
 function openCountry(country){
   detailMode='sales';
   activeCountry=country;
@@ -570,7 +615,7 @@ function renderCountryBrands(){
   activeFocGroup='';
   $('backToBrands').hidden=true;
   $('backToBrands').textContent='← Back';
-  $('countryModalTitle').textContent=activeCountry;
+  setCountryModalTitle(activeCountry);
   $('countryModalSubtitle').textContent='Brand totals — click a brand to view products';
   $('countryDetailHint').textContent='Click any brand to view its products';
 
@@ -597,7 +642,7 @@ function renderBrandProducts(brand){
   activeBrand=brand;
   $('backToBrands').hidden=false;
   $('backToBrands').textContent='← Back to Brands';
-  $('countryModalTitle').textContent=`${activeCountry} · ${brand}`;
+  setCountryModalTitle(`${activeCountry} · ${brand}`);
   $('countryModalSubtitle').textContent='Product detail';
   $('countryDetailHint').textContent='Product level';
 
@@ -621,7 +666,7 @@ function renderFocCountryGroups(){
   activeFocGroup='';
   $('backToBrands').hidden=true;
   $('backToBrands').textContent='← Back to Product Groups';
-  $('countryModalTitle').textContent=`${activeCountry} · IMS FOC`;
+  setCountryModalTitle(`${activeCountry} · IMS FOC`);
   $('countryModalSubtitle').textContent='Product Group-level FOC utilization — click a group to view products';
   $('countryDetailHint').textContent='Click any Product Group to view its products';
 
@@ -654,7 +699,7 @@ function renderFocGroupProducts(group){
   activeFocGroup=group;
   $('backToBrands').hidden=false;
   $('backToBrands').textContent='← Back to Product Groups';
-  $('countryModalTitle').textContent=`${activeCountry} · ${group}`;
+  setCountryModalTitle(`${activeCountry} · ${group}`);
   $('countryModalSubtitle').textContent='FOC utilization by product';
   $('countryDetailHint').textContent='Product level';
 
