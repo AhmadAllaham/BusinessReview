@@ -1,1 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Business Review</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand-block">
+      <div class="brand-mark">BR</div>
+      <div>
+        <h1>Business Review</h1>
+        <p id="headerSubtitle">Sales Actual vs Budget vs LY · TMS & IMS · FOC for IMS only</p>
+      </div>
+    </div>
+    <label class="upload-btn sales-header-upload">
+      <input id="fileInput" type="file" accept=".xlsx,.xls" />
+      <span>Upload Excel</span>
+    </label>
+  </header>
 
+  <div class="report-layout">
+    <aside class="side-nav" aria-label="Main report navigation">
+      <div class="side-nav-top">
+        <div class="side-nav-title">REPORT CENTER</div>
+        <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Collapse navigation" title="Collapse navigation">
+          <span class="sidebar-toggle-icon">«</span>
+        </button>
+      </div>
+
+      <button class="workspace-btn active" type="button" data-workspace="businessWorkspace" aria-expanded="true">
+        <span class="nav-icon">BR</span>
+        <span>BUSINESS REVIEW</span>
+        <span class="nav-chevron">⌄</span>
+      </button>
+      <div class="side-submenu open" id="businessSubmenu">
+        <button class="tab-btn active" data-tab="salesSection" type="button">Sales Analysis</button>
+        <button class="tab-btn" data-tab="focSection" type="button">IMS FOC Analysis</button>
+        <button class="tab-btn" data-tab="varianceSection" type="button">Top Variances</button>
+        <button class="tab-btn" data-tab="smExpensesSection" type="button">Selling &amp; Marketing Expenses</button>
+        <button class="tab-btn" data-tab="pnlSection" type="button">P&amp;L</button>
+      </div>
+
+      <button class="workspace-btn" type="button" data-workspace="mdaWorkspace" aria-expanded="false">
+        <span class="nav-icon">M</span>
+        <span>MD&amp;A</span>
+        <span class="nav-chevron">›</span>
+      </button>
+      <div class="side-nav-foot">More MD&amp;A windows can be added later.</div>
+    </aside>
+
+    <main class="app-shell">
+      <div id="businessWorkspace" class="workspace-pane active">
+    <section id="statusBox" class="status-box sales-only-ui">
+      Upload the Excel file containing the <b>Sales</b> sheet.
+    </section>
+
+    <section class="filter-card sales-only-ui">
+      <div class="filter-card-head">
+        <div>
+          <span class="eyebrow">Report Filters</span>
+          <h2>Choose the reporting scope</h2>
+        </div>
+        <button id="resetBtn" class="reset-btn" type="button">Reset all</button>
+      </div>
+
+      <div class="filters-grid">
+        <div class="filter"><label>Year</label><div id="yearFilter" class="multi-filter" data-column="Year"></div></div>
+        <div class="filter"><label>Month</label><div id="monthFilter" class="multi-filter" data-column="Month"></div></div>
+        <div class="filter"><label>Type</label><div id="typeFilter" class="multi-filter" data-column="Type"></div></div>
+        <div class="filter"><label>Country</label><div id="countryFilter" class="multi-filter" data-column="Country"></div></div>
+        <div class="filter"><label>Sector</label><div id="sectorFilter" class="multi-filter" data-column="Sector"></div></div>
+        <div class="filter"><label>Agent</label><div id="agentFilter" class="multi-filter" data-column="Agent"></div></div>
+        <div class="filter"><label>Product Group</label><div id="groupFilter" class="multi-filter" data-column="Product Group"></div></div>
+        <div class="filter"><label>Product</label><div id="productFilter" class="multi-filter" data-column="Product Name"></div></div>
+      </div>
+    </section>
+
+    <section id="salesSection" class="report-section active sm-format-theme">
+      <div id="activeFilterBar" class="active-filter-bar sales-only-ui" hidden>
+        <div class="active-filter-title">Active filters</div>
+        <div id="activeFilterChips" class="active-filter-chips"></div>
+        <button type="button" id="clearAllActiveFilters" class="clear-active-filters">Clear all</button>
+      </div>
+      <article class="report-card">
+        <div class="report-head">
+          <div>
+            <span class="eyebrow">Sales Performance</span>
+            <h2>Actual vs Budget vs Last Year</h2>
+            <p>Review sales performance by market, agent, product group, or product.</p>
+          </div>
+          <div class="view-control">
+            <label for="salesView">View by</label>
+            <select id="salesView">
+              <option value="Country">Country</option>
+              <option value="Agent">Agent</option>
+              <option value="Product Group">Product Group</option>
+              <option value="Product Name">Product</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-toolbar">
+          <span id="salesCount">0 rows</span>
+          <span class="legend"><i class="dot favorable"></i> Favorable <i class="dot unfavorable"></i> Unfavorable</span>
+        </div>
+        <div class="sm-table-scroll sales-foc-table-scroll"><table id="salesTable" class="sm-reference-table sales-foc-reference-table"></table></div>
+      </article>
+    </section>
+
+    <section id="focSection" class="report-section sm-format-theme">
+      <article class="report-card">
+        <div class="report-head">
+          <div>
+            <span class="eyebrow">IMS Only</span>
+            <h2>FOC Utilization Analysis</h2>
+            <p>Compare actual IMS bonus utilization against the budget FOC rate.</p>
+          </div>
+          <div class="view-control">
+            <label for="focView">View by</label>
+            <select id="focView">
+              <option value="Country">Country</option>
+              <option value="Agent">Agent</option>
+              <option value="Product Group">Product Group</option>
+              <option value="Product Name">Product</option>
+            </select>
+          </div>
+        </div>
+        <div class="formula-note">
+          <strong>Method:</strong> Actual FG % = Actual Bonus Value ÷ IMS Actual Sales &nbsp;·&nbsp; Budget FG % = Budget Bonus Value ÷ IMS Actual Sales &nbsp;·&nbsp; FG Variance % = Actual FG % − Budget FG %
+        </div>
+        <div class="table-toolbar"><span id="focCount">0 rows</span></div>
+        <div class="sm-table-scroll sales-foc-table-scroll"><table id="focTable" class="sm-reference-table sales-foc-reference-table"></table></div>
+      </article>
+    </section>
+
+    <section id="varianceSection" class="report-section variance-sm-theme">
+      <article class="sm-report-shell variance-report-shell">
+        <div class="sm-title-bar variance-title-bar">
+          <div>
+            <h2>Top Variances</h2>
+            <p>Top positive and negative sales variances against budget.</p>
+          </div>
+        </div>
+
+        <div class="variance-grid variance-sm-grid">
+          <section class="variance-sm-panel negative-panel">
+            <div class="variance-sm-head">
+              <div>
+                <span class="eyebrow">Exception Report</span>
+                <h3>Top 10 Negative Variances</h3>
+              </div>
+              <span class="variance-badge negative">Below Budget</span>
+            </div>
+            <div class="sm-table-scroll variance-table-scroll">
+              <table id="negativeTable" class="sm-reference-table variance-reference-table"></table>
+            </div>
+          </section>
+
+          <section class="variance-sm-panel positive-panel">
+            <div class="variance-sm-head">
+              <div>
+                <span class="eyebrow">Opportunity Report</span>
+                <h3>Top 10 Positive Variances</h3>
+              </div>
+              <span class="variance-badge positive">Above Budget</span>
+            </div>
+            <div class="sm-table-scroll variance-table-scroll">
+              <table id="positiveTable" class="sm-reference-table variance-reference-table"></table>
+            </div>
+          </section>
+        </div>
+      </article>
+    </section>
+
+    
+    
+    
+<section id="smExpensesSection" class="report-section" hidden>
+  <article class="sm-report-shell">
+    <div class="sm-title-bar">
+      <h2>Selling and Marketing Expenses</h2>
+      <div class="sm-title-actions">
+        <label class="sm-file-upload">
+          <input id="smSimpleFileInput" type="file" accept=".xlsx,.xls" />
+          <span>Upload S&amp;M Excel</span>
+        </label>
+        <button id="smSimpleResetBtn" class="sm-reset-data-btn" type="button">Use Attached Data</button>
+      </div>
+    </div>
+
+    <section class="filter-card sm-filter-card">
+      <div class="filter-card-head">
+        <div>
+          <span class="eyebrow">Report Filters</span>
+          <h2>Choose the reporting scope</h2>
+        </div>
+        <button id="smSimpleFilterResetBtn" class="reset-btn" type="button">Reset all</button>
+      </div>
+
+      <div class="filters-grid sm-filters-grid">
+        <div class="filter">
+          <label>Reporting Month</label>
+          <div id="smSimpleMonthFilter" class="multi-filter" data-column="Reporting Month" data-filter-scope="sm"></div>
+        </div>
+        <div class="filter">
+          <label>Country</label>
+          <div id="smSimpleCountryFilter" class="multi-filter" data-column="Country" data-filter-scope="sm"></div>
+        </div>
+      </div>
+
+      <div id="smSimpleStatus" class="sm-simple-status">Source: Selling and Marketing Expenses.xlsx</div>
+    </section>
+
+    <div class="sm-table-scroll">
+      <table id="smSimpleTable" class="sm-reference-table">
+        <thead>
+          <tr>
+            <th>Expense</th>
+            <th>Actual</th>
+            <th>Budget</th>
+            <th>Vs Budget $</th>
+            <th>Vs Budget %</th>
+            <th>LY</th>
+            <th>Vs LY $</th>
+            <th>Vs LY %</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </article>
+</section>
+
+<section id="pnlSection" class="report-section pnl-sm-theme">
+      <article class="report-card pnl-vertical-card">
+        <div class="report-head pnl-head">
+          <div>
+            <span class="eyebrow">Financial Performance</span>
+            <h2>Profit &amp; Loss Statement</h2>
+            <p>Vertical P&amp;L view with Actual, Budget, Last Year and variance analysis.</p>
+          </div>
+          <div class="pnl-actions">
+            <label class="upload-btn secondary-upload pnl-upload-btn">
+              <input id="pnlFileInput" type="file" accept=".xlsx,.xls" />
+              <span>Upload P&amp;L Excel</span>
+            </label>
+          </div>
+        </div>
+
+        <div id="pnlUploadStatus" class="pnl-upload-status">
+          <span class="pnl-status-dot"></span>
+          <span>Current source: embedded P&amp;L data</span>
+        </div>
+
+        <section class="filter-card pnl-shared-filter-card">
+          <div class="filter-card-head">
+            <div>
+              <span class="eyebrow">Report Filters</span>
+              <h2>Choose the P&amp;L reporting scope</h2>
+            </div>
+            <button id="pnlResetBtn" class="reset-btn" type="button">Reset all</button>
+          </div>
+          <div class="filters-grid pnl-shared-filters-grid">
+            <div class="filter">
+              <label>Agent</label>
+              <div id="pnlAgentFilter" class="multi-filter" data-column="Agent" data-filter-scope="pnl"></div>
+            </div>
+            <div class="filter">
+              <label>Market</label>
+              <div id="pnlMarketFilter" class="multi-filter" data-column="Market" data-filter-scope="pnl"></div>
+            </div>
+            <div class="filter">
+              <label>Sales Type</label>
+              <div id="pnlSalesTypeFilter" class="multi-filter" data-column="Sales Type" data-filter-scope="pnl"></div>
+            </div>
+          </div>
+        </section>
+
+        <div class="pnl-summary-strip">
+          <div class="pnl-summary-box">
+            <span>Net Sales</span>
+            <strong id="pnlNetSalesKpi">0</strong>
+            <small id="pnlNetSalesVar">Vs Budget 0</small>
+          </div>
+          <div class="pnl-summary-box">
+            <span>Gross Profit</span>
+            <strong id="pnlGrossProfitKpi">0</strong>
+            <small id="pnlGrossProfitVar">Vs Budget 0</small>
+          </div>
+          <div class="pnl-summary-box">
+            <span>Net Income</span>
+            <strong id="pnlNetIncomeKpi">0</strong>
+            <small id="pnlNetIncomeVar">Vs Budget 0</small>
+          </div>
+          <div class="pnl-summary-box">
+            <span>GP Margin</span>
+            <strong id="pnlGpMarginKpi">0%</strong>
+            <small id="pnlGpMarginVar">Budget 0%</small>
+          </div>
+        </div>
+
+        <div class="table-toolbar">
+          <span id="pnlCount">10 P&amp;L lines</span>
+          <span class="legend"><i class="dot favorable"></i> Favorable <i class="dot unfavorable"></i> Unfavorable</span>
+        </div>
+
+        <div class="table-wrap pnl-table-wrap">
+          <table id="pnlTable" class="pnl-vertical-table"></table>
+        </div>
+
+        <div class="pnl-margin-section">
+          <div class="pnl-margin-header">
+            <div>
+              <span class="eyebrow">Profitability Ratios</span>
+              <h3>Margin Analysis</h3>
+              <p>Key P&amp;L ratios calculated as a percentage of Net Sales.</p>
+            </div>
+            <span class="pnl-margin-badge">Percentage Points</span>
+          </div>
+
+          <div class="table-wrap pnl-margin-table-wrap">
+            <table id="pnlMarginTable" class="pnl-vertical-table pnl-margin-table"></table>
+          </div>
+        </div>
+      </article>
+    </section>
+      </div>
+
+      <section id="mdaWorkspace" class="workspace-pane">
+        <article class="report-card mda-placeholder">
+          <div class="mda-placeholder-icon">MD&amp;A</div>
+          <span class="eyebrow">Management Discussion &amp; Analysis</span>
+          <h2>MD&amp;A Workspace</h2>
+          <p>This section is ready for future windows such as revenue commentary, gross profit analysis, OPEX, cash flow, key risks, opportunities, and management commentary.</p>
+          <div class="mda-coming-soon">Ready for future development</div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+
+  <div id="countryModal" class="modal" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal></div>
+    <section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="countryModalTitle">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">Country Drill-down</span>
+          <h2 id="countryModalTitle">Country Product & Brand Sales</h2>
+          <p id="countryModalSubtitle">Detailed Actual vs Budget vs LY by brand and product.</p>
+        </div>
+        <button id="closeCountryModal" class="modal-close" type="button" aria-label="Close">×</button>
+      </div>
+      <div class="modal-toolbar">
+        <div class="modal-toolbar-left">
+          <button id="backToBrands" class="back-btn" type="button" hidden>← Back to Brands</button>
+          <span id="countryDetailCount">0 rows</span>
+        </div>
+        <span id="countryDetailHint">Click any brand to view its products</span>
+      </div>
+      <div class="table-wrap modal-table-wrap"><table id="countryDetailTable"></table></div>
+    </section>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
