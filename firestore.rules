@@ -6,33 +6,52 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function ownsNewDocument() {
+    function currentProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function enabledUser() {
       return signedIn() &&
-        request.resource.data._ownerUid == request.auth.uid;
+        currentProfile().active == true;
     }
 
-    function ownsExistingDocument() {
-      return signedIn() &&
-        resource.data._ownerUid == request.auth.uid;
+    function adminUser() {
+      return enabledUser() &&
+        currentProfile().role == "admin";
     }
 
-    function keepsOwnership() {
-      return request.resource.data._ownerUid == resource.data._ownerUid;
+    function activeDatasetId() {
+      return get(/databases/$(database)/documents/system/activeDataset).data.datasetId;
     }
 
-    match /_excel_imports/{importId} {
-      allow create: if ownsNewDocument();
-      allow read, delete: if ownsExistingDocument();
-      allow update: if ownsExistingDocument() && keepsOwnership();
+    function allowedCountry(country) {
+      return enabledUser() &&
+        country in currentProfile().countries;
     }
 
-    // Excel rows may be uploaded to any top-level business collection selected
-    // in upload.html, but each document remains private to its uploader.
-    match /{collectionId}/{documentId} {
-      allow create: if collectionId != "_excel_imports" && ownsNewDocument();
-      allow read, delete: if collectionId != "_excel_imports" && ownsExistingDocument();
-      allow update: if collectionId != "_excel_imports" &&
-        ownsExistingDocument() && keepsOwnership();
+    match /users/{userId} {
+      allow read: if enabledUser() &&
+        (request.auth.uid == userId || adminUser());
+      allow create, update, delete: if adminUser();
+    }
+
+    match /system/{documentId} {
+      allow read: if enabledUser();
+      allow create, update, delete: if adminUser();
+    }
+
+    match /datasets/{datasetId} {
+      allow read: if enabledUser();
+      allow create, update, delete: if adminUser();
+    }
+
+    match /reportRows/{rowId} {
+      allow read: if adminUser() ||
+        (
+          allowedCountry(resource.data.country) &&
+          resource.data.datasetId == activeDatasetId()
+        );
+      allow create, update, delete: if adminUser();
     }
   }
 }
