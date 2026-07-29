@@ -1621,6 +1621,8 @@ function renderSmExpenses(){
   const tbody = document.querySelector('#smSimpleTable tbody');
   if(!tbody) return;
   const rows = smSimpleAggregate();
+  const count=$('smSimpleCount');
+  if(count) count.textContent=`${rows.length.toLocaleString('en-US')} rows`;
 
   if(!rows.length){
     tbody.innerHTML = '<tr><td colspan="8" class="sm-no-data">No matching data for the selected month and country.</td></tr>';
