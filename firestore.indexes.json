@@ -7,6 +7,14 @@
         { "fieldPath": "datasetId", "order": "ASCENDING" },
         { "fieldPath": "country", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "reportChunks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "datasetId", "order": "ASCENDING" },
+        { "fieldPath": "country", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
