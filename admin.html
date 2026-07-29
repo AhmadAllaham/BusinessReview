@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Data Admin · Business Review</title>
+  <link rel="stylesheet" href="portal.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body class="portal-page">
+  <main class="portal-shell">
+    <header class="portal-topbar">
+      <div class="portal-brand">
+        <div class="portal-brand-mark">BR</div>
+        <div><h1>Data Administration</h1><p>Upload Excel data to the central Firestore database</p></div>
+      </div>
+      <nav class="portal-nav">
+        <a class="portal-link secondary" href="index.html">Dashboard</a>
+        <a class="portal-link" href="setting.html">User Settings</a>
+        <button id="logoutButton" class="portal-button ghost" type="button">Sign out</button>
+      </nav>
+    </header>
+
+    <div class="portal-grid">
+      <section class="portal-card">
+        <div class="portal-card-head">
+          <span class="portal-eyebrow">Step 1</span>
+          <h2>Select workbook</h2>
+        </div>
+        <div class="portal-card-body">
+          <label id="dropZone" class="drop-zone">
+            <input id="excelFile" type="file" accept=".xlsx,.xls,.xlsm">
+            <div>
+              <strong>Drop Excel file here</strong>
+              <span>or click to select a workbook</span>
+              <span id="fileName"></span>
+            </div>
+          </label>
+          <div id="fileStatus" class="portal-status"></div>
+        </div>
+      </section>
+
+      <section class="portal-card">
+        <div class="portal-card-head">
+          <span class="portal-eyebrow">Step 2</span>
+          <h2>Review import</h2>
+        </div>
+        <div class="portal-card-body">
+          <div class="portal-row">
+            <div class="portal-field">
+              <label for="datasetName">Dataset name</label>
+              <input id="datasetName" placeholder="Business Review · July 2026">
+            </div>
+            <div class="portal-field">
+              <label for="reportingPeriod">Reporting period</label>
+              <input id="reportingPeriod" placeholder="July 2026">
+            </div>
+          </div>
+          <div class="portal-row">
+            <div class="portal-field">
+              <label>Rows</label>
+              <input id="rowCount" value="0" disabled>
+            </div>
+            <div class="portal-field">
+              <label>Countries</label>
+              <input id="countryCount" value="0" disabled>
+            </div>
+          </div>
+          <p class="portal-note">All non-empty sheets are imported. Every row must contain Country or Market to be visible to non-admin users.</p>
+          <div class="portal-actions">
+            <button id="uploadButton" class="portal-button" type="button" disabled>Upload and activate</button>
+          </div>
+          <div id="uploadStatus" class="portal-status"></div>
+          <div id="progress" class="progress" hidden><div id="progressBar"></div></div>
+        </div>
+      </section>
+
+      <section class="portal-card wide">
+        <div class="portal-card-head">
+          <span class="portal-eyebrow">Workbook structure</span>
+          <h2>Sheets to upload</h2>
+        </div>
+        <div class="portal-card-body">
+          <div id="sheetSummary" class="portal-empty">Select a workbook first.</div>
+        </div>
+      </section>
+
+      <section class="portal-card wide">
+        <div class="portal-card-head">
+          <span class="portal-eyebrow">History</span>
+          <h2>Datasets</h2>
+        </div>
+        <div class="portal-card-body">
+          <div id="datasetsTable" class="portal-empty">Loading datasets…</div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="firebase-client.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>
