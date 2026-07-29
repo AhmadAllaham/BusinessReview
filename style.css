@@ -1629,13 +1629,13 @@ body.stock-level-view .sales-header-upload{
   text-align:center;
 }
 
-/* Highlight Actual FG value and rate in IMS FOC */
+/* Actual FG cells stay white; only FG Variance % is color-coded */
 #focTable tbody tr:not(.total-row) td:nth-child(3),
 #focTable tbody tr:not(.total-row) td:nth-child(4){
-  background:#dff3ef;
+  background:#fff;
 }
 
 #focTable tbody tr:not(.total-row):hover td:nth-child(3),
 #focTable tbody tr:not(.total-row):hover td:nth-child(4){
-  background:#d2ebe6;
+  background:#fff;
 }
