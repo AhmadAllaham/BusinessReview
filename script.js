@@ -374,7 +374,41 @@ document.querySelectorAll('.tab-btn').forEach(btn=>btn.addEventListener('click',
   setBusinessReportTab(btn.dataset.tab);
 }));
 
+function setWorkspace(workspaceId){
+  document.querySelectorAll('.workspace-btn').forEach(button=>{
+    const active=button.dataset.workspace===workspaceId;
+    button.classList.toggle('active',active);
+    button.setAttribute('aria-expanded',String(active));
+    const chevron=button.querySelector('.nav-chevron');
+    if(chevron) chevron.textContent=active?'⌄':'›';
+    const submenu=button.nextElementSibling;
+    if(submenu?.classList.contains('side-submenu')){
+      submenu.classList.toggle('open',active);
+    }
+  });
+  document.querySelectorAll('.workspace-pane').forEach(pane=>{
+    pane.classList.toggle('active',pane.id===workspaceId);
+  });
+
+  const isMda=workspaceId==='mdaWorkspace';
+  document.body.classList.toggle('mda-view',isMda);
+  if(isMda){
+    document.body.classList.remove('pnl-clean-view','sm-expense-view','stock-level-view');
+    const subtitle=$('headerSubtitle');
+    if(subtitle) subtitle.textContent='Management Discussion & Analysis';
+  }else{
+    setBusinessReportTab(
+      document.querySelector('#businessSubmenu .tab-btn.active')?.dataset.tab || 'salesSection'
+    );
+  }
+}
+
+document.querySelectorAll('.workspace-btn').forEach(button=>{
+  button.addEventListener('click',()=>setWorkspace(button.dataset.workspace));
+});
+
 // Keep the initial Sales view consistent.
+setWorkspace('businessWorkspace');
 setBusinessReportTab(
   document.querySelector('.tab-btn.active')?.dataset.tab || 'salesSection'
 );
