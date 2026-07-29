@@ -44,3 +44,11 @@ firebase deploy --only firestore:rules,firestore:indexes
 - `index.html`: authenticated reports, filtered by assigned countries.
 - `setting.html`: administrator-only user and permission management.
 - `admin.html`: administrator-only Excel upload and dataset activation.
+
+## 6. Monthly report files
+
+- Upload the Sales workbook once with report type `sales`; it feeds Sales Analysis, IMS FOC Analysis, and Top Variances.
+- Upload Selling & Marketing Expenses as report type `sm`.
+- Upload P&L as report type `pnl`.
+- Each report type keeps its own active dataset.
+- Large workbooks are stored in country-secured `reportChunks` documents instead of one Firestore write per Excel row.
