@@ -43,6 +43,7 @@
       <div class="side-submenu open" id="businessSubmenu">
         <button class="tab-btn active" data-tab="salesSection" type="button">Sales Analysis</button>
         <button class="tab-btn" data-tab="focSection" type="button">IMS FOC Analysis</button>
+        <button class="tab-btn" data-tab="stockSection" type="button">Stock Level</button>
         <button class="tab-btn" data-tab="smExpensesSection" type="button">Selling &amp; Marketing Expenses</button>
         <button class="tab-btn" data-tab="pnlSection" type="button">P&amp;L</button>
       </div>
@@ -130,6 +131,66 @@
         </div>
         <div class="table-toolbar"><span id="focCount">0 rows</span></div>
         <div class="sm-table-scroll sales-foc-table-scroll"><table id="focTable" class="sm-reference-table sales-foc-reference-table"></table></div>
+      </article>
+    </section>
+
+    <section id="stockSection" class="report-section stock-level-theme" hidden>
+      <article class="sm-report-shell stock-report-shell">
+        <div class="sm-title-bar stock-title-bar">
+          <div>
+            <h2>Stock Level</h2>
+            <p>Stock value and monthly coverage based on forecast and historical sales.</p>
+          </div>
+        </div>
+
+        <section class="filter-card stock-filter-card">
+          <div class="filter-card-head">
+            <div>
+              <span class="eyebrow">Report Filters</span>
+              <h2>Choose the stock reporting scope</h2>
+            </div>
+            <button id="stockResetBtn" class="reset-btn" type="button">Reset all</button>
+          </div>
+          <div class="filters-grid stock-filters-grid">
+            <div class="filter">
+              <label>Product Group</label>
+              <div id="stockProductGroupFilter" class="multi-filter" data-column="Product Group" data-filter-scope="stock"></div>
+            </div>
+            <div class="filter">
+              <label>Month</label>
+              <div id="stockMonthFilter" class="multi-filter" data-column="Month" data-filter-scope="stock"></div>
+            </div>
+            <div class="filter">
+              <label>Country</label>
+              <div id="stockCountryFilter" class="multi-filter" data-column="Country" data-filter-scope="stock"></div>
+            </div>
+            <div class="filter">
+              <label>Agent</label>
+              <div id="stockAgentFilter" class="multi-filter" data-column="Agent" data-filter-scope="stock"></div>
+            </div>
+          </div>
+          <div id="stockStatus" class="sm-simple-status">Source: Firestore</div>
+        </section>
+
+        <div class="table-toolbar">
+          <span id="stockCount">0 brands</span>
+          <span>Coverage = Stock ÷ Sales</span>
+        </div>
+        <div class="sm-table-scroll stock-table-scroll">
+          <table id="stockTable" class="sm-reference-table stock-level-table">
+            <thead>
+              <tr>
+                <th>Brand</th>
+                <th>Stock $</th>
+                <th>Historical Sales $</th>
+                <th>Forecast Sales $</th>
+                <th>Monthly Coverage (Historical average)</th>
+                <th>Monthly Coverage (Forecasted average)</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </article>
     </section>
 
