@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive Sales Map — Demo</title>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <style>
+    :root{
+      --teal:#0f766e;
+      --teal-dark:#075f59;
+      --mint:#dff3ef;
+      --ink:#132238;
+      --muted:#6b7789;
+      --line:#dce6e7;
+      --bg:#f3f7f7;
+      --green:#078c3c;
+      --red:#c83e3e;
+      --white:#fff;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      background:
+        radial-gradient(circle at 12% 8%,rgba(38,170,156,.09),transparent 29%),
+        var(--bg);
+      color:var(--ink);
+      font-family:"Segoe UI",Arial,sans-serif;
+    }
+    .demo-header{
+      min-height:78px;
+      padding:12px 28px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:18px;
+      background:rgba(255,255,255,.94);
+      border-bottom:1px solid var(--line);
+      box-shadow:0 8px 24px rgba(24,55,58,.05);
+    }
+    .brand{display:flex;align-items:center;gap:16px}
+    .brand img{width:142px;height:52px;object-fit:contain}
+    .brand h1{margin:0;font-size:22px;letter-spacing:-.02em}
+    .brand p{margin:4px 0 0;color:var(--muted);font-size:12px}
+    .header-actions{display:flex;align-items:center;gap:10px}
+    .demo-badge{
+      padding:8px 12px;
+      border-radius:999px;
+      background:#fff5d7;
+      color:#7c5a00;
+      border:1px solid #f1dda0;
+      font-size:11px;
+      font-weight:800;
+      letter-spacing:.06em;
+      text-transform:uppercase;
+    }
+    .back-link{
+      padding:9px 13px;
+      border:1px solid var(--line);
+      border-radius:9px;
+      color:var(--ink);
+      background:#fff;
+      text-decoration:none;
+      font-size:13px;
+      font-weight:700;
+    }
+    main{max-width:1580px;margin:0 auto;padding:24px}
+    .page-head{
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:20px;
+      margin-bottom:18px;
+    }
+    .eyebrow{
+      color:var(--teal);
+      font-size:11px;
+      font-weight:900;
+      letter-spacing:.12em;
+      text-transform:uppercase;
+    }
+    .page-head h2{margin:6px 0 5px;font-size:29px;letter-spacing:-.035em}
+    .page-head p{margin:0;color:var(--muted);font-size:14px}
+    .legend{display:flex;align-items:center;gap:14px;color:var(--muted);font-size:12px}
+    .legend span{display:flex;align-items:center;gap:6px}
+    .dot{width:9px;height:9px;border-radius:50%}
+    .dot.good{background:#14936f}.dot.mid{background:#e8b33e}.dot.bad{background:#cf4f4f}
+    .kpis{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(160px,1fr));
+      gap:12px;
+      margin-bottom:14px;
+    }
+    .kpi{
+      padding:15px 17px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:rgba(255,255,255,.94);
+      box-shadow:0 8px 22px rgba(24,55,58,.04);
+    }
+    .kpi span{display:block;color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+    .kpi strong{display:block;margin-top:5px;font-size:23px}
+    .kpi small{display:block;margin-top:4px;color:var(--teal);font-weight:700}
+    .map-layout{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) 340px;
+      gap:14px;
+      align-items:stretch;
+    }
+    .map-card,.detail-card{
+      border:1px solid var(--line);
+      border-radius:17px;
+      background:#fff;
+      box-shadow:0 12px 32px rgba(24,55,58,.07);
+      overflow:hidden;
+    }
+    .card-head{
+      min-height:63px;
+      padding:15px 18px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+      border-bottom:1px solid var(--line);
+    }
+    .card-head h3{margin:0;font-size:16px}
+    .card-head p{margin:4px 0 0;color:var(--muted);font-size:12px}
+    .metric-select{
+      border:1px solid var(--line);
+      border-radius:8px;
+      background:#fff;
+      color:var(--ink);
+      padding:8px 10px;
+      font:inherit;
+      font-size:12px;
+      font-weight:700;
+    }
+    #salesMap{height:610px}
+    .detail-card{padding:22px}
+    .country-title{display:flex;align-items:center;gap:12px}
+    .flag{
+      width:46px;
+      height:32px;
+      display:grid;
+      place-items:center;
+      border:1px solid var(--line);
+      border-radius:7px;
+      background:#f8fbfb;
+      font-size:13px;
+      font-weight:900;
+      color:var(--teal-dark);
+    }
+    .country-title h3{margin:0;font-size:24px}
+    .country-title p{margin:3px 0 0;color:var(--muted);font-size:12px}
+    .selected-metrics{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:9px;
+      margin:20px 0;
+    }
+    .mini{
+      padding:12px;
+      border-radius:11px;
+      background:#f5f9f8;
+      border:1px solid #e4ecec;
+    }
+    .mini span{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;font-weight:800}
+    .mini strong{display:block;margin-top:4px;font-size:16px}
+    .performance{
+      padding:12px 14px;
+      border-radius:11px;
+      background:var(--mint);
+      color:var(--teal-dark);
+      font-size:13px;
+      font-weight:800;
+    }
+    .product-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      margin:22px 0 10px;
+    }
+    .product-head h4{margin:0;font-size:14px}
+    .product-head span{color:var(--muted);font-size:11px}
+    .product-list{display:grid;gap:9px}
+    .product{
+      display:grid;
+      grid-template-columns:28px minmax(0,1fr) auto;
+      align-items:center;
+      gap:9px;
+      padding:10px 0;
+      border-bottom:1px solid #edf2f2;
+    }
+    .rank{
+      width:25px;height:25px;border-radius:7px;
+      display:grid;place-items:center;
+      background:#e6f3f1;color:var(--teal-dark);
+      font-size:11px;font-weight:900;
+    }
+    .product strong{display:block;font-size:13px}
+    .product small{display:block;color:var(--muted);margin-top:2px}
+    .product-value{text-align:right;color:var(--teal-dark);font-size:12px;font-weight:800}
+    .hint{
+      margin-top:20px;
+      padding:11px 12px;
+      border-left:3px solid var(--teal);
+      border-radius:6px;
+      background:#f6fafa;
+      color:var(--muted);
+      font-size:11px;
+      line-height:1.5;
+    }
+    footer{padding:15px;text-align:center;color:#849294;font-size:11px;font-weight:600;letter-spacing:.04em}
+    @media(max-width:980px){
+      .map-layout{grid-template-columns:1fr}
+      .kpis{grid-template-columns:repeat(2,1fr)}
+      #salesMap{height:520px}
+    }
+    @media(max-width:650px){
+      .demo-header,.page-head{align-items:flex-start;flex-direction:column}
+      .demo-header{padding:14px 17px}
+      main{padding:17px}
+      .brand img{width:115px}
+      .kpis{grid-template-columns:1fr 1fr}
+      .legend{flex-wrap:wrap}
+      #salesMap{height:440px}
+    }
+  </style>
+</head>
+<body>
+  <header class="demo-header">
+    <div class="brand">
+      <img src="dar-aldawa-logo.svg" alt="Dar Al Dawa">
+      <div>
+        <h1>Business Review</h1>
+        <p>Interactive geographic sales analysis</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span class="demo-badge">Demo data · No Firebase</span>
+      <a class="back-link" href="index.html">Back</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-head">
+      <div>
+        <span class="eyebrow">Geographic performance</span>
+        <h2>Interactive Sales Map</h2>
+        <p>Hover over a country for a quick summary, or click it to view its best-selling products.</p>
+      </div>
+      <div class="legend" aria-label="Performance color legend">
+        <span><i class="dot good"></i> Above budget</span>
+        <span><i class="dot mid"></i> Near budget</span>
+        <span><i class="dot bad"></i> Below budget</span>
+      </div>
+    </section>
+
+    <section class="kpis">
+      <article class="kpi"><span>Total sales</span><strong id="totalSales">$0</strong><small>Selected demo markets</small></article>
+      <article class="kpi"><span>Total budget</span><strong id="totalBudget">$0</strong><small id="budgetVariance">0% vs budget</small></article>
+      <article class="kpi"><span>Best market</span><strong id="bestMarket">—</strong><small id="bestMarketValue">—</small></article>
+      <article class="kpi"><span>Markets covered</span><strong id="marketCount">0</strong><small>Hover or click to explore</small></article>
+    </section>
+
+    <section class="map-layout">
+      <article class="map-card">
+        <div class="card-head">
+          <div>
+            <h3>Sales by Country</h3>
+            <p>Color intensity reflects the selected performance metric.</p>
+          </div>
+          <select id="metricSelect" class="metric-select" aria-label="Map metric">
+            <option value="achievement">Budget achievement %</option>
+            <option value="sales">Actual sales</option>
+            <option value="growth">Growth vs LY %</option>
+          </select>
+        </div>
+        <div id="salesMap" aria-label="Interactive sales map"></div>
+      </article>
+
+      <aside class="detail-card">
+        <div class="country-title">
+          <div class="flag" id="selectedCode">JO</div>
+          <div>
+            <h3 id="selectedName">Jordan</h3>
+            <p>Country performance details</p>
+          </div>
+        </div>
+        <div class="selected-metrics">
+          <div class="mini"><span>Actual</span><strong id="selectedSales">$0</strong></div>
+          <div class="mini"><span>Budget</span><strong id="selectedBudget">$0</strong></div>
+          <div class="mini"><span>Vs Budget</span><strong id="selectedVsBudget">0%</strong></div>
+          <div class="mini"><span>Vs LY</span><strong id="selectedGrowth">0%</strong></div>
+        </div>
+        <div class="performance" id="performanceText">Select a market to view performance.</div>
+
+        <div class="product-head">
+          <h4>Top-selling products</h4>
+          <span>Demo ranking</span>
+        </div>
+        <div class="product-list" id="productList"></div>
+        <div class="hint">This page is completely isolated from the live dashboard. It uses sample data and does not read or write anything in Firebase.</div>
+      </aside>
+    </section>
+  </main>
+
+  <footer>Made by Ahmad Allaham</footer>
+
+  <script>
+    const markets = [
+      {iso3:"JOR",iso2:"JO",name:"Jordan",sales:17869114,budget:51852639,ly:15046230,products:[["Epigab",1653202],["Clavodar",1318841],["Hairgrow",1159453]]},
+      {iso3:"SAU",iso2:"SA",name:"KSA",sales:16935187,budget:41276246,ly:13049773,products:[["Azord",1843250],["Glunorm",1517730],["Clavodar",1284115]]},
+      {iso3:"DZA",iso2:"DZ",name:"Algeria",sales:20043018,budget:56440761,ly:23225231,products:[["Amoclan",2130925],["Leflox",1824370],["Remox",1515060]]},
+      {iso3:"IRQ",iso2:"IQ",name:"Iraq",sales:17545663,budget:43377225,ly:10933400,products:[["Hairgrow",1985510],["Glunorm",1667400],["Epigab",1429130]]},
+      {iso3:"ARE",iso2:"AE",name:"UAE",sales:9105176,budget:19636426,ly:6641652,products:[["Clavodar",1185400],["Azord",940260],["Ciprodar",815700]]},
+      {iso3:"LBY",iso2:"LY",name:"Libya",sales:6451613,budget:16294324,ly:3809114,products:[["Epigab",910350],["Amoclan",723115],["Glunorm",620800]]},
+      {iso3:"QAT",iso2:"QA",name:"Qatar",sales:2852584,budget:6552452,ly:2057616,products:[["Clavodar",480330],["Azord",399150],["Rozitta",315500]]},
+      {iso3:"BHR",iso2:"BH",name:"Bahrain",sales:1262291,budget:3161956,ly:978419,products:[["Epigab",205420],["Glunorm",186700],["Hairgrow",151230]]},
+      {iso3:"LBN",iso2:"LB",name:"Lebanon",sales:1208501,budget:4065043,ly:1017568,products:[["Clavodar",188600],["Azord",142900],["Ciprodar",118750]]},
+      {iso3:"OMN",iso2:"OM",name:"Oman",sales:3768000,budget:6125000,ly:3394000,products:[["Epigab",512300],["Hairgrow",467800],["Glunorm",402600]]},
+      {iso3:"KWT",iso2:"KW",name:"Kuwait",sales:4385000,budget:5910000,ly:3712000,products:[["Azord",620400],["Clavodar",584200],["Epigab",451900]]},
+      {iso3:"MAR",iso2:"MA",name:"Morocco",sales:2715000,budget:3220000,ly:2390000,products:[["Amoclan",410500],["Leflox",355900],["Remox",298400]]}
+    ].map(item => ({
+      ...item,
+      achievement:item.sales/item.budget*100,
+      growth:(item.sales-item.ly)/item.ly*100
+    }));
+
+    const money = value => new Intl.NumberFormat("en-US",{
+      style:"currency",currency:"USD",maximumFractionDigits:0,notation:value>=1000000?"compact":"standard"
+    }).format(value);
+    const fullMoney = value => "$" + Math.round(value).toLocaleString("en-US");
+    const signedPercent = value => `${value>0?"+":""}${Math.round(value)}%`;
+
+    function updateKpis(){
+      const sales=markets.reduce((sum,item)=>sum+item.sales,0);
+      const budget=markets.reduce((sum,item)=>sum+item.budget,0);
+      const best=[...markets].sort((a,b)=>b.sales-a.sales)[0];
+      document.getElementById("totalSales").textContent=money(sales);
+      document.getElementById("totalBudget").textContent=money(budget);
+      document.getElementById("budgetVariance").textContent=`${signedPercent((sales-budget)/budget*100)} vs budget`;
+      document.getElementById("bestMarket").textContent=best.name;
+      document.getElementById("bestMarketValue").textContent=fullMoney(best.sales);
+      document.getElementById("marketCount").textContent=markets.length;
+    }
+
+    function selectCountry(item){
+      document.getElementById("selectedCode").textContent=item.iso2;
+      document.getElementById("selectedName").textContent=item.name;
+      document.getElementById("selectedSales").textContent=fullMoney(item.sales);
+      document.getElementById("selectedBudget").textContent=fullMoney(item.budget);
+      document.getElementById("selectedVsBudget").textContent=signedPercent((item.sales-item.budget)/item.budget*100);
+      document.getElementById("selectedGrowth").textContent=signedPercent(item.growth);
+      const status=item.achievement>=100?"above":item.achievement>=80?"near":"below";
+      document.getElementById("performanceText").textContent=
+        `${item.name} achieved ${Math.round(item.achievement)}% of budget and is ${status} the target.`;
+      document.getElementById("productList").innerHTML=item.products.map((product,index)=>`
+        <div class="product">
+          <span class="rank">${index+1}</span>
+          <div><strong>${product[0]}</strong><small>Sales contribution</small></div>
+          <span class="product-value">${fullMoney(product[1])}</span>
+        </div>
+      `).join("");
+    }
+
+    function renderMap(metric="achievement"){
+      const metricConfig={
+        achievement:{label:"Budget achievement",suffix:"%",values:markets.map(x=>x.achievement),zmin:25,zmax:110},
+        sales:{label:"Actual sales",suffix:"",values:markets.map(x=>x.sales),zmin:0,zmax:Math.max(...markets.map(x=>x.sales))},
+        growth:{label:"Growth vs LY",suffix:"%",values:markets.map(x=>x.growth),zmin:-25,zmax:70}
+      }[metric];
+      const custom=markets.map(item=>[
+        item.name,fullMoney(item.sales),fullMoney(item.budget),
+        Math.round(item.achievement)+"%",signedPercent(item.growth),
+        item.products.map(product=>product[0]).join(", ")
+      ]);
+      const trace={
+        type:"choropleth",
+        locationmode:"ISO-3",
+        locations:markets.map(x=>x.iso3),
+        z:metricConfig.values,
+        zmin:metricConfig.zmin,
+        zmax:metricConfig.zmax,
+        customdata:custom,
+        colorscale:[[0,"#cf4f4f"],[.48,"#e8b33e"],[.72,"#54b7a2"],[1,"#08796d"]],
+        marker:{line:{color:"#ffffff",width:1.3}},
+        colorbar:{title:{text:metricConfig.label,font:{size:11}},thickness:12,len:.58,outlinewidth:0,ticksuffix:metricConfig.suffix},
+        hovertemplate:
+          "<b>%{customdata[0]}</b><br>"+
+          "Actual: %{customdata[1]}<br>"+
+          "Budget: %{customdata[2]}<br>"+
+          "Achievement: %{customdata[3]}<br>"+
+          "Vs LY: %{customdata[4]}<br>"+
+          "Top products: %{customdata[5]}<extra>Click for details</extra>"
+      };
+      const layout={
+        margin:{l:5,r:5,t:5,b:5},
+        paper_bgcolor:"#ffffff",
+        geo:{
+          projection:{type:"natural earth"},
+          center:{lat:24,lon:31},
+          lataxis:{range:[-10,42]},
+          lonaxis:{range:[-20,65]},
+          showframe:false,
+          showcoastlines:true,
+          coastlinecolor:"#b5c8c8",
+          showcountries:true,
+          countrycolor:"#d5e1e1",
+          showland:true,
+          landcolor:"#eef3f3",
+          showocean:true,
+          oceancolor:"#f7fbfb",
+          bgcolor:"#ffffff"
+        },
+        hoverlabel:{bgcolor:"#132238",bordercolor:"#132238",font:{color:"#fff",size:12}},
+        dragmode:false
+      };
+      Plotly.react("salesMap",[trace],layout,{responsive:true,displayModeBar:false});
+      document.getElementById("salesMap").on("plotly_click",event=>{
+        const iso3=event.points[0].location;
+        const item=markets.find(market=>market.iso3===iso3);
+        if(item) selectCountry(item);
+      });
+    }
+
+    document.getElementById("metricSelect").addEventListener("change",event=>renderMap(event.target.value));
+    updateKpis();
+    selectCountry(markets[0]);
+    renderMap();
+  </script>
+</body>
+</html>
