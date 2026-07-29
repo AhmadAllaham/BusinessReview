@@ -1521,3 +1521,9 @@ body.stock-level-view .sales-header-upload{
   color:var(--muted);
   text-align:center!important;
 }
+
+.mda-empty-workspace{
+  min-height:620px;
+  margin:0;
+  background:#fff;
+}
