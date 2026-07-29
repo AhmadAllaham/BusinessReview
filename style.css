@@ -1527,3 +1527,25 @@ body.stock-level-view .sales-header-upload{
   margin:0;
   background:#fff;
 }
+
+/* Match Total rows with Selling & Marketing Expenses */
+#salesTable .total-row td,
+#focTable .total-row td,
+#stockTable .total-row td{
+  padding-top:5px;
+  border-top:1px solid #c7c7c7;
+  border-bottom:0;
+  background:#fff;
+  color:#111;
+  font-weight:900;
+}
+
+#salesTable .total-row td.positive,
+#focTable .total-row td.positive{
+  color:#009640;
+}
+
+#salesTable .total-row td.negative,
+#focTable .total-row td.negative{
+  color:#ff2d3c;
+}
