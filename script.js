@@ -509,8 +509,16 @@ function tableHtml(headers,rows,total=false,foc=false){
 function cell(v,i,foc){
   if(i===0)return `<td>${esc(v)}</td>`;
   if(foc&&i===2)return `<td>${Math.round(Number(v||0)*100)}%</td>`;
-  const isPct=typeof v==='string'&&v.includes('%'); const n=typeof v==='number'?v:null;
-  const variance=(!foc&&[3,6].includes(i))||(foc&&i===5); const cls=variance&&n!==null?(n>=0?'positive':'negative'):'';
+  const isPct=typeof v==='string'&&v.includes('%');
+  let n=typeof v==='number'?v:null;
+  if(isPct){
+    const parsed=Number(v.replace(/[^\d.-]/g,''));
+    n=Number.isFinite(parsed)
+      ? (v.trim().startsWith('<')?-Math.abs(parsed):parsed)
+      : null;
+  }
+  const variance=(!foc&&[3,4,6,7].includes(i))||(foc&&i===5);
+  const cls=variance&&n!==null?(n>0?'positive':n<0?'negative':''):'';
   const hi=(!foc&&[3,4,6,7].includes(i))||(foc&&[3,4,5,6].includes(i));
   return `<td class="${cls}${hi?' highlight':''}">${isPct?v:fmt(v)}</td>`;
 }
