@@ -1563,15 +1563,17 @@ body.stock-level-view .sales-header-upload{
 }
 
 .country-modal-flag{
-  width:32px;
-  height:32px;
-  display:grid;
-  place-items:center;
+  width:34px;
+  height:24px;
+  display:block;
+  object-fit:cover;
   flex:0 0 auto;
   border:1px solid #d8e3e5;
-  border-radius:9px;
-  background:#f5faf9;
-  font-size:21px;
-  line-height:1;
+  border-radius:5px;
+  background:#fff;
   box-shadow:0 3px 9px #17252b12;
+}
+
+.country-modal-flag[hidden]{
+  display:none;
 }
