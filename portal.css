@@ -69,6 +69,7 @@ button,input,select,textarea { font:inherit; }
 }
 .portal-field textarea { min-height:90px; resize:vertical; }
 .portal-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.portal-row-three { grid-template-columns:repeat(3,minmax(0,1fr)); }
 .portal-actions { display:flex; gap:9px; align-items:center; flex-wrap:wrap; margin-top:16px; }
 .portal-note { color:var(--portal-muted); font-size:12px; line-height:1.55; }
 .portal-status {
@@ -133,7 +134,7 @@ button,input,select,textarea { font:inherit; }
   .login-layout { grid-template-columns:1fr; }
   .login-showcase { min-height:360px; padding:34px 24px; }
   .login-copy h1 { font-size:42px; }
-  .portal-grid,.portal-row { grid-template-columns:1fr; }
+  .portal-grid,.portal-row,.portal-row-three { grid-template-columns:1fr; }
   .country-list { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
 @media(max-width:560px) {
