@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Business Review</title>
   <link rel="stylesheet" href="style.css" />
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
   <header class="app-header">
@@ -17,11 +16,13 @@
       </div>
     </div>
     <div class="header-actions">
-      <a class="upload-btn database-upload-link" href="upload.html">Database Upload</a>
-      <label class="upload-btn sales-header-upload">
-        <input id="fileInput" type="file" accept=".xlsx,.xls" />
-        <span>Upload Excel</span>
-      </label>
+      <div class="current-user">
+        <strong id="currentUserName">Loading…</strong>
+        <span id="currentUserScope">Checking access</span>
+      </div>
+      <a class="upload-btn database-upload-link" href="setting.html" data-admin-only hidden>User Settings</a>
+      <a class="upload-btn" href="admin.html" data-admin-only hidden>Data Admin</a>
+      <button id="logoutButton" class="header-logout" type="button">Sign out</button>
     </div>
   </header>
 
@@ -46,19 +47,13 @@
         <button class="tab-btn" data-tab="smExpensesSection" type="button">Selling &amp; Marketing Expenses</button>
         <button class="tab-btn" data-tab="pnlSection" type="button">P&amp;L</button>
       </div>
-
-      <button class="workspace-btn" type="button" data-workspace="mdaWorkspace" aria-expanded="false">
-        <span class="nav-icon">M</span>
-        <span>MD&amp;A</span>
-        <span class="nav-chevron">›</span>
-      </button>
-      <div class="side-nav-foot">More MD&amp;A windows can be added later.</div>
+      <div class="side-nav-foot">Reports are limited to your assigned countries.</div>
     </aside>
 
     <main class="app-shell">
       <div id="businessWorkspace" class="workspace-pane active">
     <section id="statusBox" class="status-box sales-only-ui">
-      Upload the Excel file containing the <b>Sales</b> sheet.
+      Loading authorized data from Firestore…
     </section>
 
     <section class="filter-card sales-only-ui">
@@ -185,13 +180,6 @@
   <article class="sm-report-shell">
     <div class="sm-title-bar">
       <h2>Selling and Marketing Expenses</h2>
-      <div class="sm-title-actions">
-        <label class="sm-file-upload">
-          <input id="smSimpleFileInput" type="file" accept=".xlsx,.xls" />
-          <span>Upload S&amp;M Excel</span>
-        </label>
-        <button id="smSimpleResetBtn" class="sm-reset-data-btn" type="button">Use Attached Data</button>
-      </div>
     </div>
 
     <section class="filter-card sm-filter-card">
@@ -213,8 +201,7 @@
           <div id="smSimpleCountryFilter" class="multi-filter" data-column="Country" data-filter-scope="sm"></div>
         </div>
       </div>
-
-      <div id="smSimpleStatus" class="sm-simple-status">Source: Selling and Marketing Expenses.xlsx</div>
+      <div id="smSimpleStatus" class="sm-simple-status">Source: Firestore</div>
     </section>
 
     <div class="sm-table-scroll">
@@ -245,17 +232,6 @@
             <h2>Profit &amp; Loss Statement</h2>
             <p>Vertical P&amp;L view with Actual, Budget, Last Year and variance analysis.</p>
           </div>
-          <div class="pnl-actions">
-            <label class="upload-btn secondary-upload pnl-upload-btn">
-              <input id="pnlFileInput" type="file" accept=".xlsx,.xls" />
-              <span>Upload P&amp;L Excel</span>
-            </label>
-          </div>
-        </div>
-
-        <div id="pnlUploadStatus" class="pnl-upload-status">
-          <span class="pnl-status-dot"></span>
-          <span>Current source: embedded P&amp;L data</span>
         </div>
 
         <section class="filter-card pnl-shared-filter-card">
@@ -332,15 +308,6 @@
     </section>
       </div>
 
-      <section id="mdaWorkspace" class="workspace-pane">
-        <article class="report-card mda-placeholder">
-          <div class="mda-placeholder-icon">MD&amp;A</div>
-          <span class="eyebrow">Management Discussion &amp; Analysis</span>
-          <h2>MD&amp;A Workspace</h2>
-          <p>This section is ready for future windows such as revenue commentary, gross profit analysis, OPEX, cash flow, key risks, opportunities, and management commentary.</p>
-          <div class="mda-coming-soon">Ready for future development</div>
-        </article>
-      </section>
     </main>
   </div>
 
@@ -367,6 +334,12 @@
     </section>
   </div>
 
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="firebase-client.js"></script>
   <script src="script.js"></script>
+  <script src="dashboard-firebase.js"></script>
 </body>
 </html>
