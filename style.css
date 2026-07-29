@@ -1577,3 +1577,13 @@ body.stock-level-view .sales-header-upload{
 .country-modal-flag[hidden]{
   display:none;
 }
+
+/* S&M starts directly with the report filters */
+#smExpensesSection > .sm-report-shell > .report-head,
+#smExpensesSection > .sm-report-shell > .sm-title-bar{
+  display:none!important;
+}
+
+#smExpensesSection .sm-filter-card{
+  margin-top:0;
+}
