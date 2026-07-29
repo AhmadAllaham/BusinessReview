@@ -343,8 +343,10 @@ function setBusinessReportTab(tabId){
   // Hide it completely in the P&L page so the P&L tab contains only P&L.
   const isPnl=tabId==='pnlSection';
   const isSmExpense=tabId==='smExpensesSection';
+  const isStock=tabId==='stockSection';
   document.body.classList.toggle('pnl-clean-view',isPnl);
   document.body.classList.toggle('sm-expense-view',isSmExpense);
+  document.body.classList.toggle('stock-level-view',isStock);
 
   const headerSubtitle=$('headerSubtitle');
   if(headerSubtitle){
@@ -352,7 +354,9 @@ function setBusinessReportTab(tabId){
       ? 'Profit & Loss · Actual vs Budget vs Last Year'
       : isSmExpense
         ? 'Selling & Marketing Expenses · Actual vs Budget vs Last Year'
-        : 'Sales Actual vs Budget vs LY · TMS & IMS · FOC for IMS only';
+        : isStock
+          ? 'Stock Level · Historical and Forecast Monthly Coverage'
+          : 'Sales Actual vs Budget vs LY · TMS & IMS · FOC for IMS only';
   }
 
   if(isPnl && typeof renderPnlVertical==='function'){
@@ -360,6 +364,9 @@ function setBusinessReportTab(tabId){
   }
   if(isSmExpense && typeof renderSmExpenses==='function'){
     renderSmExpenses();
+  }
+  if(isStock && typeof renderStockLevel==='function'){
+    renderStockLevel();
   }
 }
 
@@ -1292,7 +1299,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   document.addEventListener('click', event => {
     const header = event.target.closest(
-      '#salesTable thead th, #focTable thead th, #varianceTable thead th, #countryDetailTable thead th, #pnlTable thead th'
+      '#salesTable thead th, #focTable thead th, #stockTable thead th, #countryDetailTable thead th, #pnlTable thead th'
     );
 
     if (!header) return;
@@ -1305,7 +1312,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   document.addEventListener('keydown', event => {
     const header = event.target.closest(
-      '#salesTable thead th, #focTable thead th, #varianceTable thead th, #countryDetailTable thead th, #pnlTable thead th'
+      '#salesTable thead th, #focTable thead th, #stockTable thead th, #countryDetailTable thead th, #pnlTable thead th'
     );
 
     if (!header || !['Enter', ' '].includes(event.key)) return;
@@ -1318,7 +1325,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   function makeHeadersAccessible() {
     document
       .querySelectorAll(
-        '#salesTable thead th, #focTable thead th, #varianceTable thead th, #countryDetailTable thead th, #pnlTable thead th'
+        '#salesTable thead th, #focTable thead th, #stockTable thead th, #countryDetailTable thead th, #pnlTable thead th'
       )
       .forEach(th => {
         if (!th.hasAttribute('tabindex')) th.setAttribute('tabindex', '0');
@@ -1563,6 +1570,134 @@ function initSmSimpleReport(){
 
 initSmSimpleReport();
 
+// ============================================================
+// Stock Level — uploaded workbook columns:
+// Brand | Product Group | Month | Country | Agent
+// Stock $ | Historical Sales $ | Forecast Sales $
+// ============================================================
+let stockRows = [];
+const stockFilterIds = [
+  'stockProductGroupFilter',
+  'stockMonthFilter',
+  'stockCountryFilter',
+  'stockAgentFilter'
+];
+
+function stockKey(value){
+  return String(value ?? '').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+}
+
+function stockField(row,aliases){
+  const key=Object.keys(row || {}).find(item=>aliases.includes(stockKey(item)));
+  return key===undefined?'':row[key];
+}
+
+function stockNumber(value){
+  if(value===null||value===undefined||value==='') return 0;
+  if(typeof value==='number') return Number.isFinite(value)?value:0;
+  return Number(
+    String(value)
+      .replace(/,/g,'')
+      .replace(/\((.*)\)/,'-$1')
+      .replace(/[^0-9.-]/g,'')
+  )||0;
+}
+
+function stockNormalize(row){
+  return {
+    ...row,
+    Brand:String(stockField(row,['brand','product','productname']) || 'Unassigned').trim(),
+    'Product Group':String(stockField(row,['productgroup','group']) || 'Unassigned').trim(),
+    Month:String(stockField(row,['month','reportingmonth','period']) || '').trim(),
+    Country:String(stockField(row,['country','countryname','market']) || '').trim(),
+    Agent:String(stockField(row,['agent','customer']) || '').trim(),
+    __stock:stockNumber(stockField(row,['stock','stockvalue','stockusd'])),
+    __historical:stockNumber(stockField(row,['historical','historicalsales','historicalsalesusd'])),
+    __forecast:stockNumber(stockField(row,[
+      'forecast','forcast','forecastsales','forcastsales','forecastsalesusd','forcastsalesusd'
+    ]))
+  };
+}
+
+function buildStockFilters(reset=false){
+  const selections=reset
+    ?Object.fromEntries(stockFilterIds.map(id=>[id,[]]))
+    :captureSelections(stockFilterIds);
+  rebuildDependentFilters(stockRows,stockFilterIds,selections,()=>{
+    buildStockFilters(false);
+    renderStockLevel();
+  });
+}
+
+function filteredStockRows(){
+  return stockRows.filter(row=>stockFilterIds.every(id=>{
+    const selected=getSelected(id);
+    const column=$(id).dataset.column;
+    return !selected.length||selected.includes(String(row[column]??''));
+  }));
+}
+
+function stockCoverage(stock,sales){
+  return sales?stock/sales:0;
+}
+
+function stockCoverageFormat(value){
+  return Number(value || 0).toLocaleString('en-US',{
+    minimumFractionDigits:1,
+    maximumFractionDigits:1
+  });
+}
+
+function renderStockLevel(){
+  const tbody=$('stockTable')?.tBodies?.[0];
+  if(!tbody) return;
+  const rows=filteredStockRows();
+  const grouped=new Map();
+  rows.forEach(row=>{
+    const brand=row.Brand || 'Unassigned';
+    if(!grouped.has(brand)) grouped.set(brand,{brand,stock:0,historical:0,forecast:0});
+    const item=grouped.get(brand);
+    item.stock+=row.__stock;
+    item.historical+=row.__historical;
+    item.forecast+=row.__forecast;
+  });
+  const brands=[...grouped.values()].sort((a,b)=>b.stock-a.stock);
+  const totals=brands.reduce((total,row)=>({
+    stock:total.stock+row.stock,
+    historical:total.historical+row.historical,
+    forecast:total.forecast+row.forecast
+  }),{stock:0,historical:0,forecast:0});
+
+  $('stockCount').textContent=`${brands.length.toLocaleString('en-US')} brands`;
+  if(!brands.length){
+    tbody.innerHTML='<tr><td colspan="6" class="stock-empty">No stock data matches the selected filters.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML=brands.map(row=>`<tr>
+    <td>${esc(row.brand)}</td>
+    <td>${fmt(row.stock)}</td>
+    <td>${fmt(row.historical)}</td>
+    <td>${fmt(row.forecast)}</td>
+    <td>${stockCoverageFormat(stockCoverage(row.stock,row.historical))}</td>
+    <td>${stockCoverageFormat(stockCoverage(row.stock,row.forecast))}</td>
+  </tr>`).join('')+`<tr class="total-row">
+    <td>Total</td>
+    <td>${fmt(totals.stock)}</td>
+    <td>${fmt(totals.historical)}</td>
+    <td>${fmt(totals.forecast)}</td>
+    <td>${stockCoverageFormat(stockCoverage(totals.stock,totals.historical))}</td>
+    <td>${stockCoverageFormat(stockCoverage(totals.stock,totals.forecast))}</td>
+  </tr>`;
+}
+
+$('stockResetBtn')?.addEventListener('click',()=>{
+  buildStockFilters(true);
+  renderStockLevel();
+});
+buildStockFilters(true);
+renderStockLevel();
+
 // Database loaders. The authenticated Firestore layer calls these after it has
 // already enforced the user's country access.
 window.loadSalesRowsFromDatabase = function(rows){
@@ -1618,6 +1753,12 @@ window.loadSmRowsFromDatabase = function(rows){
     .filter(row => row.Expense && row.Country && row.Period && row.Date);
   smSimplePopulateFilters();
   renderSmExpenses();
+};
+
+window.loadStockRowsFromDatabase = function(rows){
+  stockRows=(rows || []).map(stockNormalize);
+  buildStockFilters(true);
+  renderStockLevel();
 };
 
 
