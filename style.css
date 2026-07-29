@@ -1641,3 +1641,21 @@ body.stock-level-view .sales-header-upload{
 #focTable tbody tr:not(.total-row):hover td:nth-child(5){
   background:#fff;
 }
+
+/* Net Income follows the same Total-row format used in Sales Analysis */
+#pnlTable tr.pnl-total td{
+  padding-top:5px;
+  border-top:1px solid #c7c7c7;
+  border-bottom:0;
+  background:#fff;
+  color:#111;
+  font-weight:900;
+}
+
+#pnlTable tr.pnl-total td.pnl-positive{
+  color:#009640;
+}
+
+#pnlTable tr.pnl-total td.pnl-negative{
+  color:#ff2d3c;
+}
