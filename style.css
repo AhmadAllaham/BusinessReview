@@ -1587,3 +1587,35 @@ body.stock-level-view .sales-header-upload{
 #smExpensesSection .sm-filter-card{
   margin-top:0;
 }
+
+/* Selling & Marketing table follows the Sales Analysis format */
+#smSimpleTable thead th:nth-child(4),
+#smSimpleTable thead th:nth-child(5),
+#smSimpleTable thead th:nth-child(7),
+#smSimpleTable thead th:nth-child(8){
+  background:#0f766e;
+}
+
+#smSimpleTable tbody td:nth-child(4),
+#smSimpleTable tbody td:nth-child(5),
+#smSimpleTable tbody td:nth-child(7),
+#smSimpleTable tbody td:nth-child(8){
+  background:transparent;
+}
+
+#smSimpleTable tbody td.sm-good{
+  color:#0f766e;
+  background:rgba(15,118,110,.08);
+  font-weight:800;
+}
+
+#smSimpleTable tbody td.sm-bad{
+  color:#c2413b;
+  background:rgba(194,65,59,.08);
+  font-weight:800;
+}
+
+#smSimpleTable tbody td.sm-zero{
+  color:#334155;
+  font-weight:800;
+}
