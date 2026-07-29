@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Business Review</title>
-  <link rel="stylesheet" href="style.css?v=20260729-2" />
+  <link rel="stylesheet" href="style.css?v=20260729-3" />
 </head>
 <body>
   <header class="app-header">
@@ -201,7 +201,7 @@
       </article>
     </section>
 
-<section id="smExpensesSection" class="report-section" hidden>
+<section id="smExpensesSection" class="report-section sm-format-theme" hidden>
   <article class="sm-report-shell">
     <section class="filter-card sm-filter-card">
       <div class="filter-card-head">
@@ -225,8 +225,12 @@
       <div id="smSimpleStatus" class="sm-simple-status">Source: Firestore</div>
     </section>
 
-    <div class="sm-table-scroll">
-      <table id="smSimpleTable" class="sm-reference-table">
+    <div class="table-toolbar">
+      <span id="smSimpleCount">0 rows</span>
+      <span class="legend"><i class="dot favorable"></i> Favorable <i class="dot unfavorable"></i> Unfavorable</span>
+    </div>
+    <div class="sm-table-scroll sales-foc-table-scroll">
+      <table id="smSimpleTable" class="sm-reference-table sales-foc-reference-table">
         <thead>
           <tr>
             <th>Expense</th>
@@ -367,7 +371,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="firebase-client.js"></script>
-  <script src="script.js"></script>
+  <script src="script.js?v=20260729-3"></script>
   <script src="dashboard-firebase.js"></script>
 </body>
 </html>
