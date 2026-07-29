@@ -39,64 +39,67 @@
     return;
   }
 
-  try {
-    showStatus("Loading your authorized dashboard data…");
-    const activeSnap = await BRPortal.db.collection("system").doc("activeDataset").get();
-    if (!activeSnap.exists || !activeSnap.data().datasetId) {
-      showStatus("No active dataset. Ask an administrator to upload Excel data in admin.html.",false,true);
-      return;
-    }
-    const active = activeSnap.data();
-    let rowDocs = [];
-
+  async function loadDataset(datasetId) {
+    if (!datasetId) return [];
+    let chunkDocs = [];
     if (isAdmin) {
-      const snapshot = await BRPortal.db.collection("reportRows")
-        .where("datasetId","==",active.datasetId)
+      const snapshot = await BRPortal.db.collection("reportChunks")
+        .where("datasetId","==",datasetId)
         .get();
-      rowDocs = snapshot.docs;
+      chunkDocs = snapshot.docs;
     } else {
       const snapshots = await Promise.all(allowedCountries.map(country =>
-        BRPortal.db.collection("reportRows")
-          .where("datasetId","==",active.datasetId)
+        BRPortal.db.collection("reportChunks")
+          .where("datasetId","==",datasetId)
           .where("country","==",country)
           .get()
       ));
-      rowDocs = snapshots.flatMap(snapshot => snapshot.docs);
+      chunkDocs = snapshots.flatMap(snapshot => snapshot.docs);
+    }
+    return chunkDocs
+      .sort((a,b)=>(a.data().chunkIndex || 0) - (b.data().chunkIndex || 0))
+      .flatMap(doc => doc.data().rows || [])
+      .map(row => row.payload || {});
+  }
+
+  try {
+    showStatus("Loading your authorized dashboard data…");
+    const activeSnap = await BRPortal.db.collection("system").doc("activeDatasets").get();
+    if (!activeSnap.exists) {
+      showStatus("No active reports. Ask an administrator to upload the Excel files in admin.html.",false,true);
+      return;
     }
 
-    const rows = rowDocs.map(doc => doc.data());
-    const bySheet = new Map();
-    rows.forEach(row => {
-      const key = String(row.sheetName || "").trim();
-      if (!bySheet.has(key)) bySheet.set(key,[]);
-      bySheet.get(key).push(row.payload || {});
-    });
-
-    const sheetEntries = [...bySheet.entries()];
-    const sales = sheetEntries.find(([name]) =>
-      /\bsales\b/i.test(name) && !/selling|marketing/i.test(name)
-    )?.[1] || [];
-    const pnl = sheetEntries.find(([name]) =>
-      /p\s*&?\s*l|income statement|raw data/i.test(name)
-    )?.[1] || [];
-    const sm = sheetEntries.find(([name]) =>
-      /selling|marketing|s&m/i.test(name)
-    )?.[1] || [];
+    const active = activeSnap.data();
+    const [sales,pnl,sm] = await Promise.all([
+      loadDataset(active.sales),
+      loadDataset(active.pnl),
+      loadDataset(active.sm)
+    ]);
 
     window.loadSalesRowsFromDatabase?.(sales);
     window.loadPnlRowsFromDatabase?.(pnl);
     window.loadSmRowsFromDatabase?.(sm);
 
+    const loadedReports = [
+      sales.length ? "Sales" : "",
+      sm.length ? "S&M" : "",
+      pnl.length ? "P&L" : ""
+    ].filter(Boolean);
+    const totalRows = sales.length + sm.length + pnl.length;
     showStatus(
-      `Loaded ${rows.length.toLocaleString("en-US")} authorized rows from ${active.name || "the active dataset"}.`,
-      true
+      loadedReports.length
+        ? `Loaded ${totalRows.toLocaleString("en-US")} authorized rows · ${loadedReports.join(" · ")}.`
+        : "No report files have been uploaded yet.",
+      Boolean(loadedReports.length),
+      false
     );
   } catch (error) {
     console.error(error);
-    const missingIndex = String(error.message || "").includes("index");
+    const missingIndex = String(error.message || "").toLowerCase().includes("index");
     showStatus(
       missingIndex
-        ? "Firestore needs the reportRows datasetId + country index. Deploy firestore.indexes.json."
+        ? "Firestore needs the reportChunks datasetId + country index. Deploy firestore.indexes.json."
         : (error.message || "Unable to load dashboard data."),
       false,
       true
