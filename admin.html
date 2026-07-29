@@ -25,9 +25,17 @@
       <section class="portal-card">
         <div class="portal-card-head">
           <span class="portal-eyebrow">Step 1</span>
-          <h2>Select workbook</h2>
+          <h2>Select report and workbook</h2>
         </div>
         <div class="portal-card-body">
+          <div class="portal-field">
+            <label for="reportType">Report destination</label>
+            <select id="reportType">
+              <option value="sales">Sales · Sales Analysis + IMS FOC + Top Variances</option>
+              <option value="sm">Selling &amp; Marketing Expenses</option>
+              <option value="pnl">P&amp;L</option>
+            </select>
+          </div>
           <label id="dropZone" class="drop-zone">
             <input id="excelFile" type="file" accept=".xlsx,.xls,.xlsm">
             <div>
@@ -56,7 +64,7 @@
               <input id="reportingPeriod" placeholder="July 2026">
             </div>
           </div>
-          <div class="portal-row">
+          <div class="portal-row portal-row-three">
             <div class="portal-field">
               <label>Rows</label>
               <input id="rowCount" value="0" disabled>
@@ -65,8 +73,12 @@
               <label>Countries</label>
               <input id="countryCount" value="0" disabled>
             </div>
+            <div class="portal-field">
+              <label>Firestore writes</label>
+              <input id="chunkCount" value="0" disabled>
+            </div>
           </div>
-          <p class="portal-note">All non-empty sheets are imported. Every row must contain Country or Market to be visible to non-admin users.</p>
+          <p class="portal-note">Upload the Sales workbook once for the first three reports. Upload S&amp;M and P&amp;L as separate files. Large workbooks are packed into country-secured chunks to minimize Firestore writes.</p>
           <div class="portal-actions">
             <button id="uploadButton" class="portal-button" type="button" disabled>Upload and activate</button>
           </div>
