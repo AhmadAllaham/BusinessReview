@@ -1977,3 +1977,113 @@ renderSmExpenses=function(){
   bindSmSort();
 };
 })();
+
+// Export the currently displayed, permission-filtered report tables to Excel.
+(function(){
+  const exports = {
+    sales:{
+      file:"Sales_Analysis",
+      sheets:[{tableId:"salesTable",name:"Sales Analysis"}]
+    },
+    foc:{
+      file:"IMS_FOC_Analysis",
+      sheets:[{tableId:"focTable",name:"IMS FOC"}]
+    },
+    stock:{
+      file:"Stock_Level",
+      sheets:[{tableId:"stockTable",name:"Stock Level"}]
+    },
+    sm:{
+      file:"Selling_Marketing_Expenses",
+      sheets:[{tableId:"smSimpleTable",name:"S&M Expenses"}]
+    },
+    pnl:{
+      file:"Profit_and_Loss",
+      sheets:[
+        {tableId:"pnlTable",name:"P&L"},
+        {tableId:"pnlMarginTable",name:"Margin Analysis"}
+      ]
+    }
+  };
+
+  function makeNumericCellsUsable(worksheet){
+    if (!worksheet?.["!ref"]) return;
+    const range=XLSX.utils.decode_range(worksheet["!ref"]);
+    for (let row=range.s.r + 1; row<=range.e.r; row+=1) {
+      for (let column=range.s.c; column<=range.e.c; column+=1) {
+        const address=XLSX.utils.encode_cell({r:row,c:column});
+        const cell=worksheet[address];
+        if (!cell || typeof cell.v !== "string") continue;
+        const source=cell.v.trim();
+        if (!source || source === "—" || !/[0-9]/.test(source)) continue;
+        const percentage=/%$/.test(source);
+        const accounting=/^\(.*\)$/.test(source);
+        const cleaned=source
+          .replace(/[(),%$]/g,"")
+          .replace(/,/g,"")
+          .trim();
+        if (!/^-?\d+(?:\.\d+)?$/.test(cleaned)) continue;
+        let number=Number(cleaned);
+        if (!Number.isFinite(number)) continue;
+        if (accounting) number=-Math.abs(number);
+        if (percentage) number/=100;
+        cell.v=number;
+        cell.t="n";
+        cell.z=percentage
+          ? "0.0%"
+          : "#,##0;[Red](#,##0)";
+      }
+    }
+  }
+
+  function setUsefulColumnWidths(worksheet,table){
+    const rows=[...table.rows];
+    const columnCount=Math.max(0,...rows.map(row=>row.cells.length));
+    worksheet["!cols"]=Array.from({length:columnCount},(_,column)=>{
+      const width=Math.max(10,...rows.map(row=>
+        String(row.cells[column]?.textContent || "").trim().length
+      ));
+      return {wch:Math.min(width + 2,38)};
+    });
+  }
+
+  function exportReport(reportKey,button){
+    const config=exports[reportKey];
+    if (!config) return;
+    if (typeof XLSX === "undefined") {
+      window.alert("Excel export is unavailable. Refresh the page and try again.");
+      return;
+    }
+
+    button.disabled=true;
+    try {
+      const workbook=XLSX.utils.book_new();
+      config.sheets.forEach(sheetConfig=>{
+        const table=document.getElementById(sheetConfig.tableId);
+        if (!table || !table.rows.length) return;
+        const worksheet=XLSX.utils.table_to_sheet(table,{raw:false});
+        makeNumericCellsUsable(worksheet);
+        setUsefulColumnWidths(worksheet,table);
+        worksheet["!autofilter"]={ref:worksheet["!ref"]};
+        XLSX.utils.book_append_sheet(workbook,worksheet,sheetConfig.name);
+      });
+
+      if (!workbook.SheetNames.length) {
+        window.alert("There is no displayed data to export.");
+        return;
+      }
+
+      const date=new Date().toISOString().slice(0,10);
+      XLSX.writeFile(workbook,`${config.file}_${date}.xlsx`,{compression:true});
+    } catch (error) {
+      console.error(error);
+      window.alert(error.message || "Could not export the report to Excel.");
+    } finally {
+      button.disabled=false;
+    }
+  }
+
+  document.querySelectorAll("[data-export-report]").forEach(button=>{
+    button.addEventListener("click",()=>exportReport(button.dataset.exportReport,button));
+  });
+})();
