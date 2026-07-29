@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sign in · Business Review</title>
+  <link rel="stylesheet" href="portal.css">
+</head>
+<body class="portal-page">
+  <main class="login-layout">
+    <section class="login-showcase">
+      <div class="login-logo"><span>BR</span> Business Review</div>
+      <div class="login-copy">
+        <span class="portal-eyebrow" style="color:#90ddd3">Secure reporting portal</span>
+        <h1>One view.<br>Only your markets.</h1>
+        <p>Access sales, profitability, variance and expense reports based on the countries assigned to your account.</p>
+      </div>
+      <div class="login-points">
+        <span>Country-based access</span>
+        <span>Firebase authentication</span>
+        <span>Centralized Excel data</span>
+      </div>
+    </section>
+
+    <section class="login-panel">
+      <form id="loginForm" class="login-card">
+        <span class="portal-eyebrow">Welcome back</span>
+        <h2>Sign in to continue</h2>
+        <p class="lead">Use the username provided by the Business Review administrator.</p>
+
+        <div class="portal-field">
+          <label for="email">Email / Username</label>
+          <input id="email" type="email" autocomplete="username" required placeholder="name@company.com">
+        </div>
+        <div class="portal-field">
+          <label for="password">Password</label>
+          <input id="password" type="password" autocomplete="current-password" required placeholder="••••••••">
+        </div>
+        <button id="loginButton" class="portal-button" type="submit">Sign in</button>
+        <div id="loginStatus" class="portal-status" role="alert"></div>
+      </form>
+    </section>
+  </main>
+
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="firebase-client.js"></script>
+  <script src="login.js"></script>
+</body>
+</html>
