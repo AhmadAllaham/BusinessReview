@@ -1,0 +1,38 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function ownsNewDocument() {
+      return signedIn() &&
+        request.resource.data._ownerUid == request.auth.uid;
+    }
+
+    function ownsExistingDocument() {
+      return signedIn() &&
+        resource.data._ownerUid == request.auth.uid;
+    }
+
+    function keepsOwnership() {
+      return request.resource.data._ownerUid == resource.data._ownerUid;
+    }
+
+    match /_excel_imports/{importId} {
+      allow create: if ownsNewDocument();
+      allow read, delete: if ownsExistingDocument();
+      allow update: if ownsExistingDocument() && keepsOwnership();
+    }
+
+    // Excel rows may be uploaded to any top-level business collection selected
+    // in upload.html, but each document remains private to its uploader.
+    match /{collectionId}/{documentId} {
+      allow create: if collectionId != "_excel_imports" && ownsNewDocument();
+      allow read, delete: if collectionId != "_excel_imports" && ownsExistingDocument();
+      allow update: if collectionId != "_excel_imports" &&
+        ownsExistingDocument() && keepsOwnership();
+    }
+  }
+}
