@@ -5,7 +5,9 @@
   const db = BRPortal.db;
   const MAX_CHUNK_BYTES = 700000;
   const MAX_ROWS_PER_CHUNK = 400;
-  const WRITES_PER_BATCH = 100;
+  // Firestore limits one Commit request to about 10 MiB. With chunks capped at
+  // 700 KB, eight writes keep each request comfortably below that limit.
+  const WRITES_PER_BATCH = 8;
   const state = { file:null, workbook:null, sheets:[], rows:[], countries:[], chunks:[] };
   const $ = id => document.getElementById(id);
   const escapeHtml = value => String(value ?? "").replace(/[&<>'"]/g,char => ({
