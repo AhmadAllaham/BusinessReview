@@ -1563,10 +1563,10 @@ body.stock-level-view .sales-header-upload{
 }
 
 .country-modal-flag{
-  width:34px;
+  width:36px;
   height:24px;
   display:block;
-  object-fit:cover;
+  object-fit:contain;
   flex:0 0 auto;
   border:1px solid #d8e3e5;
   border-radius:5px;
