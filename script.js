@@ -548,13 +548,42 @@ function countryFlagCode(country){
   return countryFlagCodes[key]?.toLowerCase() || '';
 }
 
+const countryFlagSvgs={
+  jo:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40"><path fill="#000" d="M0 0h60v13.33H0z"/><path fill="#fff" d="M0 13.33h60v13.34H0z"/><path fill="#087a3e" d="M0 26.67h60V40H0z"/><path fill="#ce1126" d="M0 0l25 20L0 40z"/><text x="8.5" y="23.7" fill="#fff" font-size="11">★</text></svg>`,
+  sa:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40"><path fill="#006c35" d="M0 0h60v40H0z"/><path stroke="#fff" stroke-width="2" d="M16 29h29"/><path fill="#fff" d="M43 27l5 2-5 2z"/><text x="30" y="20" text-anchor="middle" fill="#fff" font-size="8" font-family="Arial">الله</text></svg>`,
+  dz:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40"><path fill="#087a3e" d="M0 0h30v40H0z"/><path fill="#fff" d="M30 0h30v40H30z"/><circle cx="31" cy="20" r="10" fill="#d21034"/><circle cx="34" cy="18" r="8" fill="#fff"/><text x="35" y="24" fill="#d21034" font-size="12">★</text></svg>`,
+  iq:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40"><path fill="#ce1126" d="M0 0h60v13.33H0z"/><path fill="#fff" d="M0 13.33h60v13.34H0z"/><path fill="#000" d="M0 26.67h60V40H0z"/><text x="30" y="24" text-anchor="middle" fill="#078930" font-size="8" font-family="Arial">الله أكبر</text></svg>`,
+  om:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40"><path fill="#fff" d="M0 0h60v13.33H0z"/><path fill="#d72828" d="M0 13.33h60v13.34H0z"/><path fill="#009a44" d="M0 26.67h60V40H0z"/><path fill="#d72828" d="M0 0h15v40H0z"/><circle cx="7.5" cy="8" r="3" fill="#fff"/></svg>`,
+  ae:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40"><path fill="#009a49" d="M0 0h60v13.33H0z"/><path fill="#fff" d="M0 13.33h60v13.34H0z"/><path fill="#000" d="M0 26.67h60V40H0z"/><path fill="#ce1126" d="M0 0h15v40H0z"/></svg>`,
+  qa:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40"><path fill="#8a1538" d="M0 0h60v40H0z"/><path fill="#fff" d="M0 0h20l8 2.2-8 2.2 8 2.2-8 2.2 8 2.2-8 2.2 8 2.2-8 2.2 8 2.2-8 2.2 8 2.2-8 2.2 8 2.2-8 2.2 8 2.2-8 2.2 8 2.2-8 2.2H0z"/></svg>`,
+  bh:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40"><path fill="#ce1126" d="M0 0h60v40H0z"/><path fill="#fff" d="M0 0h22l8 4-8 4 8 4-8 4 8 4-8 4 8 4-8 4 8 4-8 4H0z"/></svg>`,
+  kw:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40"><path fill="#007a3d" d="M0 0h60v13.33H0z"/><path fill="#fff" d="M0 13.33h60v13.34H0z"/><path fill="#ce1126" d="M0 26.67h60V40H0z"/><path d="M0 0l15 13.33v13.34L0 40z"/></svg>`,
+  ye:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40"><path fill="#ce1126" d="M0 0h60v13.33H0z"/><path fill="#fff" d="M0 13.33h60v13.34H0z"/><path fill="#000" d="M0 26.67h60V40H0z"/></svg>`,
+  eg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40"><path fill="#ce1126" d="M0 0h60v13.33H0z"/><path fill="#fff" d="M0 13.33h60v13.34H0z"/><path fill="#000" d="M0 26.67h60V40H0z"/><circle cx="30" cy="20" r="3" fill="#c09300"/></svg>`,
+  ly:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40"><path fill="#e70013" d="M0 0h60v10H0z"/><path fill="#000" d="M0 10h60v20H0z"/><path fill="#239e46" d="M0 30h60v10H0z"/><circle cx="29" cy="20" r="6" fill="#fff"/><circle cx="31" cy="19" r="5" fill="#000"/><text x="35" y="23" fill="#fff" font-size="8">★</text></svg>`,
+  sd:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40"><path fill="#d21034" d="M0 0h60v13.33H0z"/><path fill="#fff" d="M0 13.33h60v13.34H0z"/><path fill="#000" d="M0 26.67h60V40H0z"/><path fill="#007229" d="M0 0l23 20L0 40z"/></svg>`,
+  so:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40"><path fill="#4189dd" d="M0 0h60v40H0z"/><text x="30" y="29" text-anchor="middle" fill="#fff" font-size="26">★</text></svg>`,
+  ma:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40"><path fill="#c1272d" d="M0 0h60v40H0z"/><text x="30" y="28" text-anchor="middle" fill="none" stroke="#006233" stroke-width="2" font-size="24">☆</text></svg>`,
+  tn:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40"><path fill="#e70013" d="M0 0h60v40H0z"/><circle cx="30" cy="20" r="11" fill="#fff"/><circle cx="28" cy="20" r="7" fill="#e70013"/><circle cx="31" cy="18" r="6" fill="#fff"/><text x="33" y="23" fill="#e70013" font-size="9">★</text></svg>`,
+  ps:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40"><path d="M0 0h60v13.33H0z"/><path fill="#fff" d="M0 13.33h60v13.34H0z"/><path fill="#009736" d="M0 26.67h60V40H0z"/><path fill="#ce1126" d="M0 0l24 20L0 40z"/></svg>`,
+  lb:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40"><path fill="#ed1c24" d="M0 0h60v10H0zM0 30h60v10H0z"/><path fill="#fff" d="M0 10h60v20H0z"/><path fill="#00a651" d="M30 12l-9 15h18z"/><path fill="#00a651" d="M28 24h4v6h-4z"/></svg>`,
+  sy:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40"><path fill="#ce1126" d="M0 0h60v13.33H0z"/><path fill="#fff" d="M0 13.33h60v13.34H0z"/><path d="M0 26.67h60V40H0z"/><text x="23" y="24" fill="#007a3d" font-size="10">★</text><text x="34" y="24" fill="#007a3d" font-size="10">★</text></svg>`,
+  tr:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40"><path fill="#e30a17" d="M0 0h60v40H0z"/><circle cx="25" cy="20" r="10" fill="#fff"/><circle cx="28" cy="18" r="8" fill="#e30a17"/><text x="35" y="24" fill="#fff" font-size="10">★</text></svg>`,
+  ir:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40"><path fill="#239f40" d="M0 0h60v13.33H0z"/><path fill="#fff" d="M0 13.33h60v13.34H0z"/><path fill="#da0000" d="M0 26.67h60V40H0z"/><circle cx="30" cy="20" r="3" fill="#da0000"/></svg>`
+};
+
+function countryFlagDataUri(code){
+  const svg=countryFlagSvgs[code];
+  return svg?`data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`:'';
+}
+
 function setCountryModalTitle(title){
   $('countryModalTitle').textContent=title;
   const flag=$('countryModalFlag');
   if(flag){
     const code=countryFlagCode(activeCountry);
     flag.hidden=!code;
-    flag.src=code?`https://flagcdn.com/w40/${code}.png`:'';
+    flag.src=countryFlagDataUri(code);
     flag.alt=code?`${activeCountry} flag`:'';
     flag.title=activeCountry;
     flag.onerror=()=>{ flag.hidden=true; };
