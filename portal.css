@@ -123,19 +123,8 @@ button,input,select,textarea { font:inherit; }
 }
 .login-showcase::before { width:420px; height:420px; right:-170px; top:-130px; }
 .login-showcase::after { width:320px; height:320px; left:-120px; bottom:-120px; }
-.login-brand-row {
-  position:relative; z-index:1; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
-}
-.login-company-logo {
-  width:min(300px,72vw); height:92px; object-fit:contain;
-  padding:12px 17px; border:1px solid #ffffff30; border-radius:17px;
-  background:#fffffff2; box-shadow:0 14px 34px #07171938;
-}
-.login-product-label {
-  padding:9px 13px; border:1px solid #ffffff35; border-radius:999px;
-  background:#ffffff12; color:#fff; font-size:13px; font-weight:800;
-  letter-spacing:.04em;
-}
+.login-logo { position:relative; z-index:1; display:flex; align-items:center; gap:14px; font-weight:850; }
+.login-logo span { width:48px; height:48px; display:grid; place-items:center; border-radius:14px; background:#fff; color:var(--portal-teal-dark); }
 .login-copy { position:relative; z-index:1; max-width:570px; }
 .login-copy h1 { margin:0 0 15px; font-size:clamp(36px,5vw,66px); line-height:1.02; }
 .login-copy p { max-width:520px; color:#d5e9e6; font-size:17px; line-height:1.7; }
@@ -143,6 +132,14 @@ button,input,select,textarea { font:inherit; }
 .login-points span { padding:8px 11px; border:1px solid #ffffff2b; border-radius:999px; background:#ffffff0d; font-size:12px; }
 .login-panel { display:grid; place-items:center; padding:32px; }
 .login-card { width:min(440px,100%); }
+.login-form-logo-wrap {
+  display:flex; align-items:center; margin:0 0 24px;
+}
+.login-form-logo {
+  width:230px; height:84px; object-fit:contain;
+  padding:9px 12px; border:1px solid var(--portal-border); border-radius:14px;
+  background:#fff; box-shadow:0 10px 26px #17252b12;
+}
 .login-card h2 { margin:0; font-size:30px; }
 .login-card .lead { margin:8px 0 26px; color:var(--portal-muted); line-height:1.6; }
 .login-card .portal-button { width:100%; min-height:46px; }
@@ -158,5 +155,5 @@ button,input,select,textarea { font:inherit; }
   .country-list { grid-template-columns:1fr; }
   .login-panel { padding:24px 18px; }
   .portal-company-logo { width:128px; height:46px; }
-  .login-company-logo { width:min(270px,80vw); height:86px; }
+  .login-form-logo { width:210px; height:78px; }
 }
