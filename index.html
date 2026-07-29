@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Business Review</title>
-  <link rel="stylesheet" href="style.css?v=20260729-8" />
+  <link rel="stylesheet" href="style.css?v=20260729-9" />
 </head>
 <body>
   <header class="app-header">
@@ -109,7 +109,10 @@
         </div>
         <div class="table-toolbar">
           <span id="salesCount">0 rows</span>
-          <span class="legend"><i class="dot favorable"></i> Favorable <i class="dot unfavorable"></i> Unfavorable</span>
+          <div class="toolbar-actions">
+            <span class="legend"><i class="dot favorable"></i> Favorable <i class="dot unfavorable"></i> Unfavorable</span>
+            <button class="excel-export-btn" type="button" data-export-report="sales">Export Excel</button>
+          </div>
         </div>
         <div class="sm-table-scroll sales-foc-table-scroll"><table id="salesTable" class="sm-reference-table sales-foc-reference-table"></table></div>
       </article>
@@ -136,7 +139,10 @@
         <div class="formula-note">
           <strong>Method:</strong> Actual FG % = Actual Bonus Value ÷ IMS Actual Sales &nbsp;·&nbsp; Budget FG % = Budget Bonus Value ÷ IMS Actual Sales &nbsp;·&nbsp; FG Variance % = Actual FG % − Budget FG %
         </div>
-        <div class="table-toolbar"><span id="focCount">0 rows</span></div>
+        <div class="table-toolbar">
+          <span id="focCount">0 rows</span>
+          <button class="excel-export-btn" type="button" data-export-report="foc">Export Excel</button>
+        </div>
         <div class="sm-table-scroll sales-foc-table-scroll"><table id="focTable" class="sm-reference-table sales-foc-reference-table"></table></div>
       </article>
     </section>
@@ -181,7 +187,10 @@
 
         <div class="table-toolbar">
           <span id="stockCount">0 brands</span>
-          <span>Coverage = Stock ÷ Sales</span>
+          <div class="toolbar-actions">
+            <span>Coverage = Stock ÷ Sales</span>
+            <button class="excel-export-btn" type="button" data-export-report="stock">Export Excel</button>
+          </div>
         </div>
         <div class="sm-table-scroll stock-table-scroll">
           <table id="stockTable" class="sm-reference-table stock-level-table">
@@ -227,7 +236,10 @@
 
     <div class="table-toolbar">
       <span id="smSimpleCount">0 rows</span>
-      <span class="legend"><i class="dot favorable"></i> Favorable <i class="dot unfavorable"></i> Unfavorable</span>
+      <div class="toolbar-actions">
+        <span class="legend"><i class="dot favorable"></i> Favorable <i class="dot unfavorable"></i> Unfavorable</span>
+        <button class="excel-export-btn" type="button" data-export-report="sm">Export Excel</button>
+      </div>
     </div>
     <div class="sm-table-scroll sales-foc-table-scroll">
       <table id="smSimpleTable" class="sm-reference-table sales-foc-reference-table">
@@ -308,7 +320,10 @@
 
         <div class="table-toolbar">
           <span id="pnlCount">10 P&amp;L lines</span>
-          <span class="legend"><i class="dot favorable"></i> Favorable <i class="dot unfavorable"></i> Unfavorable</span>
+          <div class="toolbar-actions">
+            <span class="legend"><i class="dot favorable"></i> Favorable <i class="dot unfavorable"></i> Unfavorable</span>
+            <button class="excel-export-btn" type="button" data-export-report="pnl">Export Excel</button>
+          </div>
         </div>
 
         <div class="table-wrap pnl-table-wrap">
@@ -367,12 +382,13 @@
     </section>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="firebase-client.js"></script>
-  <script src="script.js?v=20260729-5"></script>
+  <script src="script.js?v=20260729-6"></script>
   <script src="dashboard-firebase.js"></script>
 </body>
 </html>
