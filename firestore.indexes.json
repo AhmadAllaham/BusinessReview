@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "reportRows",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "datasetId", "order": "ASCENDING" },
+        { "fieldPath": "country", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
