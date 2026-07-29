@@ -391,7 +391,7 @@ function aggregate(rows,dim,lySource=filteredLY()){
   }
   return [...m.values()];
 }
-function renderAll(){if(!rawData.length)return;const rows=filtered();renderSalesTable(rows);renderFocTable(rows);renderVariance(rows);}
+function renderAll(){if(!rawData.length)return;const rows=filtered();renderSalesTable(rows);renderFocTable(rows);}
 
 function renderSalesTable(rows){
   const dim=$('salesView').value; const data=aggregate(rows,dim).sort((a,b)=>b.actual-a.actual);
@@ -458,13 +458,6 @@ function focTableHtml(rows,totals){
     h+=makeRow({name:'Total',...totals,actualRate,budgetRate,varianceRate:actualRate-budgetRate},true);
   }
   return h+'</tbody>';
-}
-function renderVariance(rows){
-  const d=aggregate(rows,'Product Name').map(x=>({...x,v:x.actual-x.budget}));
-  const neg=d.filter(x=>x.v<0).sort((a,b)=>a.v-b.v).slice(0,10),pos=d.filter(x=>x.v>0).sort((a,b)=>b.v-a.v).slice(0,10);
-  const h=['Product','Actual','Budget','Vs Budget','Vs Budget %','LY','Vs LY'];
-  $('negativeTable').innerHTML=tableHtml(h,neg.map(x=>[x.name,x.actual,x.budget,x.v,pct(x.v,x.budget),x.ly,x.actual-x.ly]));
-  $('positiveTable').innerHTML=tableHtml(h,pos.map(x=>[x.name,x.actual,x.budget,x.v,pct(x.v,x.budget),x.ly,x.actual-x.ly]));
 }
 function tableHtml(headers,rows,total=false,foc=false){
   let h='<thead><tr>'+headers.map(x=>`<th>${esc(x)}</th>`).join('')+'</tr></thead><tbody>';
