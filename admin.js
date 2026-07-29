@@ -12,7 +12,7 @@
     "&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"
   })[char]);
   const reportLabels = {
-    sales:"Sales · Sales Analysis, IMS FOC & Top Variances",
+    sales:"Sales · Sales Analysis & IMS FOC",
     sm:"Selling & Marketing Expenses",
     pnl:"P&L"
   };
