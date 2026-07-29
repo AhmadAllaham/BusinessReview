@@ -4,13 +4,6 @@ let activeCountry = '';
 let activeBrand = '';
 let activeFocGroup = '';
 let detailMode = 'sales';
-let profitabilityData = [];
-const profitabilityViewState = {
-  sales:false,
-  foc:false,
-  salesPreviousView:'Country',
-  focPreviousView:'Country'
-};
 
 const $ = id => document.getElementById(id);
 const salesFilterIds = ['yearFilter','monthFilter','typeFilter','countryFilter','sectorFilter','agentFilter','groupFilter','productFilter'];
@@ -330,29 +323,6 @@ $('resetBtn').addEventListener('click',()=>{buildAllSalesFilters(true);renderAll
 $('salesView').addEventListener('change',renderAll);
 $('focView').addEventListener('change',renderAll);
 
-function setProfitabilityView(report,enabled){
-  const view=$(report==='sales'?'salesView':'focView');
-  const stateKey=report==='sales'?'salesPreviousView':'focPreviousView';
-  profitabilityViewState[report]=enabled;
-
-  if(enabled){
-    profitabilityViewState[stateKey]=view.value;
-    view.value='Product Name';
-    view.disabled=true;
-  }else{
-    view.disabled=false;
-    view.value=profitabilityViewState[stateKey] || 'Country';
-  }
-  renderAll();
-}
-
-$('salesProfitabilityToggle')?.addEventListener('change',event=>{
-  setProfitabilityView('sales',event.target.checked);
-});
-$('focProfitabilityToggle')?.addEventListener('change',event=>{
-  setProfitabilityView('foc',event.target.checked);
-});
-
 function setBusinessReportTab(tabId){
   document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.report-section').forEach(x=>{
@@ -463,209 +433,9 @@ function aggregate(rows,dim,lySource=filteredLY()){
   return [...m.values()];
 }
 
-function profitabilityNormalizeText(value){
-  return String(value ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/&/g,'and')
-    .replace(/[^a-z0-9]+/g,'');
-}
-
-function profitabilityMatch(country,agent,product){
-  const countryKey=profitabilityNormalizeText(country);
-  const agentKey=profitabilityNormalizeText(agent);
-  const productKey=profitabilityNormalizeText(product);
-  const candidates=profitabilityData.filter(row=>
-    row.__countryKey===countryKey &&
-    row.__productKey===productKey
-  );
-  if(!candidates.length) return null;
-
-  const agentMatches=candidates.filter(row=>
-    row.__agentKey===agentKey ||
-    (agentKey && row.__agentKey.endsWith(agentKey)) ||
-    (row.__agentKey && agentKey.endsWith(row.__agentKey))
-  );
-  const matches=agentMatches.length
-    ? agentMatches
-    : candidates.length===1
-      ? candidates
-      : [];
-  if(!matches.length) return null;
-
-  const gpValues=matches.map(row=>row.gp).filter(Number.isFinite);
-  const classifications=[...new Set(matches.map(row=>row.classification).filter(Boolean))];
-  return {
-    gp:gpValues.length?gpValues.reduce((sum,value)=>sum+value,0)/gpValues.length:null,
-    classification:classifications.join('/') || '—'
-  };
-}
-
-function detailedSalesAggregate(rows,lySource=[]){
-  const grouped=new Map();
-  const addRow=(row,scenario)=>{
-    const country=String(row.Country ?? row.Market ?? '').trim() || 'Unassigned';
-    const agent=String(row.Agent ?? '').trim() || 'Unassigned';
-    const product=row.__product || 'Unassigned';
-    const key=[
-      profitabilityNormalizeText(country),
-      profitabilityNormalizeText(agent),
-      profitabilityNormalizeText(product)
-    ].join('|');
-    if(!grouped.has(key)){
-      grouped.set(key,{
-        country,agent,product,
-        actual:0,budget:0,ly:0,actualFoc:0,budgetFoc:0
-      });
-    }
-    const item=grouped.get(key);
-    if(scenario==='ly'){
-      item.ly+=row.__actual;
-      return;
-    }
-    item.actual+=row.__actual;
-    item.budget+=row.__budget;
-    if(String(row.Type).toUpperCase()==='IMS'){
-      item.actualFoc+=row.__actualBonus;
-      item.budgetFoc+=row.__budgetBonus;
-    }
-  };
-  rows.forEach(row=>addRow(row,'current'));
-  lySource.forEach(row=>addRow(row,'ly'));
-  return [...grouped.values()].map(item=>({
-    ...item,
-    profitability:profitabilityMatch(item.country,item.agent,item.product)
-  }));
-}
-
-function profitabilityGpHtml(profitability){
-  if(!profitability || !Number.isFinite(profitability.gp)){
-    return '<td class="profitability-rate profitability-unmapped">Not mapped</td>';
-  }
-  return `<td class="profitability-rate">${(profitability.gp*100).toFixed(1)}%</td>`;
-}
-
-function profitabilityClassHtml(profitability){
-  const value=profitability?.classification || 'Not mapped';
-  const className=profitabilityNormalizeText(value);
-  return `<td class="profitability-class"><span class="profitability-badge profitability-${esc(className)}">${esc(value)}</span></td>`;
-}
-
-function varianceHtml(value,display){
-  const className=value>0?'positive':value<0?'negative':'';
-  return `<td class="highlight ${className}">${esc(display)}</td>`;
-}
-
-function renderSalesProfitabilityTable(rows){
-  const data=detailedSalesAggregate(rows,filteredLY())
-    .sort((a,b)=>b.actual-a.actual);
-  $('salesCount').textContent=`${data.length.toLocaleString('en-US')} product / agent rows`;
-
-  const headers=[
-    'Country','Agent','Product','Actual','Budget','Vs Budget','Vs Budget %',
-    'LY','Vs LY','Vs LY %','Budget GP %','Profitability'
-  ];
-  let html='<thead><tr>'+headers.map(header=>`<th>${esc(header)}</th>`).join('')+'</tr></thead><tbody>';
-  data.forEach(item=>{
-    const vsBudget=item.actual-item.budget;
-    const vsLy=item.actual-item.ly;
-    html+=`<tr>
-      <td>${esc(item.country)}</td>
-      <td>${esc(item.agent)}</td>
-      <td>${esc(item.product)}</td>
-      <td>${fmt(item.actual)}</td>
-      <td>${fmt(item.budget)}</td>
-      ${varianceHtml(vsBudget,fmt(vsBudget))}
-      ${varianceHtml(vsBudget,pct(vsBudget,item.budget))}
-      <td>${fmt(item.ly)}</td>
-      ${varianceHtml(vsLy,fmt(vsLy))}
-      ${varianceHtml(vsLy,pct(vsLy,item.ly))}
-      ${profitabilityGpHtml(item.profitability)}
-      ${profitabilityClassHtml(item.profitability)}
-    </tr>`;
-  });
-  if(data.length){
-    const totals=data.reduce((total,item)=>({
-      actual:total.actual+item.actual,
-      budget:total.budget+item.budget,
-      ly:total.ly+item.ly
-    }),{actual:0,budget:0,ly:0});
-    const vsBudget=totals.actual-totals.budget;
-    const vsLy=totals.actual-totals.ly;
-    html+=`<tr class="total-row">
-      <td>Total</td><td></td><td></td>
-      <td>${fmt(totals.actual)}</td><td>${fmt(totals.budget)}</td>
-      ${varianceHtml(vsBudget,fmt(vsBudget))}
-      ${varianceHtml(vsBudget,pct(vsBudget,totals.budget))}
-      <td>${fmt(totals.ly)}</td>
-      ${varianceHtml(vsLy,fmt(vsLy))}
-      ${varianceHtml(vsLy,pct(vsLy,totals.ly))}
-      <td></td><td></td>
-    </tr>`;
-  }
-  $('salesTable').innerHTML=html+'</tbody>';
-}
-
-function renderFocProfitabilityTable(rows){
-  const data=detailedSalesAggregate(
-    rows.filter(row=>String(row.Type).toUpperCase()==='IMS'),
-    []
-  ).sort((a,b)=>b.actual-a.actual);
-  $('focCount').textContent=`${data.length.toLocaleString('en-US')} product / agent rows`;
-
-  const headers=[
-    'Country','Agent','Product','Actual','Actual FG','Actual FG %',
-    'Bud FG','Budget FG %','FG Variance %','Budget GP %','Profitability'
-  ];
-  let html='<thead><tr>'+headers.map(header=>`<th>${esc(header)}</th>`).join('')+'</tr></thead><tbody>';
-  data.forEach(item=>{
-    const actualRate=item.actual?item.actualFoc/item.actual:0;
-    const budgetRate=item.actual?item.budgetFoc/item.actual:0;
-    const varianceRate=actualRate-budgetRate;
-    html+=`<tr>
-      <td>${esc(item.country)}</td>
-      <td>${esc(item.agent)}</td>
-      <td>${esc(item.product)}</td>
-      <td>${fmt(item.actual)}</td>
-      <td>${fmt(item.actualFoc)}</td>
-      <td>${ratePct(item.actualFoc,item.actual)}</td>
-      <td>${fmt(item.budgetFoc)}</td>
-      <td>${ratePct(item.budgetFoc,item.actual)}</td>
-      ${varianceHtml(-varianceRate,`${Math.round(varianceRate*100)}%`)}
-      ${profitabilityGpHtml(item.profitability)}
-      ${profitabilityClassHtml(item.profitability)}
-    </tr>`;
-  });
-  if(data.length){
-    const totals=data.reduce((total,item)=>({
-      actual:total.actual+item.actual,
-      actualFoc:total.actualFoc+item.actualFoc,
-      budgetFoc:total.budgetFoc+item.budgetFoc
-    }),{actual:0,actualFoc:0,budgetFoc:0});
-    const actualRate=totals.actual?totals.actualFoc/totals.actual:0;
-    const budgetRate=totals.actual?totals.budgetFoc/totals.actual:0;
-    const varianceRate=actualRate-budgetRate;
-    html+=`<tr class="total-row">
-      <td>Total</td><td></td><td></td>
-      <td>${fmt(totals.actual)}</td>
-      <td>${fmt(totals.actualFoc)}</td>
-      <td>${ratePct(totals.actualFoc,totals.actual)}</td>
-      <td>${fmt(totals.budgetFoc)}</td>
-      <td>${ratePct(totals.budgetFoc,totals.actual)}</td>
-      ${varianceHtml(-varianceRate,`${Math.round(varianceRate*100)}%`)}
-      <td></td><td></td>
-    </tr>`;
-  }
-  $('focTable').innerHTML=html+'</tbody>';
-}
-
 function renderAll(){if(!rawData.length)return;const rows=filtered();renderSalesTable(rows);renderFocTable(rows);}
 
 function renderSalesTable(rows){
-  if(profitabilityViewState.sales){
-    renderSalesProfitabilityTable(rows);
-    return;
-  }
   const dim=$('salesView').value; const data=aggregate(rows,dim).sort((a,b)=>b.actual-a.actual);
   $('salesCount').textContent=`${data.length.toLocaleString('en-US')} rows`;
   $('salesTable').innerHTML=tableHtml(['Name','Actual','Budget','Vs Budget','Vs Budget %','LY','Vs LY','Vs LY %'],data.map(x=>[x.name,x.actual,x.budget,x.actual-x.budget,pct(x.actual-x.budget,x.budget),x.ly,x.actual-x.ly,pct(x.actual-x.ly,x.ly)]),true);
@@ -673,10 +443,6 @@ function renderSalesTable(rows){
 }
 function ratePct(n,d){return d?`${Math.round((n/d)*100)}%`:'0%';}
 function renderFocTable(rows){
-  if(profitabilityViewState.foc){
-    renderFocProfitabilityTable(rows);
-    return;
-  }
   const dim=$('focView').value;
   const data=aggregate(
     rows.filter(r=>String(r.Type).toUpperCase()==='IMS'),
@@ -2158,60 +1924,6 @@ window.loadStockRowsFromDatabase = function(rows){
   buildStockFilters(true);
   renderStockLevel();
 };
-
-window.loadProfitabilityRowsFromDatabase = function(rows){
-  const value = (row,names) => {
-    const normalizedNames=names.map(profitabilityNormalizeText);
-    const key=Object.keys(row || {}).find(item=>
-      normalizedNames.includes(profitabilityNormalizeText(item))
-    );
-    return key===undefined?'':row[key];
-  };
-
-  profitabilityData=(rows || []).map(row=>{
-    const country=String(value(row,['Market','Country','Country Name']) || '').trim();
-    const agent=String(value(row,['Sub Market','SubMarket','Agent']) || '').trim();
-    const product=String(value(row,['SKU','Product','Product Name']) || '').trim();
-    const gp=pnlReadNumber(value(row,['GP %','GP','Gross Profit %','Budget GP %']));
-    const classification=String(value(row,[
-      'Profitability','Profitability Class','Classification'
-    ]) || '').trim();
-    return {
-      country,agent,product,gp,classification,
-      __countryKey:profitabilityNormalizeText(country),
-      __agentKey:profitabilityNormalizeText(agent),
-      __productKey:profitabilityNormalizeText(product)
-    };
-  }).filter(row=>row.country && row.product);
-
-  const available=profitabilityData.length>0;
-  [
-    {id:'salesProfitabilityToggle',report:'sales'},
-    {id:'focProfitabilityToggle',report:'foc'}
-  ].forEach(({id,report})=>{
-    const toggle=$(id);
-    if(!toggle) return;
-    toggle.disabled=!available;
-    toggle.closest('.profitability-toggle')?.classList.toggle('unavailable',!available);
-    toggle.closest('.profitability-toggle')?.setAttribute(
-      'title',
-      available
-        ? `${profitabilityData.length.toLocaleString('en-US')} profitability rows available`
-        : 'Upload Product Profitability in Data Admin to enable this option'
-    );
-    if(!available && toggle.checked){
-      toggle.checked=false;
-      profitabilityViewState[report]=false;
-      const view=$(report==='sales'?'salesView':'focView');
-      view.disabled=false;
-      view.value=profitabilityViewState[
-        report==='sales'?'salesPreviousView':'focPreviousView'
-      ] || 'Country';
-    }
-  });
-  renderAll();
-};
-
 
 // Enable sorting for Selling & Marketing table
 (function(){
