@@ -47,6 +47,13 @@
         <button class="tab-btn" data-tab="smExpensesSection" type="button">Selling &amp; Marketing Expenses</button>
         <button class="tab-btn" data-tab="pnlSection" type="button">P&amp;L</button>
       </div>
+
+      <button class="workspace-btn" type="button" data-workspace="mdaWorkspace" aria-expanded="false">
+        <span class="nav-icon">M</span>
+        <span>MD&amp;A</span>
+        <span class="nav-chevron">›</span>
+      </button>
+      <div class="side-submenu" id="mdaSubmenu"></div>
       <div class="side-nav-foot">Reports are limited to your assigned countries.</div>
     </aside>
 
@@ -324,6 +331,10 @@
         </div>
       </article>
     </section>
+      </div>
+
+      <div id="mdaWorkspace" class="workspace-pane">
+        <section class="report-card mda-empty-workspace" aria-label="MD&A workspace"></section>
       </div>
 
     </main>
