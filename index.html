@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Business Review</title>
-  <link rel="stylesheet" href="style.css?v=20260729-11" />
+  <link rel="stylesheet" href="style.css?v=20260729-10" />
 </head>
 <body>
   <header class="app-header">
@@ -111,10 +111,6 @@
           <span id="salesCount">0 rows</span>
           <div class="toolbar-actions">
             <span class="legend"><i class="dot favorable"></i> Favorable <i class="dot unfavorable"></i> Unfavorable</span>
-            <label class="profitability-toggle" title="Upload Product Profitability in Data Admin to enable this option">
-              <input id="salesProfitabilityToggle" type="checkbox" disabled>
-              <span>Show Profitability</span>
-            </label>
             <button class="excel-export-btn" type="button" data-export-report="sales">Export Excel</button>
           </div>
         </div>
@@ -145,13 +141,7 @@
         </div>
         <div class="table-toolbar">
           <span id="focCount">0 rows</span>
-          <div class="toolbar-actions">
-            <label class="profitability-toggle" title="Upload Product Profitability in Data Admin to enable this option">
-              <input id="focProfitabilityToggle" type="checkbox" disabled>
-              <span>Show Profitability</span>
-            </label>
-            <button class="excel-export-btn" type="button" data-export-report="foc">Export Excel</button>
-          </div>
+          <button class="excel-export-btn" type="button" data-export-report="foc">Export Excel</button>
         </div>
         <div class="sm-table-scroll sales-foc-table-scroll"><table id="focTable" class="sm-reference-table sales-foc-reference-table"></table></div>
       </article>
@@ -383,7 +373,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="firebase-client.js"></script>
-  <script src="script.js?v=20260729-7"></script>
-  <script src="dashboard-firebase.js?v=20260729-2"></script>
+  <script src="script.js?v=20260729-6"></script>
+  <script src="dashboard-firebase.js"></script>
 </body>
 </html>
