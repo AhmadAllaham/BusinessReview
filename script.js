@@ -543,20 +543,21 @@ const countryFlagCodes={
   iran:'IR'
 };
 
-function countryFlag(country){
+function countryFlagCode(country){
   const key=String(country || '').toLowerCase().replace(/[^a-z]/g,'');
-  const code=countryFlagCodes[key];
-  return code
-    ? [...code].map(letter=>String.fromCodePoint(127397 + letter.charCodeAt(0))).join('')
-    : '🌍';
+  return countryFlagCodes[key]?.toLowerCase() || '';
 }
 
 function setCountryModalTitle(title){
   $('countryModalTitle').textContent=title;
   const flag=$('countryModalFlag');
   if(flag){
-    flag.textContent=countryFlag(activeCountry);
+    const code=countryFlagCode(activeCountry);
+    flag.hidden=!code;
+    flag.src=code?`https://flagcdn.com/w40/${code}.png`:'';
+    flag.alt=code?`${activeCountry} flag`:'';
     flag.title=activeCountry;
+    flag.onerror=()=>{ flag.hidden=true; };
   }
 }
 
