@@ -415,6 +415,7 @@
         setStatus("uploadStatus",`Uploading ${state.rows.length.toLocaleString("en-US")} rows…`);
 
         await setDoc(doc(state.db,"_excel_imports",importId), {
+          _ownerUid:state.auth.currentUser.uid,
           collection:collectionId,
           fileName:state.file?.name || "",
           sheetName:$("sheetSelect").value,
@@ -432,6 +433,7 @@
             const ref = doc(collection(state.db,collectionId),`${importId}_${String(rowNumber).padStart(7,"0")}`);
             batch.set(ref,{
               ...row,
+              _ownerUid:state.auth.currentUser.uid,
               _importId:importId,
               _rowNumber:rowNumber,
               _sourceFile:state.file?.name || "",
