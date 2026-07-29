@@ -1826,30 +1826,74 @@ window.loadSalesRowsFromDatabase = function(rows){
 };
 
 window.loadPnlRowsFromDatabase = function(rows){
+  const normalizeKey = value => String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/&/g,'and')
+    .replace(/[^a-z0-9]+/g,'');
+
+  // Older uploads could use a title row as the Firestore object keys. If the
+  // actual P&L header was stored as a data row, rebuild the objects from it so
+  // the already-uploaded dataset can still be read without another Firestore write.
+  const rebuildFromEmbeddedHeader = sourceRows => {
+    const scenarioNames = new Set(['scenario','period','version']);
+    const marketNames = new Set(['market','country','countryname']);
+    const metricNames = new Set([
+      'grosssales','netsales','salesreturns','discounts','commissions',
+      'cogs','costofgoodssold','grossprofit','sellingandmarketing',
+      'sm','netincome','netprofit'
+    ]);
+    const headerIndex = sourceRows.findIndex(row => {
+      const headers = Object.values(row || {}).map(normalizeKey);
+      return headers.some(header => scenarioNames.has(header)) &&
+        headers.some(header => marketNames.has(header)) &&
+        headers.some(header => metricNames.has(header));
+    });
+    if (headerIndex < 0) return sourceRows;
+
+    const headerRow = sourceRows[headerIndex] || {};
+    const sourceKeys = Object.keys(headerRow);
+    return sourceRows.slice(headerIndex + 1).map(row =>
+      Object.fromEntries(sourceKeys.map(key => [
+        String(headerRow[key] || key).trim(),
+        row?.[key] ?? ''
+      ]))
+    );
+  };
+
+  const sourceRows = rebuildFromEmbeddedHeader(rows || []);
   const value = (row,names) => {
+    const normalizedNames = names.map(normalizeKey);
     const key = Object.keys(row || {}).find(item =>
-      names.includes(String(item).trim().toLowerCase())
+      normalizedNames.includes(normalizeKey(item))
     );
     return key === undefined ? '' : row[key];
   };
-  const numeric = names => row => pnlNumber(value(row,names));
+  const numeric = names => row => pnlReadNumber(value(row,names));
+  const scenarioName = value => {
+    const normalized = normalizeKey(value);
+    if (normalized.includes('actual')) return 'Actual';
+    if (normalized.includes('budget') || normalized === 'bud') return 'Budget';
+    if (normalized === 'ly' || normalized.includes('lastyear') || normalized.includes('previousyear')) return 'LY';
+    return '';
+  };
 
-  const grossSales = numeric(['gross sales','grosssales']);
-  const salesReturns = numeric(['sales returns','salesreturns']);
+  const grossSales = numeric(['gross sales','grosssales','sales']);
+  const salesReturns = numeric(['sales returns','salesreturns','sales return']);
   const discounts = numeric(['discounts','discount']);
   const commissions = numeric(['commissions','commission']);
   const restoun = numeric(['restoun']);
   const netSales = numeric(['net sales','netsales']);
   const cogs = numeric(['cogs','cost of goods sold']);
-  const grossProfit = numeric(['gross profit','grossprofit']);
-  const sm = numeric(['s&m','sm','selling & marketing','selling and marketing']);
-  const netIncome = numeric(['net income','netincome']);
+  const grossProfit = numeric(['gross profit','grossprofit','gross margin']);
+  const sm = numeric(['s&m','sm','selling & marketing','selling and marketing','selling & marketing expenses']);
+  const netIncome = numeric(['net income','netincome','net profit','netprofit']);
 
-  pnlRawData = (rows || []).map(row => ({
+  pnlRawData = sourceRows.map(row => ({
     salesType:String(value(row,['sales type','salestype','type']) || '').trim(),
     market:String(value(row,['market','country']) || '').trim(),
-    agent:String(value(row,['agent']) || '').trim(),
-    scenario:String(value(row,['scenario','period']) || '').trim(),
+    agent:String(value(row,['agent','distributor','customer']) || '').trim(),
+    scenario:scenarioName(value(row,['scenario','period','version'])),
     grossSales:grossSales(row),
     salesReturns:salesReturns(row),
     discounts:discounts(row),
@@ -1860,7 +1904,7 @@ window.loadPnlRowsFromDatabase = function(rows){
     grossProfit:grossProfit(row),
     sm:sm(row),
     netIncome:netIncome(row)
-  })).filter(row => ['actual','budget','ly','last year'].includes(row.scenario.toLowerCase()));
+  })).filter(row => row.scenario);
 
   initPnlFilters();
   rebuildPnlFilters(true);
