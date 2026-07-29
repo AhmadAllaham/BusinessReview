@@ -51,5 +51,6 @@ firebase deploy --only firestore:rules,firestore:indexes
 - Upload Stock Level as report type `stock`.
 - Upload Selling & Marketing Expenses as report type `sm`.
 - Upload P&L as report type `pnl`.
+- Upload Product Profitability as report type `profitability`; it is matched to Sales and IMS FOC by Country + Agent/Sub Market + SKU.
 - Each report type keeps its own active dataset.
 - Large workbooks are stored in country-secured `reportChunks` documents instead of one Firestore write per Excel row.
