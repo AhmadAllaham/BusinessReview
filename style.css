@@ -1629,13 +1629,15 @@ body.stock-level-view .sales-header-upload{
   text-align:center;
 }
 
-/* Actual FG cells stay white; only FG Variance % is color-coded */
+/* Actual FG, Actual FG %, and Bud FG cells stay white; only FG Variance % is color-coded */
 #focTable tbody tr:not(.total-row) td:nth-child(3),
-#focTable tbody tr:not(.total-row) td:nth-child(4){
+#focTable tbody tr:not(.total-row) td:nth-child(4),
+#focTable tbody tr:not(.total-row) td:nth-child(5){
   background:#fff;
 }
 
 #focTable tbody tr:not(.total-row):hover td:nth-child(3),
-#focTable tbody tr:not(.total-row):hover td:nth-child(4){
+#focTable tbody tr:not(.total-row):hover td:nth-child(4),
+#focTable tbody tr:not(.total-row):hover td:nth-child(5){
   background:#fff;
 }
