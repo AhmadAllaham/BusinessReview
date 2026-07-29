@@ -38,6 +38,30 @@
     return matrix.findIndex(row => row.some(value => String(value ?? "").trim() !== ""));
   }
 
+  function normalizeHeader(value) {
+    return String(value ?? "")
+      .trim()
+      .toLowerCase()
+      .replace(/&/g,"and")
+      .replace(/[^a-z0-9]+/g,"");
+  }
+
+  function pnlHeaderIndex(matrix) {
+    const scenarioNames = new Set(["scenario","period","version"]);
+    const marketNames = new Set(["market","country","countryname"]);
+    const metricNames = new Set([
+      "grosssales","netsales","salesreturns","discounts","commissions",
+      "cogs","costofgoodssold","grossprofit","sellingandmarketing",
+      "sm","netincome","netprofit"
+    ]);
+    return matrix.findIndex(row => {
+      const headers = row.map(normalizeHeader);
+      return headers.some(header => scenarioNames.has(header)) &&
+        headers.some(header => marketNames.has(header)) &&
+        headers.some(header => metricNames.has(header));
+    });
+  }
+
   function headerValue(row,names) {
     const key = Object.keys(row).find(item =>
       names.includes(String(item).trim().toLowerCase())
@@ -45,7 +69,7 @@
     return key ? String(row[key] ?? "").trim() : "";
   }
 
-  function parseWorkbook(workbook) {
+  function parseWorkbook(workbook,reportType) {
     const parsedSheets = [];
     const allRows = [];
     const countrySet = new Set();
@@ -54,7 +78,9 @@
       const matrix = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName],{
         header:1,defval:"",raw:true,cellDates:true
       });
-      const headerIndex = firstNonEmptyRow(matrix);
+      const headerIndex = reportType === "pnl"
+        ? pnlHeaderIndex(matrix)
+        : firstNonEmptyRow(matrix);
       if (headerIndex < 0) return;
       const headers = matrix[headerIndex].map((value,index) =>
         String(value || `Column ${index + 1}`).trim()
@@ -80,6 +106,12 @@
       parsedSheets.push({name:sheetName,rowCount:rows.length,headers});
       allRows.push(...rows);
     });
+
+    if (reportType === "pnl" && !parsedSheets.length) {
+      throw new Error(
+        "No valid P&L table was found. The header must include Scenario/Period, Market/Country, and P&L value columns."
+      );
+    }
 
     return {
       sheets:parsedSheets,
@@ -150,7 +182,7 @@
       $("fileName").textContent = file.name;
       show("fileStatus","Reading workbook…");
       state.workbook = XLSX.read(await file.arrayBuffer(),{type:"array",cellDates:true});
-      const parsed = parseWorkbook(state.workbook);
+      const parsed = parseWorkbook(state.workbook,$("reportType").value);
       state.sheets = parsed.sheets;
       state.rows = parsed.rows;
       state.countries = parsed.countries;
@@ -339,6 +371,10 @@
   });
 
   $("logoutButton").addEventListener("click",BRPortal.signOut);
+  $("reportType").addEventListener("change",async () => {
+    if (!state.workbook || !state.file) return;
+    await readFile(state.file);
+  });
   $("excelFile").addEventListener("change",event => event.target.files[0] && readFile(event.target.files[0]));
   $("uploadButton").addEventListener("click",upload);
   const dropZone = $("dropZone");
