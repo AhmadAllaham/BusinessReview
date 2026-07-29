@@ -157,3 +157,21 @@ button,input,select,textarea { font:inherit; }
   .portal-company-logo { width:128px; height:46px; }
   .login-form-logo { width:250px; height:92px; }
 }
+
+.site-credit{
+  padding:4px 16px 18px;
+  color:#829197;
+  font-size:11px;
+  font-weight:600;
+  letter-spacing:.04em;
+  text-align:center;
+}
+
+.login-page .login-layout{
+  min-height:calc(100vh - 38px);
+}
+
+.login-page .site-credit{
+  height:38px;
+  padding:8px 16px 14px;
+}
