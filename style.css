@@ -1710,3 +1710,15 @@ body.stock-level-view .sales-header-upload{
     flex-wrap:wrap;
   }
 }
+
+/* Stock Level table uses the same visual format as S&M Expenses */
+#stockSection .stock-table-scroll{
+  margin:0;
+  padding:0 10px 70px;
+  border:0;
+  border-radius:0;
+}
+
+#stockSection .stock-level-table{
+  width:min(1068px,100%);
+}
