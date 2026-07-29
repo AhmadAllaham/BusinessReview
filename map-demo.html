@@ -85,6 +85,124 @@
     .legend span{display:flex;align-items:center;gap:6px}
     .dot{width:9px;height:9px;border-radius:50%}
     .dot.good{background:#14936f}.dot.mid{background:#e8b33e}.dot.bad{background:#cf4f4f}
+    .filter-card{
+      position:relative;
+      z-index:20;
+      margin-bottom:14px;
+      padding:18px;
+      overflow:visible;
+      border:1px solid var(--line);
+      border-radius:15px;
+      background:#fff;
+      box-shadow:0 8px 22px rgba(24,55,58,.05);
+    }
+    .filter-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+    .filter-card-head h3{margin:4px 0 0;font-size:20px}
+    .reset-btn{
+      border:0;
+      border-radius:8px;
+      padding:10px 14px;
+      background:#263238;
+      color:#fff;
+      font:inherit;
+      font-size:12px;
+      font-weight:800;
+      cursor:pointer;
+    }
+    .filters-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(150px,1fr));
+      gap:13px;
+      margin-top:16px;
+    }
+    .filter{position:relative}
+    .filter label{display:block;margin-bottom:6px;font-size:12px;font-weight:800}
+    .multi-filter{position:relative}
+    .multi-filter-btn{
+      width:100%;
+      min-height:40px;
+      padding:9px 11px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      border:1px solid var(--line);
+      border-radius:8px;
+      background:#fff;
+      color:var(--ink);
+      cursor:pointer;
+      text-align:left;
+    }
+    .multi-filter-btn span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .filter-chevron{color:#7b898c;font-size:11px}
+    .multi-filter-menu{
+      position:absolute;
+      z-index:80;
+      top:calc(100% + 5px);
+      left:0;
+      right:0;
+      min-width:235px;
+      padding:10px;
+      border:1px solid var(--line);
+      border-radius:11px;
+      background:#fff;
+      box-shadow:0 16px 35px rgba(19,34,56,.16);
+    }
+    .multi-filter-menu[hidden]{display:none}
+    .multi-filter-search{
+      width:100%;
+      margin-bottom:7px;
+      padding:9px;
+      border:1px solid var(--line);
+      border-radius:7px;
+      outline:none;
+    }
+    .multi-filter-search:focus{border-color:var(--teal)}
+    .multi-options{max-height:190px;overflow:auto}
+    .multi-option{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin:0;
+      padding:7px 5px;
+      border-radius:6px;
+      font-size:12px;
+      font-weight:600;
+      cursor:pointer;
+    }
+    .multi-option:hover{background:#f2f7f6}
+    .multi-option input{accent-color:var(--teal)}
+    .multi-filter-actions{
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      margin-top:7px;
+      padding-top:8px;
+      border-top:1px solid #edf1f2;
+    }
+    .multi-filter-actions button{
+      border:0;border-radius:6px;padding:7px 11px;cursor:pointer;font:inherit;font-size:11px;font-weight:800;
+    }
+    .clear-selection{background:#eef2f3;color:var(--ink)}
+    .apply-selection{background:var(--teal);color:#fff}
+    .active-filter-bar{
+      display:flex;
+      align-items:center;
+      flex-wrap:wrap;
+      gap:7px;
+      margin-top:12px;
+      padding-top:12px;
+      border-top:1px solid #edf1f2;
+    }
+    .active-filter-bar[hidden]{display:none}
+    .filter-chip{
+      padding:5px 8px;
+      border-radius:999px;
+      background:#e7f3f1;
+      color:var(--teal-dark);
+      font-size:11px;
+      font-weight:800;
+    }
     .kpis{
       display:grid;
       grid-template-columns:repeat(4,minmax(160px,1fr));
@@ -214,6 +332,7 @@
     @media(max-width:980px){
       .map-layout{grid-template-columns:1fr}
       .kpis{grid-template-columns:repeat(2,1fr)}
+      .filters-grid{grid-template-columns:repeat(2,minmax(150px,1fr))}
       #salesMap{height:520px}
     }
     @media(max-width:650px){
@@ -222,6 +341,7 @@
       main{padding:17px}
       .brand img{width:115px}
       .kpis{grid-template-columns:1fr 1fr}
+      .filters-grid{grid-template-columns:1fr}
       .legend{flex-wrap:wrap}
       #salesMap{height:440px}
     }
@@ -254,6 +374,27 @@
         <span><i class="dot mid"></i> Near budget</span>
         <span><i class="dot bad"></i> Below budget</span>
       </div>
+    </section>
+
+    <section class="filter-card">
+      <div class="filter-card-head">
+        <div>
+          <span class="eyebrow">Report Filters</span>
+          <h3>Choose the reporting scope</h3>
+        </div>
+        <button id="resetFilters" class="reset-btn" type="button">Reset all</button>
+      </div>
+      <div class="filters-grid">
+        <div class="filter"><label>Year</label><div id="yearFilter" class="multi-filter" data-field="year"></div></div>
+        <div class="filter"><label>Month</label><div id="monthFilter" class="multi-filter" data-field="month"></div></div>
+        <div class="filter"><label>Type</label><div id="typeFilter" class="multi-filter" data-field="type"></div></div>
+        <div class="filter"><label>Country</label><div id="countryFilter" class="multi-filter" data-field="name"></div></div>
+        <div class="filter"><label>Sector</label><div id="sectorFilter" class="multi-filter" data-field="sector"></div></div>
+        <div class="filter"><label>Agent</label><div id="agentFilter" class="multi-filter" data-field="agent"></div></div>
+        <div class="filter"><label>Product Group</label><div id="groupFilter" class="multi-filter" data-field="groups"></div></div>
+        <div class="filter"><label>Product</label><div id="productFilter" class="multi-filter" data-field="productNames"></div></div>
+      </div>
+      <div id="activeFilters" class="active-filter-bar" hidden></div>
     </section>
 
     <section class="kpis">
@@ -308,6 +449,21 @@
   <footer>Made by Ahmad Allaham</footer>
 
   <script>
+    const marketDimensions = {
+      JOR:{year:["2026"],month:["May","June"],type:["TMS","IMS"],sector:["Local"],agent:["Jordan Direct"],groups:["CNS","Anti-Infective"]},
+      SAU:{year:["2026"],month:["May","June"],type:["TMS","IMS"],sector:["GCC"],agent:["KSA Agent"],groups:["CNS","Chronic"]},
+      DZA:{year:["2026"],month:["April","May"],type:["TMS"],sector:["North Africa"],agent:["Algeria Direct"],groups:["Anti-Infective","Respiratory"]},
+      IRQ:{year:["2026"],month:["May","June"],type:["IMS"],sector:["Levant"],agent:["Iraq Agent"],groups:["CNS","Chronic"]},
+      ARE:{year:["2026"],month:["April","May"],type:["IMS"],sector:["GCC"],agent:["UAE Agent"],groups:["Anti-Infective","CNS"]},
+      LBY:{year:["2026"],month:["May"],type:["TMS"],sector:["North Africa"],agent:["Libya Agent"],groups:["CNS","Anti-Infective"]},
+      QAT:{year:["2026"],month:["May","June"],type:["IMS"],sector:["GCC"],agent:["Qatar Agent"],groups:["Anti-Infective","Chronic"]},
+      BHR:{year:["2026"],month:["April","May"],type:["IMS"],sector:["GCC"],agent:["Bahrain Agent"],groups:["CNS","Chronic"]},
+      LBN:{year:["2026"],month:["May"],type:["TMS"],sector:["Levant"],agent:["Lebanon Agent"],groups:["Anti-Infective","CNS"]},
+      OMN:{year:["2026"],month:["May","June"],type:["IMS"],sector:["GCC"],agent:["Oman Agent"],groups:["CNS","Chronic"]},
+      KWT:{year:["2026"],month:["April","June"],type:["IMS"],sector:["GCC"],agent:["Kuwait Agent"],groups:["Anti-Infective","CNS"]},
+      MAR:{year:["2026"],month:["April","May"],type:["TMS"],sector:["North Africa"],agent:["Morocco Agent"],groups:["Anti-Infective","Respiratory"]}
+    };
+
     const markets = [
       {iso3:"JOR",iso2:"JO",name:"Jordan",sales:17869114,budget:51852639,ly:15046230,products:[["Epigab",1653202],["Clavodar",1318841],["Hairgrow",1159453]]},
       {iso3:"SAU",iso2:"SA",name:"KSA",sales:16935187,budget:41276246,ly:13049773,products:[["Azord",1843250],["Glunorm",1517730],["Clavodar",1284115]]},
@@ -323,6 +479,8 @@
       {iso3:"MAR",iso2:"MA",name:"Morocco",sales:2715000,budget:3220000,ly:2390000,products:[["Amoclan",410500],["Leflox",355900],["Remox",298400]]}
     ].map(item => ({
       ...item,
+      ...marketDimensions[item.iso3],
+      productNames:item.products.map(product=>product[0]),
       achievement:item.sales/item.budget*100,
       growth:(item.sales-item.ly)/item.ly*100
     }));
@@ -333,19 +491,139 @@
     const fullMoney = value => "$" + Math.round(value).toLocaleString("en-US");
     const signedPercent = value => `${value>0?"+":""}${Math.round(value)}%`;
 
-    function updateKpis(){
-      const sales=markets.reduce((sum,item)=>sum+item.sales,0);
-      const budget=markets.reduce((sum,item)=>sum+item.budget,0);
-      const best=[...markets].sort((a,b)=>b.sales-a.sales)[0];
+    const filterDefinitions = [
+      {id:"yearFilter",field:"year"},
+      {id:"monthFilter",field:"month"},
+      {id:"typeFilter",field:"type"},
+      {id:"countryFilter",field:"name"},
+      {id:"sectorFilter",field:"sector"},
+      {id:"agentFilter",field:"agent"},
+      {id:"groupFilter",field:"groups"},
+      {id:"productFilter",field:"productNames"}
+    ];
+    const selectedFilters = Object.fromEntries(filterDefinitions.map(filter=>[filter.field,new Set()]));
+    let currentMarkets=[...markets];
+    let selectedIso3="JOR";
+    let mapClickBound=false;
+
+    function valuesFor(item,field){
+      const value=item[field];
+      return Array.isArray(value)?value:[value];
+    }
+
+    function filterOptions(field){
+      return [...new Set(markets.flatMap(item=>valuesFor(item,field)))].filter(Boolean)
+        .sort((a,b)=>String(a).localeCompare(String(b)));
+    }
+
+    function filterLabel(field){
+      const selected=[...selectedFilters[field]];
+      if(!selected.length) return "All";
+      if(selected.length===1) return selected[0];
+      return `${selected.length} selected`;
+    }
+
+    function closeFilterMenus(except=null){
+      document.querySelectorAll(".multi-filter-menu").forEach(menu=>{
+        if(menu!==except) menu.hidden=true;
+      });
+    }
+
+    function buildFilter({id,field}){
+      const host=document.getElementById(id);
+      const options=filterOptions(field);
+      host.innerHTML=`
+        <button class="multi-filter-btn" type="button">
+          <span>${filterLabel(field)}</span><span class="filter-chevron">⌄</span>
+        </button>
+        <div class="multi-filter-menu" hidden>
+          <input class="multi-filter-search" type="search" placeholder="Search...">
+          <div class="multi-options">
+            ${options.map(option=>`
+              <label class="multi-option" data-search="${String(option).toLowerCase()}">
+                <input type="checkbox" value="${option}"><span>${option}</span>
+              </label>
+            `).join("")}
+          </div>
+          <div class="multi-filter-actions">
+            <button class="clear-selection" type="button">Clear</button>
+            <button class="apply-selection" type="button">Apply</button>
+          </div>
+        </div>
+      `;
+      const button=host.querySelector(".multi-filter-btn");
+      const menu=host.querySelector(".multi-filter-menu");
+      const search=host.querySelector(".multi-filter-search");
+      const checkboxes=[...host.querySelectorAll('input[type="checkbox"]')];
+      button.addEventListener("click",event=>{
+        event.stopPropagation();
+        const willOpen=menu.hidden;
+        closeFilterMenus(menu);
+        menu.hidden=!willOpen;
+        if(willOpen){
+          checkboxes.forEach(box=>box.checked=selectedFilters[field].has(box.value));
+          search.value="";
+          host.querySelectorAll(".multi-option").forEach(option=>option.hidden=false);
+          search.focus();
+        }
+      });
+      menu.addEventListener("click",event=>event.stopPropagation());
+      search.addEventListener("input",()=>{
+        const query=search.value.trim().toLowerCase();
+        host.querySelectorAll(".multi-option").forEach(option=>{
+          option.hidden=!option.dataset.search.includes(query);
+        });
+      });
+      host.querySelector(".clear-selection").addEventListener("click",()=>{
+        checkboxes.forEach(box=>box.checked=false);
+      });
+      host.querySelector(".apply-selection").addEventListener("click",()=>{
+        selectedFilters[field]=new Set(checkboxes.filter(box=>box.checked).map(box=>box.value));
+        button.querySelector("span").textContent=filterLabel(field);
+        menu.hidden=true;
+        updateDashboard();
+      });
+    }
+
+    function getFilteredMarkets(){
+      return markets.filter(item=>filterDefinitions.every(({field})=>{
+        const selected=selectedFilters[field];
+        if(!selected.size) return true;
+        return valuesFor(item,field).some(value=>selected.has(String(value)));
+      }));
+    }
+
+    function renderActiveFilters(){
+      const active=document.getElementById("activeFilters");
+      const chips=filterDefinitions.flatMap(({field})=>[...selectedFilters[field]].map(value=>({field,value})));
+      active.hidden=!chips.length;
+      active.innerHTML=chips.map(chip=>`<span class="filter-chip">${chip.value}</span>`).join("");
+    }
+
+    function updateKpis(data){
+      const sales=data.reduce((sum,item)=>sum+item.sales,0);
+      const budget=data.reduce((sum,item)=>sum+item.budget,0);
+      const best=[...data].sort((a,b)=>b.sales-a.sales)[0];
       document.getElementById("totalSales").textContent=money(sales);
       document.getElementById("totalBudget").textContent=money(budget);
-      document.getElementById("budgetVariance").textContent=`${signedPercent((sales-budget)/budget*100)} vs budget`;
-      document.getElementById("bestMarket").textContent=best.name;
-      document.getElementById("bestMarketValue").textContent=fullMoney(best.sales);
-      document.getElementById("marketCount").textContent=markets.length;
+      document.getElementById("budgetVariance").textContent=budget?`${signedPercent((sales-budget)/budget*100)} vs budget`:"No matching data";
+      document.getElementById("bestMarket").textContent=best?best.name:"—";
+      document.getElementById("bestMarketValue").textContent=best?fullMoney(best.sales):"No matching data";
+      document.getElementById("marketCount").textContent=data.length;
     }
 
     function selectCountry(item){
+      if(!item){
+        document.getElementById("selectedCode").textContent="—";
+        document.getElementById("selectedName").textContent="No data";
+        ["selectedSales","selectedBudget","selectedVsBudget","selectedGrowth"].forEach(id=>{
+          document.getElementById(id).textContent="—";
+        });
+        document.getElementById("performanceText").textContent="No markets match the selected filters.";
+        document.getElementById("productList").innerHTML="";
+        return;
+      }
+      selectedIso3=item.iso3;
       document.getElementById("selectedCode").textContent=item.iso2;
       document.getElementById("selectedName").textContent=item.name;
       document.getElementById("selectedSales").textContent=fullMoney(item.sales);
@@ -364,13 +642,13 @@
       `).join("");
     }
 
-    function renderMap(metric="achievement"){
+    function renderMap(metric="achievement",data=currentMarkets){
       const metricConfig={
-        achievement:{label:"Budget achievement",suffix:"%",values:markets.map(x=>x.achievement),zmin:25,zmax:110},
-        sales:{label:"Actual sales",suffix:"",values:markets.map(x=>x.sales),zmin:0,zmax:Math.max(...markets.map(x=>x.sales))},
-        growth:{label:"Growth vs LY",suffix:"%",values:markets.map(x=>x.growth),zmin:-25,zmax:70}
+        achievement:{label:"Budget achievement",suffix:"%",values:data.map(x=>x.achievement),zmin:25,zmax:110},
+        sales:{label:"Actual sales",suffix:"",values:data.map(x=>x.sales),zmin:0,zmax:Math.max(1,...data.map(x=>x.sales))},
+        growth:{label:"Growth vs LY",suffix:"%",values:data.map(x=>x.growth),zmin:-25,zmax:70}
       }[metric];
-      const custom=markets.map(item=>[
+      const custom=data.map(item=>[
         item.name,fullMoney(item.sales),fullMoney(item.budget),
         Math.round(item.achievement)+"%",signedPercent(item.growth),
         item.products.map(product=>product[0]).join(", ")
@@ -378,7 +656,7 @@
       const trace={
         type:"choropleth",
         locationmode:"ISO-3",
-        locations:markets.map(x=>x.iso3),
+        locations:data.map(x=>x.iso3),
         z:metricConfig.values,
         zmin:metricConfig.zmin,
         zmax:metricConfig.zmax,
@@ -416,18 +694,38 @@
         hoverlabel:{bgcolor:"#132238",bordercolor:"#132238",font:{color:"#fff",size:12}},
         dragmode:false
       };
-      Plotly.react("salesMap",[trace],layout,{responsive:true,displayModeBar:false});
-      document.getElementById("salesMap").on("plotly_click",event=>{
-        const iso3=event.points[0].location;
-        const item=markets.find(market=>market.iso3===iso3);
-        if(item) selectCountry(item);
+      const map=document.getElementById("salesMap");
+      Plotly.react(map,[trace],layout,{responsive:true,displayModeBar:false}).then(()=>{
+        if(mapClickBound) return;
+        mapClickBound=true;
+        map.on("plotly_click",event=>{
+          const iso3=event.points[0].location;
+          const item=currentMarkets.find(market=>market.iso3===iso3);
+          if(item) selectCountry(item);
+        });
       });
     }
 
-    document.getElementById("metricSelect").addEventListener("change",event=>renderMap(event.target.value));
-    updateKpis();
-    selectCountry(markets[0]);
-    renderMap();
+    function updateDashboard(){
+      currentMarkets=getFilteredMarkets();
+      updateKpis(currentMarkets);
+      renderActiveFilters();
+      renderMap(document.getElementById("metricSelect").value,currentMarkets);
+      const selected=currentMarkets.find(item=>item.iso3===selectedIso3) || currentMarkets[0];
+      selectCountry(selected);
+    }
+
+    filterDefinitions.forEach(buildFilter);
+    document.addEventListener("click",()=>closeFilterMenus());
+    document.getElementById("resetFilters").addEventListener("click",()=>{
+      filterDefinitions.forEach(({id,field})=>{
+        selectedFilters[field].clear();
+        document.querySelector(`#${id} .multi-filter-btn span`).textContent="All";
+      });
+      updateDashboard();
+    });
+    document.getElementById("metricSelect").addEventListener("change",updateDashboard);
+    updateDashboard();
   </script>
 </body>
 </html>
