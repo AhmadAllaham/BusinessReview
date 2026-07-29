@@ -13,6 +13,7 @@
   })[char]);
   const reportLabels = {
     sales:"Sales · Sales Analysis & IMS FOC",
+    stock:"Stock Level",
     sm:"Selling & Marketing Expenses",
     pnl:"P&L"
   };
