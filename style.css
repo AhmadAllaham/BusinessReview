@@ -1651,6 +1651,120 @@ body.stock-level-view .sales-header-upload{
   font-weight:900;
 }
 
+/* IMS FOC — consolidated statement layout */
+#focTable{
+  min-width:860px;
+  border-collapse:separate;
+  border-spacing:0;
+  font-variant-numeric:tabular-nums;
+}
+
+#focTable thead th{
+  position:static;
+  padding:6px 10px;
+  border:0;
+  background:#0b3158;
+  color:#fff;
+  text-align:center;
+  font-size:12px;
+  font-weight:900;
+  line-height:1.05;
+}
+
+#focTable thead th::after{
+  display:none;
+}
+
+#focTable thead .foc-statement-group-head th{
+  border-right:5px solid #fff;
+}
+
+#focTable thead .foc-statement-group-head th:first-child{
+  width:25%;
+  text-align:left;
+}
+
+#focTable thead th[data-no-sort="true"]{
+  cursor:default;
+}
+
+#focTable thead .foc-statement-sub-head th{
+  padding:4px 10px 5px;
+  background:#fff;
+  color:#111827;
+  font-size:10px;
+}
+
+#focTable tbody td{
+  padding:6px 10px;
+  border:0;
+  background:#fff;
+  color:#111827;
+  font-size:12px;
+  font-weight:500;
+}
+
+#focTable tbody tr:nth-child(even):not(.total-row),
+#focTable tbody tr:hover:not(.total-row),
+#focTable tbody tr:nth-child(even):not(.total-row) td,
+#focTable tbody tr:hover:not(.total-row) td{
+  background:#fff;
+}
+
+#focTable tbody td:first-child{
+  color:#111827;
+  font-weight:600;
+}
+
+#focTable .drill-link{
+  color:#111827!important;
+  text-decoration:none;
+}
+
+#focTable .drill-link:hover{
+  color:#0f766e!important;
+  text-decoration:underline;
+}
+
+#focTable tbody td:nth-child(3),
+#focTable tbody td:nth-child(4),
+#focTable tbody td:nth-child(5),
+#focTable tbody td:nth-child(6){
+  background:#fff;
+}
+
+#focTable tbody td:nth-child(7).positive{
+  color:#008f5a;
+  background:rgba(0,143,90,.08);
+  font-weight:800;
+}
+
+#focTable tbody td:nth-child(7).negative{
+  color:#ff1f2d;
+  background:rgba(255,31,45,.07);
+  font-weight:800;
+}
+
+#focTable .total-row td{
+  padding-top:7px;
+  padding-bottom:5px;
+  border-top:1px solid #0b3158;
+  border-bottom:1px solid #0b3158;
+  background:#fff;
+  color:#111827;
+  font-weight:900;
+}
+
+#focTable .total-row td:nth-child(7).positive{
+  color:#008f5a;
+  background:rgba(0,143,90,.08);
+}
+
+#focTable .total-row td:nth-child(7).negative{
+  color:#ff1f2d;
+  background:rgba(255,31,45,.07);
+}
+
 .country-modal-title-row{
   display:flex;
   align-items:center;
