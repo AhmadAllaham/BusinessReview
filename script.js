@@ -457,9 +457,77 @@ function renderAll(){if(!rawData.length)return;const rows=filtered();renderSales
 function renderSalesTable(rows){
   const dim=$('salesView').value; const data=aggregate(rows,dim).sort((a,b)=>b.actual-a.actual);
   $('salesCount').textContent=`${data.length.toLocaleString('en-US')} rows`;
-  $('salesTable').innerHTML=tableHtml(['Name','Actual','Budget','Vs Budget','Vs Budget %','LY','Vs LY','Vs LY %'],data.map(x=>[x.name,x.actual,x.budget,x.actual-x.budget,pct(x.actual-x.budget,x.budget),x.ly,x.actual-x.ly,pct(x.actual-x.ly,x.ly)]),true);
+  $('salesTable').innerHTML=salesStatementTableHtml(data,dim);
   if(dim==='Country') [...$('salesTable').querySelectorAll('tbody tr:not(.total-row) td:first-child')].forEach(td=>{td.classList.add('drill-link');td.addEventListener('click',()=>openCountry(td.textContent));});
 }
+
+function salesStatementValue(value){
+  const rounded=Math.round(Number(value)||0);
+  return rounded<0
+    ? `(${Math.abs(rounded).toLocaleString('en-US')})`
+    : rounded.toLocaleString('en-US');
+}
+
+function salesStatementPercent(value,base){
+  if(!base) return '—';
+  const percentage=Math.round((Number(value)||0)/Math.abs(Number(base))*100);
+  return percentage<0?`(${Math.abs(percentage)}%)`:`${percentage}%`;
+}
+
+function salesStatementTableHtml(rows,dimension){
+  const dimensionLabel=dimension==='Country'?'Market':dimension;
+  const totals=rows.reduce((total,row)=>({
+    actual:total.actual+row.actual,
+    budget:total.budget+row.budget,
+    ly:total.ly+row.ly
+  }),{actual:0,budget:0,ly:0});
+
+  const makeRow=(row,total=false)=>{
+    const vsBudget=row.actual-row.budget;
+    const vsLy=row.actual-row.ly;
+    const values=[
+      row.name,
+      salesStatementValue(row.actual),
+      salesStatementValue(row.budget),
+      salesStatementValue(row.ly),
+      salesStatementValue(vsBudget),
+      salesStatementPercent(vsBudget,row.budget),
+      salesStatementValue(vsLy),
+      salesStatementPercent(vsLy,row.ly)
+    ];
+    const rawValues=[
+      row.name,row.actual,row.budget,row.ly,
+      vsBudget,row.budget?vsBudget/Math.abs(row.budget):0,
+      vsLy,row.ly?vsLy/Math.abs(row.ly):0
+    ];
+    return `<tr${total?' class="total-row"':''}>${values.map((value,index)=>{
+      const negative=index>0 && rawValues[index]<0?' sales-statement-negative':'';
+      return `<td class="${negative.trim()}">${index===0?esc(value):value}</td>`;
+    }).join('')}</tr>`;
+  };
+
+  let html=`<thead>
+    <tr class="sales-statement-group-head">
+      <th rowspan="2" data-sort-index="0">${esc(dimensionLabel)}</th>
+      <th rowspan="2" data-sort-index="1">Actual</th>
+      <th rowspan="2" data-sort-index="2">Budget</th>
+      <th rowspan="2" data-sort-index="3">LY</th>
+      <th colspan="2" data-no-sort="true">Vs. Budget</th>
+      <th colspan="2" data-no-sort="true">Vs. Last Year</th>
+    </tr>
+    <tr class="sales-statement-sub-head">
+      <th data-sort-index="4">$</th>
+      <th data-sort-index="5">%</th>
+      <th data-sort-index="6">$</th>
+      <th data-sort-index="7">%</th>
+    </tr>
+  </thead><tbody>`;
+
+  rows.forEach(row=>{ html+=makeRow(row); });
+  if(rows.length) html+=makeRow({name:'Total',...totals},true);
+  return `${html}</tbody>`;
+}
+
 function ratePct(n,d){return d?`${Math.round((n/d)*100)}%`:'0%';}
 function renderFocTable(rows){
   const dim=$('focView').value;
@@ -1542,7 +1610,9 @@ document.addEventListener('DOMContentLoaded',()=>{
     totalRows.forEach(row => tbody.appendChild(row));
 
     clearSortIndicators(table);
-    const header = table.tHead?.rows?.[0]?.cells?.[columnIndex];
+    const header =
+      table.querySelector(`thead th[data-sort-index="${columnIndex}"]`) ||
+      table.tHead?.rows?.[0]?.cells?.[columnIndex];
     if (header) {
       header.classList.add(direction === 'asc' ? 'sort-asc' : 'sort-desc');
       header.setAttribute(
@@ -1559,12 +1629,13 @@ document.addEventListener('DOMContentLoaded',()=>{
       '#salesTable thead th, #focTable thead th, #stockTable thead th, #countryDetailTable thead th, #pnlTable thead th'
     );
 
-    if (!header) return;
+    if (!header || header.dataset.noSort === 'true') return;
 
     const table = header.closest('table');
     if (!table) return;
 
-    sortTable(table, header.cellIndex);
+    const sortIndex=Number(header.dataset.sortIndex ?? header.cellIndex);
+    sortTable(table, sortIndex);
   });
 
   document.addEventListener('keydown', event => {
@@ -1572,11 +1643,16 @@ document.addEventListener('DOMContentLoaded',()=>{
       '#salesTable thead th, #focTable thead th, #stockTable thead th, #countryDetailTable thead th, #pnlTable thead th'
     );
 
-    if (!header || !['Enter', ' '].includes(event.key)) return;
+    if (
+      !header ||
+      header.dataset.noSort === 'true' ||
+      !['Enter', ' '].includes(event.key)
+    ) return;
     event.preventDefault();
 
     const table = header.closest('table');
-    if (table) sortTable(table, header.cellIndex);
+    const sortIndex=Number(header.dataset.sortIndex ?? header.cellIndex);
+    if (table) sortTable(table, sortIndex);
   });
 
   function makeHeadersAccessible() {
@@ -1585,6 +1661,11 @@ document.addEventListener('DOMContentLoaded',()=>{
         '#salesTable thead th, #focTable thead th, #stockTable thead th, #countryDetailTable thead th, #pnlTable thead th'
       )
       .forEach(th => {
+        if (th.dataset.noSort === 'true') {
+          th.removeAttribute('tabindex');
+          th.removeAttribute('title');
+          return;
+        }
         if (!th.hasAttribute('tabindex')) th.setAttribute('tabindex', '0');
         if (!th.title) th.title = 'Click to sort';
       });
