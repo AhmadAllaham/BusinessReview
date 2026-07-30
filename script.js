@@ -857,6 +857,49 @@ document.querySelectorAll('[data-pnl-currency]').forEach(button=>{
   });
 });
 
+function updatePnlSpotlightCountry(){
+  const header=$('pnlSpotlightCountryHeader');
+  const flag=$('pnlSpotlightCountryFlag');
+  const name=$('pnlSpotlightCountryName');
+  if(!header || !flag || !name) return;
+
+  const selected=getSelected('pnlMarketFilter');
+  const available=[...new Set(
+    pnlFilterData().map(row=>row.Market).filter(Boolean)
+  )].sort((a,b)=>a.localeCompare(b));
+  const markets=selected.length?selected:available;
+  const singleMarket=markets.length===1?markets[0]:'';
+  const code=singleMarket?countryFlagCode(singleMarket):'';
+
+  name.textContent=singleMarket || (
+    markets.length ? markets.join(' · ') : 'All Markets'
+  );
+  flag.hidden=!code;
+  flag.src=code?countryFlagDataUri(code):'';
+  flag.alt=code?`${singleMarket} flag`:'';
+  flag.title=singleMarket;
+  flag.onerror=()=>{ flag.hidden=true; };
+}
+
+function setPnlTableSpotlight(active){
+  const spotlightButton=$('pnlSpotlightBtn');
+  const exitButton=$('pnlSpotlightExitBtn');
+  const countryHeader=$('pnlSpotlightCountryHeader');
+  if(active) updatePnlSpotlightCountry();
+  document.body.classList.toggle('pnl-table-spotlight',active);
+  spotlightButton?.setAttribute('aria-pressed',String(active));
+  if(exitButton) exitButton.hidden=!active;
+  if(countryHeader) countryHeader.hidden=!active;
+  if(active){
+    exitButton?.focus();
+  }else{
+    spotlightButton?.focus();
+  }
+}
+
+$('pnlSpotlightBtn')?.addEventListener('click',()=>setPnlTableSpotlight(true));
+$('pnlSpotlightExitBtn')?.addEventListener('click',()=>setPnlTableSpotlight(false));
+
 function pnlNumber(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
@@ -1849,6 +1892,9 @@ $('smSpotlightExitBtn')?.addEventListener('click',()=>setSmTableSpotlight(false)
 document.addEventListener('keydown',event=>{
   if(event.key==='Escape' && document.body.classList.contains('sm-table-spotlight')){
     setSmTableSpotlight(false);
+  }
+  if(event.key==='Escape' && document.body.classList.contains('pnl-table-spotlight')){
+    setPnlTableSpotlight(false);
   }
 });
 
