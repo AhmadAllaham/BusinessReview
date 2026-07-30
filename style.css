@@ -2247,7 +2247,12 @@ body.sm-table-spotlight{
   overflow:hidden;
 }
 
-body.sm-table-spotlight::before{
+body.pnl-table-spotlight{
+  overflow:hidden;
+}
+
+body.sm-table-spotlight::before,
+body.pnl-table-spotlight::before{
   content:"";
   position:fixed;
   inset:0;
@@ -2270,7 +2275,26 @@ body.sm-table-spotlight #smExpensesSection .sm-table-scroll{
   animation:smSpotlightOpen .24s ease-out both;
 }
 
+body.pnl-table-spotlight #pnlSection .pnl-table-wrap{
+  position:fixed;
+  inset:24px;
+  z-index:9998;
+  margin:0;
+  padding:62px 24px 28px;
+  border:1px solid rgba(255,255,255,.75);
+  border-radius:18px;
+  background:#fff;
+  box-shadow:0 28px 80px rgba(0,0,0,.38);
+  overflow:auto;
+  animation:smSpotlightOpen .24s ease-out both;
+}
+
 body.sm-table-spotlight #smSimpleTable{
+  width:min(1440px,100%);
+  margin:0 auto;
+}
+
+body.pnl-table-spotlight #pnlTable{
   width:min(1440px,100%);
   margin:0 auto;
 }
@@ -2282,6 +2306,18 @@ body.sm-table-spotlight #smSimpleTable thead .sm-statement-group-head th{
 }
 
 body.sm-table-spotlight #smSimpleTable thead .sm-statement-column-head th{
+  position:sticky;
+  top:90px;
+  z-index:5;
+}
+
+body.pnl-table-spotlight #pnlTable thead .pnl-group-head th{
+  position:sticky;
+  top:55px;
+  z-index:4;
+}
+
+body.pnl-table-spotlight #pnlTable thead .pnl-sub-head th{
   position:sticky;
   top:90px;
   z-index:5;
@@ -2378,7 +2414,8 @@ body.sm-table-spotlight #smSimpleTable thead .sm-statement-column-head th{
 }
 
 @media(max-width:700px){
-  body.sm-table-spotlight #smExpensesSection .sm-table-scroll{
+  body.sm-table-spotlight #smExpensesSection .sm-table-scroll,
+  body.pnl-table-spotlight #pnlSection .pnl-table-wrap{
     inset:10px;
     padding:54px 10px 18px;
     border-radius:13px;
@@ -2409,7 +2446,8 @@ body.sm-table-spotlight #smSimpleTable thead .sm-statement-column-head th{
 }
 
 @media(prefers-reduced-motion:reduce){
-  body.sm-table-spotlight #smExpensesSection .sm-table-scroll{
+  body.sm-table-spotlight #smExpensesSection .sm-table-scroll,
+  body.pnl-table-spotlight #pnlSection .pnl-table-wrap{
     animation:none;
   }
 }
