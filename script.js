@@ -803,6 +803,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 
 let pnlRawData = [];
 let pnlViewMode = 'full';
+let pnlCurrency = 'USD';
+const PNL_USD_TO_JOD = 0.709;
 
 const pnlLineConfig = [
   { key: 'grossSales', label: 'Gross Sales' },
@@ -835,6 +837,18 @@ document.querySelectorAll('[data-pnl-view]').forEach(button=>{
   button.addEventListener('click',()=>{
     pnlViewMode=button.dataset.pnlView||'full';
     document.querySelectorAll('[data-pnl-view]').forEach(option=>{
+      const active=option===button;
+      option.classList.toggle('active',active);
+      option.setAttribute('aria-pressed',String(active));
+    });
+    renderPnlVertical();
+  });
+});
+
+document.querySelectorAll('[data-pnl-currency]').forEach(button=>{
+  button.addEventListener('click',()=>{
+    pnlCurrency=button.dataset.pnlCurrency==='JOD'?'JOD':'USD';
+    document.querySelectorAll('[data-pnl-currency]').forEach(option=>{
       const active=option===button;
       option.classList.toggle('active',active);
       option.setAttribute('aria-pressed',String(active));
@@ -946,6 +960,13 @@ function pnlScenarioTotals(rows, scenario) {
   return result;
 }
 
+function pnlConvertCurrency(totals) {
+  const rate=pnlCurrency==='JOD'?PNL_USD_TO_JOD:1;
+  return Object.fromEntries(
+    Object.entries(totals).map(([key,value])=>[key,pnlNumber(value)*rate])
+  );
+}
+
 function pnlVarianceClass(value) {
   return value > 0 ? 'pnl-positive' : value < 0 ? 'pnl-negative' : '';
 }
@@ -960,9 +981,9 @@ function pnlRatio(value, netSales) {
 
 function renderPnlVertical() {
   const rows = pnlFilteredRows();
-  const actual = pnlScenarioTotals(rows, 'Actual');
-  const budget = pnlScenarioTotals(rows, 'Budget');
-  const ly = pnlScenarioTotals(rows, 'LY');
+  const actual = pnlConvertCurrency(pnlScenarioTotals(rows, 'Actual'));
+  const budget = pnlConvertCurrency(pnlScenarioTotals(rows, 'Budget'));
+  const ly = pnlConvertCurrency(pnlScenarioTotals(rows, 'LY'));
 
   const table = $('pnlTable');
   if (!table) return;
@@ -974,9 +995,9 @@ function renderPnlVertical() {
     <thead>
       <tr class="pnl-group-head">
         <th rowspan="2">Consolidated P&amp;L</th>
-        <th rowspan="2">Actual</th>
-        <th rowspan="2">Budget</th>
-        <th rowspan="2">LY</th>
+        <th rowspan="2">Actual (${pnlCurrency})</th>
+        <th rowspan="2">Budget (${pnlCurrency})</th>
+        <th rowspan="2">LY (${pnlCurrency})</th>
         <th colspan="2">Vs Budget</th>
         <th colspan="2">Vs Last Year</th>
       </tr>
