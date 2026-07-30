@@ -452,6 +452,9 @@ function aggregate(rows,dim,lySource=filteredLY()){
   return [...m.values()];
 }
 
+let performanceCurrency='USD';
+const PERFORMANCE_USD_TO_JOD=0.709;
+
 function renderAll(){if(!rawData.length)return;const rows=filtered();renderSalesTable(rows);renderFocTable(rows);}
 
 function renderSalesTable(rows){
@@ -462,7 +465,8 @@ function renderSalesTable(rows){
 }
 
 function salesStatementValue(value){
-  const rounded=Math.round(Number(value)||0);
+  const rate=performanceCurrency==='JOD'?PERFORMANCE_USD_TO_JOD:1;
+  const rounded=Math.round((Number(value)||0)*rate);
   return rounded<0
     ? `(${Math.abs(rounded).toLocaleString('en-US')})`
     : rounded.toLocaleString('en-US');
@@ -509,16 +513,16 @@ function salesStatementTableHtml(rows,dimension){
   let html=`<thead>
     <tr class="sales-statement-group-head">
       <th rowspan="2" data-sort-index="0">${esc(dimensionLabel)}</th>
-      <th rowspan="2" data-sort-index="1">Actual</th>
-      <th rowspan="2" data-sort-index="2">Budget</th>
-      <th rowspan="2" data-sort-index="3">LY</th>
+      <th rowspan="2" data-sort-index="1">Actual (${performanceCurrency})</th>
+      <th rowspan="2" data-sort-index="2">Budget (${performanceCurrency})</th>
+      <th rowspan="2" data-sort-index="3">LY (${performanceCurrency})</th>
       <th colspan="2" data-no-sort="true">Vs. Budget</th>
       <th colspan="2" data-no-sort="true">Vs. Last Year</th>
     </tr>
     <tr class="sales-statement-sub-head">
-      <th data-sort-index="4">$</th>
+      <th data-sort-index="4">${performanceCurrency}</th>
       <th data-sort-index="5">%</th>
-      <th data-sort-index="6">$</th>
+      <th data-sort-index="6">${performanceCurrency}</th>
       <th data-sort-index="7">%</th>
     </tr>
   </thead><tbody>`;
@@ -578,15 +582,15 @@ function focTableHtml(rows,totals,dimension='Name'){
   let h=`<thead>
     <tr class="foc-statement-group-head">
       <th rowspan="2" data-sort-index="0">${esc(dimensionLabel)}</th>
-      <th rowspan="2" data-sort-index="1">Actual</th>
+      <th rowspan="2" data-sort-index="1">Actual (${performanceCurrency})</th>
       <th colspan="2" data-no-sort="true">Actual FG</th>
       <th colspan="2" data-no-sort="true">Budget FG</th>
       <th rowspan="2" data-sort-index="6">FG Variance %</th>
     </tr>
     <tr class="foc-statement-sub-head">
-      <th data-sort-index="2">$</th>
+      <th data-sort-index="2">${performanceCurrency}</th>
       <th data-sort-index="3">%</th>
-      <th data-sort-index="4">$</th>
+      <th data-sort-index="4">${performanceCurrency}</th>
       <th data-sort-index="5">%</th>
     </tr>
   </thead><tbody>`;
@@ -612,6 +616,116 @@ function focTableHtml(rows,totals,dimension='Name'){
   }
   return h+'</tbody>';
 }
+
+function rerenderOpenCountryModal(){
+  if(!$('countryModal')?.classList.contains('open')) return;
+  if(detailMode==='foc-product'){
+    renderFocGroupProducts(activeFocGroup);
+  }else if(detailMode==='foc'){
+    renderFocCountryGroups();
+  }else if(activeBrand){
+    renderBrandProducts(activeBrand);
+  }else{
+    renderCountryBrands();
+  }
+}
+
+document.querySelectorAll('[data-performance-currency]').forEach(button=>{
+  button.addEventListener('click',()=>{
+    performanceCurrency=button.dataset.performanceCurrency==='JOD'?'JOD':'USD';
+    document.querySelectorAll('[data-performance-currency]').forEach(option=>{
+      const active=option.dataset.performanceCurrency===performanceCurrency;
+      option.classList.toggle('active',active);
+      option.setAttribute('aria-pressed',String(active));
+    });
+    renderAll();
+    rerenderOpenCountryModal();
+  });
+});
+
+let performanceSpotlightState=null;
+
+function updatePerformanceSpotlightHeader(type){
+  const header=$(`${type}SpotlightCountryHeader`);
+  const flag=$(`${type}SpotlightCountryFlag`);
+  const name=$(`${type}SpotlightCountryName`);
+  if(!header || !flag || !name) return;
+
+  const selected=getSelected('countryFilter');
+  const available=[...new Set(
+    filtered().map(row=>String(row.Country||'').trim()).filter(Boolean)
+  )].sort((a,b)=>a.localeCompare(b));
+  const countries=selected.length?selected:available;
+  const singleCountry=countries.length===1?countries[0]:'';
+  const code=singleCountry?countryFlagCode(singleCountry):'';
+
+  name.textContent=singleCountry || (
+    selected.length>1 ? selected.join(' · ') : 'All Markets'
+  );
+  flag.hidden=!code;
+  flag.src=code?countryFlagDataUri(code):'';
+  flag.alt=code?`${singleCountry} flag`:'';
+  flag.title=singleCountry;
+  flag.onerror=()=>{ flag.hidden=true; };
+}
+
+function setPerformanceTableSpotlight(type,active){
+  const button=$(`${type}SpotlightBtn`);
+  const exitButton=$(`${type}SpotlightExitBtn`);
+  const header=$(`${type}SpotlightCountryHeader`);
+
+  if(active){
+    if(performanceSpotlightState){
+      setPerformanceTableSpotlight(performanceSpotlightState.type,false);
+    }
+    const tableWrap=$(`${type}Section`)?.querySelector('.sales-foc-table-scroll');
+    if(!tableWrap) return;
+
+    performanceSpotlightState={
+      type,
+      tableWrap,
+      parent:tableWrap.parentNode,
+      nextSibling:tableWrap.nextSibling
+    };
+    updatePerformanceSpotlightHeader(type);
+    tableWrap.classList.add('performance-spotlight-stage');
+    tableWrap.dataset.spotlightType=type;
+    document.body.appendChild(tableWrap);
+    tableWrap.scrollTop=0;
+    tableWrap.scrollLeft=0;
+    document.body.classList.add('performance-table-spotlight');
+  }else if(performanceSpotlightState?.type===type){
+    const state=performanceSpotlightState;
+    state.tableWrap.classList.remove('performance-spotlight-stage');
+    delete state.tableWrap.dataset.spotlightType;
+    if(state.parent){
+      if(state.nextSibling && state.nextSibling.parentNode===state.parent){
+        state.parent.insertBefore(state.tableWrap,state.nextSibling);
+      }else{
+        state.parent.appendChild(state.tableWrap);
+      }
+    }
+    performanceSpotlightState=null;
+    document.body.classList.remove('performance-table-spotlight');
+  }
+
+  button?.setAttribute('aria-pressed',String(active));
+  if(exitButton) exitButton.hidden=!active;
+  if(header) header.hidden=!active;
+  if(active) exitButton?.focus();
+  else button?.focus();
+}
+
+$('salesSpotlightBtn')?.addEventListener('click',()=>setPerformanceTableSpotlight('sales',true));
+$('salesSpotlightExitBtn')?.addEventListener('click',()=>setPerformanceTableSpotlight('sales',false));
+$('focSpotlightBtn')?.addEventListener('click',()=>setPerformanceTableSpotlight('foc',true));
+$('focSpotlightExitBtn')?.addEventListener('click',()=>setPerformanceTableSpotlight('foc',false));
+document.addEventListener('keydown',event=>{
+  if(event.key==='Escape' && performanceSpotlightState){
+    setPerformanceTableSpotlight(performanceSpotlightState.type,false);
+  }
+});
+
 function tableHtml(headers,rows,total=false,foc=false){
   let h='<thead><tr>'+headers.map(x=>`<th>${esc(x)}</th>`).join('')+'</tr></thead><tbody>';
   rows.forEach(row=>h+='<tr>'+row.map((v,i)=>cell(v,i,foc)).join('')+'</tr>');
@@ -742,7 +856,7 @@ function focDetailRows(){
   return detailBaseRows().filter(r=>String(r.Type||'').toUpperCase()==='IMS');
 }
 
-function focDetailTableHtml(rows, totalLabel='Total'){
+function focDetailTableHtml(rows,totalLabel='Total',dimension='Name'){
   const totals=rows.reduce(
     (t,r)=>({
       actual:t.actual+r.actual,
@@ -752,7 +866,7 @@ function focDetailTableHtml(rows, totalLabel='Total'){
     {actual:0,actualFoc:0,budgetFoc:0}
   );
 
-  let html=focTableHtml(rows,totals);
+  let html=focTableHtml(rows,totals,dimension);
   if(totalLabel!=='Total'){
     html=html.replace('<td>Total</td>',`<td>${esc(totalLabel)}</td>`);
   }
@@ -771,14 +885,8 @@ function renderCountryBrands(){
 
   const data=aggregate(detailBaseRows(),'Brand',detailLyRows()).sort((a,b)=>b.actual-a.actual);
   $('countryDetailCount').textContent=`${data.length} brands`;
-  $('countryDetailTable').innerHTML=tableHtml(
-    ['Brand','Products','Actual','Budget','Vs Budget','Vs Budget %','LY','Vs LY','Vs LY %'],
-    data.map(x=>[
-      x.name,x.products.size,x.actual,x.budget,x.actual-x.budget,
-      pct(x.actual-x.budget,x.budget),x.ly,x.actual-x.ly,pct(x.actual-x.ly,x.ly)
-    ]),
-    true
-  );
+  $('countryDetailTable').className='sales-statement-detail';
+  $('countryDetailTable').innerHTML=salesStatementTableHtml(data,'Brand');
 
   [...$('countryDetailTable').querySelectorAll('tbody tr:not(.total-row) td:first-child')]
     .forEach(td=>{
@@ -801,14 +909,8 @@ function renderBrandProducts(brand){
   const data=aggregate(rows,'Product Name',lyRows).sort((a,b)=>b.actual-a.actual);
 
   $('countryDetailCount').textContent=`${data.length} products`;
-  $('countryDetailTable').innerHTML=tableHtml(
-    ['Product','Actual','Budget','Vs Budget','Vs Budget %','LY','Vs LY','Vs LY %'],
-    data.map(x=>[
-      x.name,x.actual,x.budget,x.actual-x.budget,
-      pct(x.actual-x.budget,x.budget),x.ly,x.actual-x.ly,pct(x.actual-x.ly,x.ly)
-    ]),
-    true
-  );
+  $('countryDetailTable').className='sales-statement-detail';
+  $('countryDetailTable').innerHTML=salesStatementTableHtml(data,'Product');
 }
 
 function renderFocCountryGroups(){
@@ -834,7 +936,12 @@ function renderFocCountryGroups(){
   });
 
   $('countryDetailCount').textContent=`${tableRows.length} product groups`;
-  $('countryDetailTable').innerHTML=focDetailTableHtml(tableRows);
+  $('countryDetailTable').className='foc-statement-detail';
+  $('countryDetailTable').innerHTML=focDetailTableHtml(
+    tableRows,
+    'Total',
+    'Product Group'
+  );
 
   [...$('countryDetailTable').querySelectorAll('tbody tr:not(.total-row) td:first-child')]
     .forEach(td=>{
@@ -871,7 +978,12 @@ function renderFocGroupProducts(group){
   });
 
   $('countryDetailCount').textContent=`${tableRows.length} products`;
-  $('countryDetailTable').innerHTML=focDetailTableHtml(tableRows);
+  $('countryDetailTable').className='foc-statement-detail';
+  $('countryDetailTable').innerHTML=focDetailTableHtml(
+    tableRows,
+    'Total',
+    'Product'
+  );
 }
 
 $('backToBrands').addEventListener('click',()=>{
