@@ -1007,10 +1007,10 @@ function renderPnlVertical() {
         <td class="${pnlAmountClass(a)}">${pnlFormat(a)}</td>
         <td class="${pnlAmountClass(b)}">${pnlFormat(b)}</td>
         <td class="${pnlAmountClass(l)}">${pnlFormat(l)}</td>
-        <td class="${pnlVarianceClass(vb)}">${pnlFormat(vb)}</td>
-        <td class="pnl-percent ${pnlVarianceClass(vb)}">${pnlPercent(vb,b)}</td>
-        <td class="${pnlVarianceClass(vl)}">${pnlFormat(vl)}</td>
-        <td class="pnl-percent ${pnlVarianceClass(vl)}">${pnlPercent(vl,l)}</td>
+        <td class="${pnlVarianceClass(vb)} ${pnlAmountClass(vb)}">${pnlFormat(vb)}</td>
+        <td class="pnl-percent ${pnlVarianceClass(vb)} ${pnlAmountClass(vb)}">${pnlPercent(vb,b)}</td>
+        <td class="${pnlVarianceClass(vl)} ${pnlAmountClass(vl)}">${pnlFormat(vl)}</td>
+        <td class="pnl-percent ${pnlVarianceClass(vl)} ${pnlAmountClass(vl)}">${pnlPercent(vl,l)}</td>
       </tr>`;
   });
 
@@ -1027,12 +1027,15 @@ function renderPnlVertical() {
       return row.absolute?Math.abs(ratio):ratio;
     };
     const formatRatio=value=>`${(value*100).toFixed(1)}%`;
+    const actualRatio=ratioValue(actual[row.numerator],actual.netSales);
+    const budgetRatio=ratioValue(budget[row.numerator],budget.netSales);
+    const lyRatio=ratioValue(ly[row.numerator],ly.netSales);
     html += `
       <tr class="pnl-statement-ratio">
         <td>${row.label}</td>
-        <td>${formatRatio(ratioValue(actual[row.numerator],actual.netSales))}</td>
-        <td>${formatRatio(ratioValue(budget[row.numerator],budget.netSales))}</td>
-        <td>${formatRatio(ratioValue(ly[row.numerator],ly.netSales))}</td>
+        <td class="${pnlAmountClass(actualRatio)}">${formatRatio(actualRatio)}</td>
+        <td class="${pnlAmountClass(budgetRatio)}">${formatRatio(budgetRatio)}</td>
+        <td class="${pnlAmountClass(lyRatio)}">${formatRatio(lyRatio)}</td>
         <td colspan="4"></td>
       </tr>`;
   });
@@ -1046,9 +1049,19 @@ function renderPnlVertical() {
   const actualGpMargin = actual.netSales ? actual.grossProfit / actual.netSales : 0;
   const budgetGpMargin = budget.netSales ? budget.grossProfit / budget.netSales : 0;
 
-  $('pnlNetSalesKpi').textContent = pnlFormat(actual.netSales);
-  $('pnlGrossProfitKpi').textContent = pnlFormat(actual.grossProfit);
-  $('pnlNetIncomeKpi').textContent = pnlFormat(actual.netIncome);
+  const netSalesKpi = $('pnlNetSalesKpi');
+  const grossProfitKpi = $('pnlGrossProfitKpi');
+  const netIncomeKpi = $('pnlNetIncomeKpi');
+  netSalesKpi.textContent = pnlFormat(actual.netSales);
+  grossProfitKpi.textContent = pnlFormat(actual.grossProfit);
+  netIncomeKpi.textContent = pnlFormat(actual.netIncome);
+  [
+    [netSalesKpi, actual.netSales],
+    [grossProfitKpi, actual.grossProfit],
+    [netIncomeKpi, actual.netIncome]
+  ].forEach(([element,value])=>{
+    element.classList.toggle('pnl-kpi-negative',value<0);
+  });
   $('pnlGpMarginKpi').textContent = `${(actualGpMargin*100).toFixed(1)}%`;
 
   const netEl = $('pnlNetSalesVar');
