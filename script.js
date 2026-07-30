@@ -794,7 +794,7 @@ const pnlLineConfig = [
   { key: 'cogs', label: 'COGS' },
   { key: 'grossProfit', label: 'Gross Profit', subtotal: true },
   { key: 'sm', label: 'S&M' },
-  { key: 'netIncome', label: 'Net Income', total: true }
+  { key: 'netIncome', label: 'Net Income', subtotal: true }
 ];
 
 function pnlNumber(v) {
