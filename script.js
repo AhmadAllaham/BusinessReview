@@ -1766,9 +1766,9 @@ function renderSmExpenses(){
       <td>${esc(row.expense)}</td>
       <td>${smSimpleFormat(row.actual)}</td>
       <td>${smSimpleFormat(row.budget)}</td>
+      <td>${smSimpleFormat(row.ly)}</td>
       <td class="${smSimpleCellClass(vsBudget,true)}">${smSimpleFormat(vsBudget)}</td>
       <td class="${smSimpleCellClass(vsBudgetPct,false)}">${smSimplePercent(vsBudgetPct)}</td>
-      <td>${smSimpleFormat(row.ly)}</td>
       <td class="${smSimpleCellClass(vsLy,true)}">${smSimpleFormat(vsLy)}</td>
       <td class="${smSimpleCellClass(vsLyPct,false)}">${smSimplePercent(vsLyPct)}</td>
     </tr>`;
@@ -1783,9 +1783,9 @@ function renderSmExpenses(){
     <td>Total</td>
     <td>${smSimpleFormat(totals.actual)}</td>
     <td>${smSimpleFormat(totals.budget)}</td>
+    <td>${smSimpleFormat(totals.ly)}</td>
     <td class="${smSimpleCellClass(totalVsBudget,true)}">${smSimpleFormat(totalVsBudget)}</td>
     <td class="${smSimpleCellClass(totalVsBudgetPct,false)}">${smSimplePercent(totalVsBudgetPct)}</td>
-    <td>${smSimpleFormat(totals.ly)}</td>
     <td class="${smSimpleCellClass(totalVsLy,true)}">${smSimpleFormat(totalVsLy)}</td>
     <td class="${smSimpleCellClass(totalVsLyPct,false)}">${smSimplePercent(totalVsLyPct)}</td>
   </tr>`);
@@ -2063,10 +2063,11 @@ function smCellValue(tr,index){
 function bindSmSort(){
   const table=document.getElementById("smSimpleTable");
   if(!table) return;
-  const headers=table.tHead?.rows[0]?.cells;
-  if(!headers) return;
+  const headers=table.tHead?.querySelectorAll("[data-sm-sort-index]");
+  if(!headers?.length) return;
 
-  [...headers].forEach((th,i)=>{
+  [...headers].forEach(th=>{
+    const i=Number(th.dataset.smSortIndex);
     if(th.dataset.sortBound) return;
     th.dataset.sortBound="1";
     th.style.cursor="pointer";
