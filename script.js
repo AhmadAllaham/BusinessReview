@@ -1549,6 +1549,25 @@ function smSimpleAmount(value){
   return Number.isFinite(amount) ? (negative ? -Math.abs(amount) : amount) : 0;
 }
 
+function smSimplePeriod(value){
+  const normalized=String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/&/g,'and')
+    .replace(/[^a-z0-9]+/g,'');
+  if(
+    normalized==='ly' ||
+    normalized==='py' ||
+    normalized.startsWith('ly') ||
+    normalized.includes('lastyear') ||
+    normalized.includes('previousyear') ||
+    normalized.includes('prioryear')
+  ) return 'ly';
+  if(normalized.includes('budget') || normalized==='bud' || normalized==='bdg') return 'budget';
+  if(normalized.includes('actual') || normalized==='act') return 'actual';
+  return normalized;
+}
+
 function smSimpleNormalize(raw){
   const get = name => {
     const key = Object.keys(raw).find(k => String(k).trim().toLowerCase() === name.toLowerCase());
@@ -1599,7 +1618,7 @@ function smSimplePopulateFilters(){
 
   const filterData = smSimpleFilterData();
   const actualMonthKeys = [...new Set(smSimpleRows
-    .filter(r=>String(r.Period).toLowerCase()==='actual')
+    .filter(r=>smSimplePeriod(r.Period)==='actual')
     .map(smSimpleMonthKey)
     .filter(Boolean))]
     .sort()
@@ -1632,7 +1651,7 @@ function smSimpleAggregate(){
   const selectedCountries = getSelected('smSimpleCountryFilter');
 
   const actualMonthKeys = [...new Set(smSimpleRows
-    .filter(r=>String(r.Period).toLowerCase()==='actual')
+    .filter(r=>smSimplePeriod(r.Period)==='actual')
     .map(smSimpleMonthKey)
     .filter(Boolean))]
     .sort()
@@ -1657,7 +1676,14 @@ function smSimpleAggregate(){
 
   const map = new Map();
   const getItem = expense => {
-    if(!map.has(expense)) map.set(expense,{expense,actual:0,budget:0,ly:0});
+    if(!map.has(expense)) map.set(expense,{
+      expense,
+      actual:0,
+      budget:0,
+      ly:0,
+      explicitLy:new Map(),
+      priorActual:new Map()
+    });
     return map.get(expense);
   };
 
@@ -1669,18 +1695,42 @@ function smSimpleAggregate(){
 
     const rowYear = d.getUTCFullYear();
     const rowMonth = d.getUTCMonth()+1;
-    const period = String(row.Period).trim().toLowerCase();
+    const period = smSimplePeriod(row.Period);
     const item = getItem(row.Expense || 'Unassigned');
 
     selectedPeriods.forEach(({year,month})=>{
       if(rowMonth !== month) return;
+      const periodKey=`${year}-${String(month).padStart(2,'0')}`;
       if(rowYear === year && period === 'actual') item.actual += Math.abs(row.Amount);
       if(rowYear === year && period === 'budget') item.budget += Math.abs(row.Amount);
-      if(rowYear === year-1 && period === 'actual') item.ly += Math.abs(row.Amount);
+      if(rowYear === year-1 && period === 'actual'){
+        item.priorActual.set(
+          periodKey,
+          (item.priorActual.get(periodKey) || 0) + Math.abs(row.Amount)
+        );
+      }
+      if((rowYear === year || rowYear === year-1) && period === 'ly'){
+        item.explicitLy.set(
+          periodKey,
+          (item.explicitLy.get(periodKey) || 0) + Math.abs(row.Amount)
+        );
+      }
     });
   });
 
-  return [...map.values()]
+  return [...map.values()].map(item=>{
+    item.ly=selectedPeriods.reduce((total,{year,month})=>{
+      const periodKey=`${year}-${String(month).padStart(2,'0')}`;
+      return total + (
+        item.explicitLy.has(periodKey)
+          ? item.explicitLy.get(periodKey)
+          : (item.priorActual.get(periodKey) || 0)
+      );
+    },0);
+    delete item.explicitLy;
+    delete item.priorActual;
+    return item;
+  })
     .filter(x=>x.actual || x.budget || x.ly)
     .sort((a,b)=>b.actual-a.actual);
 }
