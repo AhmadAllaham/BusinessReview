@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Business Review</title>
-  <link rel="stylesheet" href="style.css?v=20260730-20" />
+  <link rel="stylesheet" href="style.css?v=20260730-21" />
 </head>
 <body>
   <header class="app-header">
@@ -111,10 +111,31 @@
           <span id="salesCount">0 rows</span>
           <div class="toolbar-actions">
             <span class="legend"><i class="dot favorable"></i> Favorable <i class="dot unfavorable"></i> Unfavorable</span>
+            <div class="pnl-currency-switch performance-currency-switch" role="group" aria-label="Sales currency">
+              <button class="active" type="button" data-performance-currency="USD" aria-pressed="true">USD</button>
+              <button type="button" data-performance-currency="JOD" aria-pressed="false">JOD</button>
+            </div>
+            <button id="salesSpotlightBtn" class="sm-spotlight-btn" type="button" aria-pressed="false">
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path>
+              </svg>
+              <span>Spotlight</span>
+            </button>
             <button class="excel-export-btn" type="button" data-export-report="sales">Export Excel</button>
           </div>
         </div>
         <div class="sm-table-scroll sales-foc-table-scroll"><table id="salesTable" class="sm-reference-table sales-foc-reference-table"></table></div>
+        <div id="salesSpotlightCountryHeader" class="sm-spotlight-country" hidden>
+          <img id="salesSpotlightCountryFlag" alt="" hidden>
+          <div>
+            <span>Selected market</span>
+            <strong id="salesSpotlightCountryName">All Markets</strong>
+          </div>
+        </div>
+        <button id="salesSpotlightExitBtn" class="sm-spotlight-exit" type="button" hidden>
+          <span aria-hidden="true">×</span>
+          Exit spotlight
+        </button>
       </article>
     </section>
 
@@ -141,9 +162,32 @@
         </div>
         <div class="table-toolbar">
           <span id="focCount">0 rows</span>
-          <button class="excel-export-btn" type="button" data-export-report="foc">Export Excel</button>
+          <div class="toolbar-actions">
+            <div class="pnl-currency-switch performance-currency-switch" role="group" aria-label="FOC currency">
+              <button class="active" type="button" data-performance-currency="USD" aria-pressed="true">USD</button>
+              <button type="button" data-performance-currency="JOD" aria-pressed="false">JOD</button>
+            </div>
+            <button id="focSpotlightBtn" class="sm-spotlight-btn" type="button" aria-pressed="false">
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path>
+              </svg>
+              <span>Spotlight</span>
+            </button>
+            <button class="excel-export-btn" type="button" data-export-report="foc">Export Excel</button>
+          </div>
         </div>
         <div class="sm-table-scroll sales-foc-table-scroll"><table id="focTable" class="sm-reference-table sales-foc-reference-table"></table></div>
+        <div id="focSpotlightCountryHeader" class="sm-spotlight-country" hidden>
+          <img id="focSpotlightCountryFlag" alt="" hidden>
+          <div>
+            <span>Selected market</span>
+            <strong id="focSpotlightCountryName">All Markets</strong>
+          </div>
+        </div>
+        <button id="focSpotlightExitBtn" class="sm-spotlight-exit" type="button" hidden>
+          <span aria-hidden="true">×</span>
+          Exit spotlight
+        </button>
       </article>
     </section>
 
@@ -407,7 +451,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="firebase-client.js"></script>
-  <script src="script.js?v=20260730-14"></script>
+  <script src="script.js?v=20260730-15"></script>
   <script src="dashboard-firebase.js"></script>
 </body>
 </html>
