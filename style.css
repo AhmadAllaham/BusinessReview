@@ -1917,11 +1917,15 @@ body.stock-level-view .sales-header-upload{
 }
 
 #pnlTable td.pnl-amount-negative{
-  color:#ef2525;
+  color:#ef2525 !important;
 }
 
 #pnlTable tbody tr.pnl-statement-total td.pnl-amount-negative{
-  color:#ff5b62;
+  color:#ff5b62 !important;
+}
+
+.pnl-summary-box strong.pnl-kpi-negative{
+  color:#ef2525;
 }
 
 #pnlTable tbody tr.pnl-ratio-spacer td{
