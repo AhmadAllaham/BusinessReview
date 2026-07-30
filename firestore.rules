@@ -20,8 +20,12 @@ service cloud.firestore {
         currentProfile().role == "admin";
     }
 
-    function activeDatasetId(reportType) {
-      return get(/databases/$(database)/documents/system/activeDatasets).data[reportType];
+    function activeDataset(datasetId) {
+      let active = get(/databases/$(database)/documents/system/activeDatasets).data;
+      return datasetId == active.sales ||
+        datasetId == active.pnl ||
+        datasetId == active.sm ||
+        datasetId == active.stock;
     }
 
     function allowedCountry(country) {
@@ -54,7 +58,7 @@ service cloud.firestore {
       allow read: if adminUser() ||
         (
           allowedCountry(resource.data.country) &&
-          resource.data.datasetId == activeDatasetId(resource.data.reportType)
+          activeDataset(resource.data.datasetId)
         );
       allow create, update, delete: if adminUser();
     }
