@@ -266,6 +266,20 @@ function getSelected(id){return $(id)?._getSelected?.()||[];}
 function captureSelections(ids){
   return Object.fromEntries(ids.map(id=>[id,getSelected(id)]));
 }
+function constrainChildrenToParent(data,selections,parentId,childIds){
+  const parentValues=selections[parentId]||[];
+  if(!parentValues.length)return;
+  const parentColumn=$(parentId).dataset.column;
+  const parentRows=data.filter(row=>
+    parentValues.includes(String(row[parentColumn]??''))
+  );
+  childIds.forEach(childId=>{
+    const childColumn=$(childId).dataset.column;
+    const available=new Set(uniqueValues(parentRows,childColumn));
+    selections[childId]=(selections[childId]||[])
+      .filter(value=>available.has(String(value)));
+  });
+}
 function rowsForFilterOptions(data,ids,selections,excludeId){
   return data.filter(r=>ids.every(id=>{
     if(id===excludeId)return true;
@@ -296,14 +310,19 @@ function rebuildDependentFilters(data,ids,selections,onApply){
     createMultiFilter(el,optionRows,col,()=>onApply(id),stable[id]||[]);
   });
 }
-function buildAllSalesFilters(reset=false){
+function buildAllSalesFilters(reset=false,changedId=''){
   const years=uniqueValues(rawData,'Year').map(Number).filter(Number.isFinite);
   const latestYear=years.length?String(Math.max(...years)):'';
   const selections=reset
     ?Object.fromEntries(salesFilterIds.map(id=>[id,id==='yearFilter'&&latestYear?[latestYear]:[]]))
     :captureSelections(salesFilterIds);
-  rebuildDependentFilters(rawData,salesFilterIds,selections,()=>{
-    buildAllSalesFilters(false);
+  if(changedId==='countryFilter'){
+    constrainChildrenToParent(rawData,selections,'countryFilter',[
+      'sectorFilter','agentFilter','groupFilter','productFilter'
+    ]);
+  }
+  rebuildDependentFilters(rawData,salesFilterIds,selections,nextChangedId=>{
+    buildAllSalesFilters(false,nextChangedId);
     renderAll();
   });
 }
@@ -844,20 +863,21 @@ function initPnlFilters() {
 
 }
 
-function rebuildPnlFilters(reset=false) {
-  const ids = ['pnlAgentFilter','pnlMarketFilter','pnlSalesTypeFilter'];
+function rebuildPnlFilters(reset=false,changedId='') {
+  const ids = ['pnlMarketFilter','pnlAgentFilter','pnlSalesTypeFilter'];
   const data = pnlFilterData();
   const selections = reset
     ? Object.fromEntries(ids.map(id => [id, []]))
     : captureSelections(ids);
 
-  ids.forEach(id => {
-    const el = $(id);
-    const column = el.dataset.column;
-    createMultiFilter(el, data, column, () => {
-      rebuildPnlFilters(false);
-      renderPnlVertical();
-    }, selections[id] || []);
+  if(changedId==='pnlMarketFilter'){
+    constrainChildrenToParent(data,selections,'pnlMarketFilter',[
+      'pnlAgentFilter'
+    ]);
+  }
+  rebuildDependentFilters(data,ids,selections,nextChangedId=>{
+    rebuildPnlFilters(false,nextChangedId);
+    renderPnlVertical();
   });
 }
 
@@ -1739,12 +1759,17 @@ function stockNormalize(row){
   };
 }
 
-function buildStockFilters(reset=false){
+function buildStockFilters(reset=false,changedId=''){
   const selections=reset
     ?Object.fromEntries(stockFilterIds.map(id=>[id,[]]))
     :captureSelections(stockFilterIds);
-  rebuildDependentFilters(stockRows,stockFilterIds,selections,()=>{
-    buildStockFilters(false);
+  if(changedId==='stockCountryFilter'){
+    constrainChildrenToParent(stockRows,selections,'stockCountryFilter',[
+      'stockAgentFilter','stockProductGroupFilter'
+    ]);
+  }
+  rebuildDependentFilters(stockRows,stockFilterIds,selections,nextChangedId=>{
+    buildStockFilters(false,nextChangedId);
     renderStockLevel();
   });
 }
