@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Business Review</title>
-  <link rel="stylesheet" href="style.css?v=20260730-12" />
+  <link rel="stylesheet" href="style.css?v=20260730-13" />
 </head>
 <body>
   <header class="app-header">
@@ -327,7 +327,6 @@
 
         <div class="table-toolbar">
           <div class="pnl-toolbar-left">
-            <span id="pnlCount">10 P&amp;L lines</span>
             <div class="pnl-view-switch" role="group" aria-label="P&amp;L display mode">
               <button class="active" type="button" data-pnl-view="full" aria-pressed="true">Full</button>
               <button type="button" data-pnl-view="summary" aria-pressed="false">Gross &amp; Net Sales</button>
@@ -340,6 +339,12 @@
           </div>
           <div class="toolbar-actions">
             <span class="legend"><i class="dot favorable"></i> Favorable <i class="dot unfavorable"></i> Unfavorable</span>
+            <button id="pnlSpotlightBtn" class="sm-spotlight-btn" type="button" aria-pressed="false">
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path>
+              </svg>
+              <span>Spotlight</span>
+            </button>
             <button class="excel-export-btn" type="button" data-export-report="pnl">Export Excel</button>
           </div>
         </div>
@@ -347,6 +352,17 @@
         <div class="table-wrap pnl-table-wrap">
           <table id="pnlTable" class="pnl-vertical-table"></table>
         </div>
+        <div id="pnlSpotlightCountryHeader" class="sm-spotlight-country" hidden>
+          <img id="pnlSpotlightCountryFlag" alt="" hidden>
+          <div>
+            <span>Selected market</span>
+            <strong id="pnlSpotlightCountryName">All Markets</strong>
+          </div>
+        </div>
+        <button id="pnlSpotlightExitBtn" class="sm-spotlight-exit" type="button" hidden>
+          <span aria-hidden="true">×</span>
+          Exit spotlight
+        </button>
       </article>
     </section>
       </div>
@@ -391,7 +407,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="firebase-client.js"></script>
-  <script src="script.js?v=20260730-10"></script>
+  <script src="script.js?v=20260730-11"></script>
   <script src="dashboard-firebase.js"></script>
 </body>
 </html>
