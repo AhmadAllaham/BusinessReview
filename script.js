@@ -802,6 +802,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 // P&L vertical report
 
 let pnlRawData = [];
+let pnlViewMode = 'full';
 
 const pnlLineConfig = [
   { key: 'grossSales', label: 'Gross Sales' },
@@ -815,6 +816,32 @@ const pnlLineConfig = [
   { key: 'sm', label: 'S&M' },
   { key: 'netIncome', label: 'Net Income', subtotal: true }
 ];
+
+function pnlVisibleLines(){
+  if(pnlViewMode==='netSales'){
+    const start=pnlLineConfig.findIndex(line=>line.key==='netSales');
+    return pnlLineConfig.slice(start);
+  }
+  if(pnlViewMode==='summary'){
+    const summaryKeys=new Set([
+      'grossSales','netSales','cogs','grossProfit','sm','netIncome'
+    ]);
+    return pnlLineConfig.filter(line=>summaryKeys.has(line.key));
+  }
+  return pnlLineConfig;
+}
+
+document.querySelectorAll('[data-pnl-view]').forEach(button=>{
+  button.addEventListener('click',()=>{
+    pnlViewMode=button.dataset.pnlView||'full';
+    document.querySelectorAll('[data-pnl-view]').forEach(option=>{
+      const active=option===button;
+      option.classList.toggle('active',active);
+      option.setAttribute('aria-pressed',String(active));
+    });
+    renderPnlVertical();
+  });
+});
 
 function pnlNumber(v) {
   const n = Number(v);
@@ -944,6 +971,9 @@ function renderPnlVertical() {
 
   const table = $('pnlTable');
   if (!table) return;
+  const visibleLines = pnlVisibleLines();
+  const count = $('pnlCount');
+  if (count) count.textContent = `${visibleLines.length} P&L lines`;
 
   let html = `
     <thead>
@@ -960,7 +990,7 @@ function renderPnlVertical() {
     </thead>
     <tbody>`;
 
-  pnlLineConfig.forEach(line => {
+  visibleLines.forEach(line => {
     const a = actual[line.key];
     const b = budget[line.key];
     const l = ly[line.key];
