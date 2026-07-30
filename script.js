@@ -562,7 +562,7 @@ function renderFocTable(rows){
     {actual:0,actualFoc:0,budgetFoc:0}
   );
 
-  $('focTable').innerHTML=focTableHtml(tableRows,totals);
+  $('focTable').innerHTML=focTableHtml(tableRows,totals,dim);
 
   if(dim==='Country'){
     [...$('focTable').querySelectorAll('tbody tr:not(.total-row) td:first-child')]
@@ -573,12 +573,36 @@ function renderFocTable(rows){
       });
   }
 }
-function focTableHtml(rows,totals){
-  const headers=['Name','Actual','Actual FG','Actual FG %','Bud FG','Budget FG %','FG Variance %'];
-  let h='<thead><tr>'+headers.map(x=>`<th>${esc(x)}</th>`).join('')+'</tr></thead><tbody>';
+function focTableHtml(rows,totals,dimension='Name'){
+  const dimensionLabel=dimension==='Country'?'Market':dimension;
+  let h=`<thead>
+    <tr class="foc-statement-group-head">
+      <th rowspan="2" data-sort-index="0">${esc(dimensionLabel)}</th>
+      <th rowspan="2" data-sort-index="1">Actual</th>
+      <th colspan="2" data-no-sort="true">Actual FG</th>
+      <th colspan="2" data-no-sort="true">Budget FG</th>
+      <th rowspan="2" data-sort-index="6">FG Variance %</th>
+    </tr>
+    <tr class="foc-statement-sub-head">
+      <th data-sort-index="2">$</th>
+      <th data-sort-index="3">%</th>
+      <th data-sort-index="4">$</th>
+      <th data-sort-index="5">%</th>
+    </tr>
+  </thead><tbody>`;
   const makeRow=(r,total=false)=>{
     const cls=r.varianceRate<=0?'positive':'negative';
-    return `<tr${total?' class="total-row"':''}><td>${esc(r.name)}</td><td>${fmt(r.actual)}</td><td>${fmt(r.actualFoc)}</td><td>${ratePct(r.actualFoc,r.actual)}</td><td>${fmt(r.budgetFoc)}</td><td>${ratePct(r.budgetFoc,r.actual)}</td><td class="highlight ${cls}">${Math.round(r.varianceRate*100)}%</td></tr>`;
+    const variance=Math.round(r.varianceRate*100);
+    const varianceText=variance<0?`(${Math.abs(variance)}%)`:`${variance}%`;
+    return `<tr${total?' class="total-row"':''}>
+      <td>${esc(r.name)}</td>
+      <td>${salesStatementValue(r.actual)}</td>
+      <td>${salesStatementValue(r.actualFoc)}</td>
+      <td>${salesStatementPercent(r.actualFoc,r.actual)}</td>
+      <td>${salesStatementValue(r.budgetFoc)}</td>
+      <td>${salesStatementPercent(r.budgetFoc,r.actual)}</td>
+      <td class="highlight ${cls}">${varianceText}</td>
+    </tr>`;
   };
   rows.forEach(r=>h+=makeRow(r));
   if(rows.length){
