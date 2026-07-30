@@ -34,6 +34,21 @@
     return [...document.querySelectorAll(`#${targetId} input:checked`)].map(input => input.value);
   }
 
+  function syncUserActivationButton(user) {
+    const button = document.getElementById("toggleUserActiveButton");
+    const activeCheckbox = document.getElementById("editActive");
+    const isSelf = Boolean(user && user.id === session.user.uid);
+    const isActive = !user || user.active !== false;
+
+    button.disabled = !user || isSelf;
+    button.textContent = isActive ? "Deactivate user" : "Reactivate user";
+    button.classList.toggle("danger",isActive);
+    button.classList.toggle("secondary",!isActive);
+    button.title = isSelf ? "You cannot deactivate your own administrator account." : "";
+    activeCheckbox.disabled = !user || isSelf;
+    document.getElementById("editRole").disabled = !user || isSelf;
+  }
+
   async function loadCountries() {
     const snap = await db.collection("system").doc("countries").get();
     countries = snap.exists ? [...new Set(snap.data().values || [])].sort((a,b)=>a.localeCompare(b)) : [];
@@ -112,11 +127,12 @@
     const enabled = Boolean(user);
     document.getElementById("editDisplayName").disabled = !enabled;
     document.getElementById("editRole").disabled = !enabled;
-    document.getElementById("editActive").disabled = !enabled;
     document.getElementById("saveUserButton").disabled = !enabled;
+    syncUserActivationButton(user);
 
     if (!user) {
       document.getElementById("editDisplayName").value = "";
+      document.getElementById("editActive").checked = false;
       countryCheckboxes("editCountryList",[],true);
       return;
     }
@@ -124,6 +140,39 @@
     document.getElementById("editRole").value = user.role || "user";
     document.getElementById("editActive").checked = user.active !== false;
     countryCheckboxes("editCountryList",user.countries || []);
+  });
+
+  document.getElementById("toggleUserActiveButton").addEventListener("click",async () => {
+    const select = document.getElementById("editUserSelect");
+    const user = users.find(item => item.id === select.value);
+    if (!user || user.id === session.user.uid) return;
+
+    const activate = user.active === false;
+    const name = user.displayName || user.email || "this user";
+    if (!activate && !window.confirm(
+      `Deactivate ${name}? They will no longer be able to access the dashboard.`
+    )) return;
+
+    const button = document.getElementById("toggleUserActiveButton");
+    button.disabled = true;
+    try {
+      await db.collection("users").doc(user.id).update({
+        active:activate,
+        updatedBy:session.user.uid,
+        updatedAt:BRPortal.serverTimestamp()
+      });
+      show(
+        "editUserStatus",
+        activate ? "User reactivated successfully." : "User access deactivated successfully.",
+        "success"
+      );
+      await loadUsers();
+      select.value = user.id;
+      select.dispatchEvent(new Event("change"));
+    } catch (error) {
+      show("editUserStatus",error.message || "Could not update the user status.","error");
+      syncUserActivationButton(user);
+    }
   });
 
   document.getElementById("editUserForm").addEventListener("submit",async event => {
