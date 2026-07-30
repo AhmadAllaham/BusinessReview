@@ -1551,6 +1551,106 @@ body.stock-level-view .sales-header-upload{
   color:#ff2d3c;
 }
 
+/* Sales Analysis — consolidated statement layout */
+#salesTable{
+  min-width:920px;
+  border-collapse:separate;
+  border-spacing:0;
+  font-variant-numeric:tabular-nums;
+}
+
+#salesTable thead th{
+  position:static;
+  padding:6px 10px;
+  border:0;
+  background:#0b3158;
+  color:#fff;
+  text-align:center;
+  font-size:12px;
+  font-weight:900;
+  line-height:1.05;
+}
+
+#salesTable thead th::after{
+  display:none;
+}
+
+#salesTable thead .sales-statement-group-head th{
+  border-right:5px solid #fff;
+}
+
+#salesTable thead th[data-no-sort="true"]{
+  cursor:default;
+}
+
+#salesTable thead .sales-statement-group-head th:first-child{
+  width:25%;
+  text-align:left;
+}
+
+#salesTable thead .sales-statement-sub-head th{
+  padding:4px 10px 5px;
+  background:#fff;
+  color:#111827;
+  font-size:10px;
+}
+
+#salesTable tbody td{
+  padding:6px 10px;
+  border:0;
+  background:#fff;
+  color:#111827;
+  font-size:12px;
+  font-weight:500;
+}
+
+#salesTable tbody tr:nth-child(even):not(.total-row),
+#salesTable tbody tr:hover:not(.total-row){
+  background:#fff;
+}
+
+#salesTable tbody tr:nth-child(even):not(.total-row) td,
+#salesTable tbody tr:hover:not(.total-row) td{
+  background:#fff;
+}
+
+#salesTable tbody td:first-child{
+  color:#111827;
+  font-weight:600;
+}
+
+#salesTable .drill-link{
+  color:#111827!important;
+  text-decoration:none;
+}
+
+#salesTable .drill-link:hover{
+  color:#0f766e!important;
+  text-decoration:underline;
+}
+
+#salesTable td.sales-statement-negative,
+#salesTable .total-row td.sales-statement-negative{
+  color:#ff1f2d;
+  background:#fff;
+  font-weight:500;
+}
+
+#salesTable .total-row td{
+  padding-top:7px;
+  padding-bottom:5px;
+  border-top:1px solid #0b3158;
+  border-bottom:1px solid #0b3158;
+  background:#fff;
+  color:#111827;
+  font-weight:900;
+}
+
+#salesTable .total-row td.sales-statement-negative{
+  color:#ff1f2d;
+  font-weight:900;
+}
+
 .country-modal-title-row{
   display:flex;
   align-items:center;
