@@ -2316,16 +2316,10 @@ body.sm-table-spotlight #smSimpleTable thead .sm-statement-column-head th{
   z-index:5;
 }
 
-body.pnl-table-spotlight .pnl-spotlight-stage #pnlTable thead .pnl-group-head th{
-  position:sticky;
-  top:55px;
-  z-index:4;
-}
-
-body.pnl-table-spotlight .pnl-spotlight-stage #pnlTable thead .pnl-sub-head th{
-  position:sticky;
-  top:90px;
-  z-index:5;
+body.pnl-table-spotlight .pnl-spotlight-stage #pnlTable thead th{
+  position:static;
+  top:auto;
+  left:auto;
 }
 
 .sm-spotlight-country{
