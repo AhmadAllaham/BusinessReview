@@ -1856,13 +1856,10 @@ body.stock-level-view .sales-header-upload{
   background:#fff;
 }
 
-/* FOC variance restores full-cell status colors; Total remains neutral */
-#focTable tbody tr:not(.total-row) td:nth-child(7).positive{
-  background:rgba(0,143,90,.09)!important;
-}
-
+/* FOC variance uses text color only; Total remains neutral */
+#focTable tbody tr:not(.total-row) td:nth-child(7).positive,
 #focTable tbody tr:not(.total-row) td:nth-child(7).negative{
-  background:rgba(255,31,45,.08)!important;
+  background:#fff!important;
 }
 
 #focTable .total-row td,
