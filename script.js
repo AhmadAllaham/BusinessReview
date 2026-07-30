@@ -950,17 +950,12 @@ function pnlVarianceClass(value) {
   return value > 0 ? 'pnl-positive' : value < 0 ? 'pnl-negative' : '';
 }
 
+function pnlAmountClass(value) {
+  return value < 0 ? 'pnl-amount-negative' : '';
+}
+
 function pnlRatio(value, netSales) {
   return netSales ? value / netSales : 0;
-}
-
-function pnlRatioFormat(value, netSales) {
-  if (!netSales) return '—';
-  return `${(pnlRatio(value, netSales) * 100).toFixed(1)}%`;
-}
-
-function pnlPointFormat(value) {
-  return `${value >= 0 ? '+' : ''}${(value * 100).toFixed(1)} pp`;
 }
 
 function renderPnlVertical() {
@@ -977,15 +972,19 @@ function renderPnlVertical() {
 
   let html = `
     <thead>
-      <tr>
-        <th>P&amp;L Line</th>
-        <th>Actual</th>
-        <th>Budget</th>
-        <th>LY</th>
-        <th>Vs Budget</th>
-        <th>Vs Budget %</th>
-        <th>Vs LY</th>
-        <th>Vs LY %</th>
+      <tr class="pnl-group-head">
+        <th rowspan="2">Consolidated P&amp;L</th>
+        <th rowspan="2">Actual</th>
+        <th rowspan="2">Budget</th>
+        <th rowspan="2">LY</th>
+        <th colspan="2">Vs Budget</th>
+        <th colspan="2">Vs Last Year</th>
+      </tr>
+      <tr class="pnl-sub-head">
+        <th>Value</th>
+        <th>%</th>
+        <th>Value</th>
+        <th>%</th>
       </tr>
     </thead>
     <tbody>`;
@@ -996,14 +995,18 @@ function renderPnlVertical() {
     const l = ly[line.key];
     const vb = a - b;
     const vl = a - l;
-    const rowClass = line.total ? 'pnl-total' : line.subtotal ? 'pnl-subtotal' : '';
+    const rowClasses = [
+      `pnl-line-${line.key}`,
+      line.subtotal ? 'pnl-subtotal pnl-statement-total' : '',
+      line.key==='cogs' ? 'pnl-cost-row' : ''
+    ].filter(Boolean).join(' ');
 
     html += `
-      <tr class="${rowClass}">
+      <tr class="${rowClasses}">
         <td>${line.label}</td>
-        <td>${pnlFormat(a)}</td>
-        <td>${pnlFormat(b)}</td>
-        <td>${pnlFormat(l)}</td>
+        <td class="${pnlAmountClass(a)}">${pnlFormat(a)}</td>
+        <td class="${pnlAmountClass(b)}">${pnlFormat(b)}</td>
+        <td class="${pnlAmountClass(l)}">${pnlFormat(l)}</td>
         <td class="${pnlVarianceClass(vb)}">${pnlFormat(vb)}</td>
         <td class="pnl-percent ${pnlVarianceClass(vb)}">${pnlPercent(vb,b)}</td>
         <td class="${pnlVarianceClass(vl)}">${pnlFormat(vl)}</td>
@@ -1011,52 +1014,31 @@ function renderPnlVertical() {
       </tr>`;
   });
 
+  const ratioRows = [
+    { label:'COGS', numerator:'cogs', absolute:true },
+    { label:'Gross Profit', numerator:'grossProfit' },
+    { label:'S&M', numerator:'sm', absolute:true },
+    { label:'Net Income', numerator:'netIncome' }
+  ];
+  html += '<tr class="pnl-ratio-spacer"><td colspan="8"></td></tr>';
+  ratioRows.forEach(row=>{
+    const ratioValue=(value,netSales)=>{
+      const ratio=pnlRatio(value,netSales);
+      return row.absolute?Math.abs(ratio):ratio;
+    };
+    const formatRatio=value=>`${(value*100).toFixed(1)}%`;
+    html += `
+      <tr class="pnl-statement-ratio">
+        <td>${row.label}</td>
+        <td>${formatRatio(ratioValue(actual[row.numerator],actual.netSales))}</td>
+        <td>${formatRatio(ratioValue(budget[row.numerator],budget.netSales))}</td>
+        <td>${formatRatio(ratioValue(ly[row.numerator],ly.netSales))}</td>
+        <td colspan="4"></td>
+      </tr>`;
+  });
+
   html += '</tbody>';
   table.innerHTML = html;
-
-  const marginTable = $('pnlMarginTable');
-  if (marginTable) {
-    const marginRows = [
-      { label: 'COGS %', numerator: 'cogs' },
-      { label: 'GP %', numerator: 'grossProfit' },
-      { label: 'S&M %', numerator: 'sm' },
-      { label: 'Net Profit %', numerator: 'netIncome' }
-    ];
-
-    let marginHtml = `
-      <thead>
-        <tr>
-          <th>Margin Analysis</th>
-          <th>Actual</th>
-          <th>Budget</th>
-          <th>LY</th>
-          <th>Vs Budget</th>
-          <th>Vs LY</th>
-        </tr>
-      </thead>
-      <tbody>`;
-
-    marginRows.forEach(row => {
-      const actualRatio = pnlRatio(actual[row.numerator], actual.netSales);
-      const budgetRatio = pnlRatio(budget[row.numerator], budget.netSales);
-      const lyRatio = pnlRatio(ly[row.numerator], ly.netSales);
-      const vsBudgetPoints = actualRatio - budgetRatio;
-      const vsLyPoints = actualRatio - lyRatio;
-
-      marginHtml += `
-        <tr>
-          <td>${row.label}</td>
-          <td>${pnlRatioFormat(actual[row.numerator], actual.netSales)}</td>
-          <td>${pnlRatioFormat(budget[row.numerator], budget.netSales)}</td>
-          <td>${pnlRatioFormat(ly[row.numerator], ly.netSales)}</td>
-          <td class="${pnlVarianceClass(vsBudgetPoints)}">${pnlPointFormat(vsBudgetPoints)}</td>
-          <td class="${pnlVarianceClass(vsLyPoints)}">${pnlPointFormat(vsLyPoints)}</td>
-        </tr>`;
-    });
-
-    marginHtml += '</tbody>';
-    marginTable.innerHTML = marginHtml;
-  }
 
   const netSalesVar = actual.netSales - budget.netSales;
   const gpVar = actual.grossProfit - budget.grossProfit;
@@ -1085,7 +1067,6 @@ function renderPnlVertical() {
     if (v < 0) el.classList.add('negative');
   });
 
-  $('pnlCount').textContent = `${pnlLineConfig.length} P&L lines`;
 }
 
 
@@ -2054,10 +2035,7 @@ renderSmExpenses=function(){
     },
     pnl:{
       file:"Profit_and_Loss",
-      sheets:[
-        {tableId:"pnlTable",name:"P&L"},
-        {tableId:"pnlMarginTable",name:"Margin Analysis"}
-      ]
+      sheets:[{tableId:"pnlTable",name:"P&L"}]
     }
   };
 
