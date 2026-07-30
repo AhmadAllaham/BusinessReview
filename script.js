@@ -1805,12 +1805,38 @@ function initSmSimpleReport(){
 
 initSmSimpleReport();
 
+function updateSmSpotlightCountry(){
+  const header=$('smSpotlightCountryHeader');
+  const flag=$('smSpotlightCountryFlag');
+  const name=$('smSpotlightCountryName');
+  if(!header || !flag || !name) return;
+
+  const selected=getSelected('smSimpleCountryFilter');
+  const available=[...new Set(smSimpleRows.map(row=>row.Country).filter(Boolean))]
+    .sort((a,b)=>a.localeCompare(b));
+  const countries=selected.length?selected:available;
+  const singleCountry=countries.length===1?countries[0]:'';
+  const code=singleCountry?countryFlagCode(singleCountry):'';
+
+  name.textContent=singleCountry || (
+    countries.length ? countries.join(' · ') : 'All Countries'
+  );
+  flag.hidden=!code;
+  flag.src=code?countryFlagDataUri(code):'';
+  flag.alt=code?`${singleCountry} flag`:'';
+  flag.title=singleCountry;
+  flag.onerror=()=>{ flag.hidden=true; };
+}
+
 function setSmTableSpotlight(active){
   const spotlightButton=$('smSpotlightBtn');
   const exitButton=$('smSpotlightExitBtn');
+  const countryHeader=$('smSpotlightCountryHeader');
+  if(active) updateSmSpotlightCountry();
   document.body.classList.toggle('sm-table-spotlight',active);
   spotlightButton?.setAttribute('aria-pressed',String(active));
   if(exitButton) exitButton.hidden=!active;
+  if(countryHeader) countryHeader.hidden=!active;
   if(active){
     exitButton?.focus();
   }else{
