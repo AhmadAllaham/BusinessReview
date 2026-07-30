@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Business Review</title>
-  <link rel="stylesheet" href="style.css?v=20260730-11" />
+  <link rel="stylesheet" href="style.css?v=20260730-12" />
 </head>
 <body>
   <header class="app-header">
@@ -262,6 +262,13 @@
         <tbody></tbody>
       </table>
     </div>
+    <div id="smSpotlightCountryHeader" class="sm-spotlight-country" hidden>
+      <img id="smSpotlightCountryFlag" alt="" hidden>
+      <div>
+        <span>Selected market</span>
+        <strong id="smSpotlightCountryName">All Countries</strong>
+      </div>
+    </div>
     <button id="smSpotlightExitBtn" class="sm-spotlight-exit" type="button" hidden>
       <span aria-hidden="true">×</span>
       Exit spotlight
@@ -384,7 +391,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="firebase-client.js"></script>
-  <script src="script.js?v=20260730-9"></script>
+  <script src="script.js?v=20260730-10"></script>
   <script src="dashboard-firebase.js"></script>
 </body>
 </html>
