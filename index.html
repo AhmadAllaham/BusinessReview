@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Business Review</title>
-  <link rel="stylesheet" href="style.css?v=20260729-10" />
+  <link rel="stylesheet" href="style.css?v=20260730-2" />
 </head>
 <body>
   <header class="app-header">
@@ -304,7 +304,14 @@
         </div>
 
         <div class="table-toolbar">
-          <span id="pnlCount">10 P&amp;L lines</span>
+          <div class="pnl-toolbar-left">
+            <span id="pnlCount">10 P&amp;L lines</span>
+            <div class="pnl-view-switch" role="group" aria-label="P&amp;L display mode">
+              <button class="active" type="button" data-pnl-view="full" aria-pressed="true">Full</button>
+              <button type="button" data-pnl-view="summary" aria-pressed="false">Gross &amp; Net Sales</button>
+              <button type="button" data-pnl-view="netSales" aria-pressed="false">From Net Sales</button>
+            </div>
+          </div>
           <div class="toolbar-actions">
             <span class="legend"><i class="dot favorable"></i> Favorable <i class="dot unfavorable"></i> Unfavorable</span>
             <button class="excel-export-btn" type="button" data-export-report="pnl">Export Excel</button>
@@ -373,7 +380,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="firebase-client.js"></script>
-  <script src="script.js?v=20260730-2"></script>
+  <script src="script.js?v=20260730-3"></script>
   <script src="dashboard-firebase.js"></script>
 </body>
 </html>
