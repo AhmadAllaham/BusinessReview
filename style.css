@@ -1769,7 +1769,7 @@ body.stock-level-view .sales-header-upload{
   }
 }
 
-/* Compact P&L display-mode timeline */
+/* Compact P&L display-mode switch */
 .pnl-toolbar-left{
   display:flex;
   align-items:center;
@@ -1778,79 +1778,37 @@ body.stock-level-view .sales-header-upload{
 }
 
 .pnl-view-switch{
-  position:relative;
-  isolation:isolate;
-  display:grid;
-  grid-template-columns:repeat(3,minmax(105px,1fr));
-  min-width:380px;
-  gap:0;
-}
-
-.pnl-view-switch::before{
-  content:"";
-  position:absolute;
-  z-index:0;
-  top:13px;
-  left:16.666%;
-  right:16.666%;
-  height:2px;
-  border-radius:999px;
-  background:#c7ddd8;
+  display:inline-flex;
+  gap:3px;
+  padding:3px;
+  border:1px solid #cfe0dc;
+  border-radius:9px;
+  background:#edf5f3;
 }
 
 .pnl-view-switch button{
-  position:relative;
-  z-index:1;
-  min-height:46px;
-  padding:30px 8px 3px;
+  min-height:27px;
+  padding:5px 10px;
   border:0;
+  border-radius:6px;
   background:transparent;
   color:#526a66;
   font-size:11px;
   font-weight:800;
   cursor:pointer;
   white-space:nowrap;
-  transition:color .18s ease;
-}
-
-.pnl-view-switch button::before{
-  content:attr(data-step);
-  position:absolute;
-  top:1px;
-  left:50%;
-  width:25px;
-  height:25px;
-  display:grid;
-  place-items:center;
-  border:2px solid #b8d4ce;
-  border-radius:50%;
-  background:#fff;
-  color:#58716c;
-  font-size:10px;
-  font-weight:900;
-  transform:translateX(-50%);
-  transition:background .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease;
+  transition:background .18s ease,color .18s ease,box-shadow .18s ease;
 }
 
 .pnl-view-switch button:hover{
   color:#0f766e;
-}
-
-.pnl-view-switch button:hover::before{
-  border-color:#55a99d;
-  transform:translateX(-50%) scale(1.06);
+  background:rgba(255,255,255,.7);
 }
 
 .pnl-view-switch button.active{
-  color:#0f766e;
-}
-
-.pnl-view-switch button.active::before{
-  border-color:#0f766e;
   background:#0f766e;
   color:#fff;
-  box-shadow:0 0 0 4px rgba(15,118,110,.1),0 0 9px rgba(15,118,110,.28);
-  transform:translateX(-50%) scale(1.08);
+  box-shadow:0 2px 6px rgba(15,118,110,.2);
 }
 
 @media(max-width:700px){
@@ -1859,13 +1817,10 @@ body.stock-level-view .sales-header-upload{
     align-items:flex-start;
     flex-direction:column;
     gap:8px;
-    overflow-x:auto;
-    padding-bottom:2px;
   }
 
   .pnl-view-switch{
-    width:380px;
-    min-width:380px;
-    max-width:none;
+    max-width:100%;
+    overflow-x:auto;
   }
 }
