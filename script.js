@@ -881,15 +881,46 @@ function updatePnlSpotlightCountry(){
   flag.onerror=()=>{ flag.hidden=true; };
 }
 
+let pnlSpotlightOriginalParent=null;
+let pnlSpotlightOriginalNextSibling=null;
+
 function setPnlTableSpotlight(active){
   const spotlightButton=$('pnlSpotlightBtn');
   const exitButton=$('pnlSpotlightExitBtn');
   const countryHeader=$('pnlSpotlightCountryHeader');
+  const tableWrap=document.querySelector('#pnlSection .pnl-table-wrap, .pnl-table-wrap.pnl-spotlight-stage');
   if(active) updatePnlSpotlightCountry();
+
+  if(active && tableWrap && !tableWrap.classList.contains('pnl-spotlight-stage')){
+    pnlSpotlightOriginalParent=tableWrap.parentNode;
+    pnlSpotlightOriginalNextSibling=tableWrap.nextSibling;
+    tableWrap.classList.add('pnl-spotlight-stage');
+    document.body.appendChild(tableWrap);
+    tableWrap.scrollTop=0;
+    tableWrap.scrollLeft=0;
+  }
+
   document.body.classList.toggle('pnl-table-spotlight',active);
   spotlightButton?.setAttribute('aria-pressed',String(active));
   if(exitButton) exitButton.hidden=!active;
   if(countryHeader) countryHeader.hidden=!active;
+
+  if(!active && tableWrap?.classList.contains('pnl-spotlight-stage')){
+    tableWrap.classList.remove('pnl-spotlight-stage');
+    if(pnlSpotlightOriginalParent){
+      if(
+        pnlSpotlightOriginalNextSibling &&
+        pnlSpotlightOriginalNextSibling.parentNode===pnlSpotlightOriginalParent
+      ){
+        pnlSpotlightOriginalParent.insertBefore(tableWrap,pnlSpotlightOriginalNextSibling);
+      }else{
+        pnlSpotlightOriginalParent.appendChild(tableWrap);
+      }
+    }
+    pnlSpotlightOriginalParent=null;
+    pnlSpotlightOriginalNextSibling=null;
+  }
+
   if(active){
     exitButton?.focus();
   }else{
