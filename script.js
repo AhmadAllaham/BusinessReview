@@ -1805,6 +1805,27 @@ function initSmSimpleReport(){
 
 initSmSimpleReport();
 
+function setSmTableSpotlight(active){
+  const spotlightButton=$('smSpotlightBtn');
+  const exitButton=$('smSpotlightExitBtn');
+  document.body.classList.toggle('sm-table-spotlight',active);
+  spotlightButton?.setAttribute('aria-pressed',String(active));
+  if(exitButton) exitButton.hidden=!active;
+  if(active){
+    exitButton?.focus();
+  }else{
+    spotlightButton?.focus();
+  }
+}
+
+$('smSpotlightBtn')?.addEventListener('click',()=>setSmTableSpotlight(true));
+$('smSpotlightExitBtn')?.addEventListener('click',()=>setSmTableSpotlight(false));
+document.addEventListener('keydown',event=>{
+  if(event.key==='Escape' && document.body.classList.contains('sm-table-spotlight')){
+    setSmTableSpotlight(false);
+  }
+});
+
 // ============================================================
 // Stock Level — uploaded workbook columns:
 // Brand | Product Group | Month | Country | Agent
