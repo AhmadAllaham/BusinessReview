@@ -2210,3 +2210,143 @@ body.stock-level-view .sales-header-upload{
     padding-right:7px;
   }
 }
+
+/* Distraction-free S&M table spotlight */
+.sm-spotlight-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:7px 5px;
+  border:0;
+  background:transparent;
+  color:#0f766e;
+  font-size:11px;
+  font-weight:900;
+  cursor:pointer;
+  transition:color .18s ease,text-shadow .18s ease,transform .18s ease;
+}
+
+.sm-spotlight-btn svg{
+  width:16px;
+  height:16px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+
+.sm-spotlight-btn:hover,
+.sm-spotlight-btn:focus-visible{
+  color:#06a696;
+  text-shadow:0 0 10px rgba(15,118,110,.28);
+  transform:translateY(-1px);
+}
+
+body.sm-table-spotlight{
+  overflow:hidden;
+}
+
+body.sm-table-spotlight::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:9997;
+  background:rgba(5,18,30,.78);
+  backdrop-filter:blur(5px);
+}
+
+body.sm-table-spotlight #smExpensesSection .sm-table-scroll{
+  position:fixed;
+  inset:24px;
+  z-index:9998;
+  margin:0;
+  padding:62px 24px 28px;
+  border:1px solid rgba(255,255,255,.75);
+  border-radius:18px;
+  background:#fff;
+  box-shadow:0 28px 80px rgba(0,0,0,.38);
+  overflow:auto;
+  animation:smSpotlightOpen .24s ease-out both;
+}
+
+body.sm-table-spotlight #smSimpleTable{
+  width:min(1440px,100%);
+  margin:0 auto;
+}
+
+body.sm-table-spotlight #smSimpleTable thead .sm-statement-group-head th{
+  position:sticky;
+  top:55px;
+  z-index:4;
+}
+
+body.sm-table-spotlight #smSimpleTable thead .sm-statement-column-head th{
+  position:sticky;
+  top:90px;
+  z-index:5;
+}
+
+.sm-spotlight-exit{
+  position:fixed;
+  top:39px;
+  right:43px;
+  z-index:9999;
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  padding:8px 12px;
+  border:1px solid #d6e5e1;
+  border-radius:999px;
+  background:rgba(255,255,255,.94);
+  color:#173f3b;
+  font-size:11px;
+  font-weight:900;
+  box-shadow:0 8px 22px rgba(5,18,30,.16);
+  cursor:pointer;
+}
+
+.sm-spotlight-exit[hidden]{
+  display:none;
+}
+
+.sm-spotlight-exit span{
+  color:#0f766e;
+  font-size:18px;
+  line-height:.7;
+}
+
+.sm-spotlight-exit:hover{
+  border-color:#82bdb4;
+  color:#0f766e;
+}
+
+@keyframes smSpotlightOpen{
+  from{
+    opacity:0;
+    transform:scale(.985);
+  }
+  to{
+    opacity:1;
+    transform:scale(1);
+  }
+}
+
+@media(max-width:700px){
+  body.sm-table-spotlight #smExpensesSection .sm-table-scroll{
+    inset:10px;
+    padding:54px 10px 18px;
+    border-radius:13px;
+  }
+
+  .sm-spotlight-exit{
+    top:20px;
+    right:20px;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  body.sm-table-spotlight #smExpensesSection .sm-table-scroll{
+    animation:none;
+  }
+}
