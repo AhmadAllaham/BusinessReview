@@ -2136,7 +2136,7 @@ body.stock-level-view .sales-header-upload{
 #pnlTable tbody td:nth-child(2),
 #pnlTable tbody td:nth-child(3),
 #pnlTable tbody td:nth-child(4){
-  background:#fffef0;
+  background:#fff;
 }
 
 #pnlTable tbody tr:not(.pnl-statement-total):not(.pnl-statement-ratio):hover td{
@@ -2144,7 +2144,7 @@ body.stock-level-view .sales-header-upload{
 }
 
 #pnlTable tbody tr.pnl-cost-row td{
-  background:#fffcc9;
+  background:#fff;
   font-weight:750;
 }
 
@@ -2187,7 +2187,7 @@ body.stock-level-view .sales-header-upload{
   padding-top:3px;
   padding-bottom:3px;
   border:0;
-  background:#fffef0;
+  background:#fff;
   color:#111827;
   font-weight:700;
 }
@@ -2199,7 +2199,7 @@ body.stock-level-view .sales-header-upload{
 }
 
 #pnlTable tbody tr.pnl-statement-ratio:hover td{
-  background:#fffbdc;
+  background:#f4f9f8;
 }
 
 @media(max-width:700px){
