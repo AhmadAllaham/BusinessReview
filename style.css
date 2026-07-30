@@ -1914,6 +1914,169 @@ body.stock-level-view .sales-header-upload{
   font-variant-numeric:tabular-nums;
 }
 
+/* Selling & Marketing financial-statement format */
+#smExpensesSection .sm-table-scroll{
+  margin:0;
+  padding:0 14px 28px;
+}
+
+#smSimpleTable{
+  width:100%;
+  min-width:920px;
+  border-collapse:separate;
+  border-spacing:0;
+  color:#111827;
+  font-size:12px;
+  line-height:1.25;
+  font-variant-numeric:tabular-nums;
+}
+
+#smSimpleTable thead th{
+  position:static;
+  padding:7px 10px;
+  border:0;
+  background:#0b3158;
+  color:#fff;
+  text-align:center;
+  font-size:11px;
+  font-weight:900;
+  line-height:1.15;
+  white-space:nowrap;
+}
+
+#smSimpleTable thead th::after{
+  display:none;
+}
+
+#smSimpleTable thead .sm-statement-group-head th{
+  padding-top:8px;
+  padding-bottom:8px;
+  border-right:6px solid #fff;
+  border-bottom:4px solid #fff;
+  font-size:12px;
+  letter-spacing:.01em;
+}
+
+#smSimpleTable thead .sm-statement-group-head .sm-statement-head-spacer{
+  background:#fff;
+  border-right:0;
+}
+
+#smSimpleTable thead .sm-statement-group-head .sm-statement-group:last-child{
+  border-right:0;
+}
+
+#smSimpleTable thead .sm-statement-column-head th:first-child{
+  width:31%;
+  text-align:left;
+}
+
+#smSimpleTable thead .sm-statement-column-head .sm-actual-head{
+  background:#626827;
+}
+
+#smSimpleTable thead .sm-statement-column-head th:nth-child(n+5){
+  background:#fff;
+  color:#0b3158;
+}
+
+#smSimpleTable tbody td{
+  padding:7px 10px;
+  border:0;
+  border-bottom:1px solid #edf1f1;
+  background:#fff;
+  color:#111827;
+  text-align:right;
+  font-size:12px;
+  font-weight:500;
+  line-height:1.25;
+  vertical-align:middle;
+  white-space:nowrap;
+}
+
+#smSimpleTable tbody td:first-child{
+  color:#0b213c;
+  text-align:left;
+  white-space:normal;
+  font-weight:800;
+}
+
+#smSimpleTable tbody td:nth-child(2){
+  border-left:1px solid #e5e9bd;
+  border-right:1px solid #e5e9bd;
+  background:#fffec8;
+}
+
+#smSimpleTable tbody tr:nth-child(even):not(.sm-total-row) td{
+  background:#fff;
+}
+
+#smSimpleTable tbody tr:nth-child(even):not(.sm-total-row) td:nth-child(2){
+  background:#fffec8;
+}
+
+#smSimpleTable tbody tr:not(.sm-total-row):hover td{
+  background:#f6faf9;
+}
+
+#smSimpleTable tbody tr:not(.sm-total-row):hover td:nth-child(2){
+  background:#fffba9;
+}
+
+#smSimpleTable tbody td.sm-good{
+  background:#fff;
+  color:#087f75;
+  font-weight:800;
+}
+
+#smSimpleTable tbody td.sm-bad{
+  background:#fff;
+  color:#ef2525;
+  font-weight:800;
+}
+
+#smSimpleTable tbody td.sm-zero{
+  background:#fff;
+  color:#334155;
+  font-weight:700;
+}
+
+#smSimpleTable tbody .sm-total-row td{
+  padding-top:8px;
+  padding-bottom:8px;
+  border-top:1px solid #0b3158;
+  border-bottom:1px solid #0b3158;
+  background:#fff;
+  color:#0b213c;
+  font-weight:900;
+}
+
+#smSimpleTable tbody .sm-total-row td:nth-child(2){
+  background:#fffec8;
+}
+
+#smSimpleTable tbody .sm-total-row td.sm-good{
+  color:#087f75;
+}
+
+#smSimpleTable tbody .sm-total-row td.sm-bad{
+  color:#ef2525;
+}
+
+@media(max-width:700px){
+  #smExpensesSection .sm-table-scroll{
+    padding-right:8px;
+    padding-left:8px;
+  }
+
+  #smSimpleTable thead th,
+  #smSimpleTable tbody td{
+    padding-right:7px;
+    padding-left:7px;
+    font-size:11px;
+  }
+}
+
 #pnlTable thead th{
   position:sticky;
   top:0;
