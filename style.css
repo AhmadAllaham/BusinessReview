@@ -1824,3 +1824,136 @@ body.stock-level-view .sales-header-upload{
     overflow-x:auto;
   }
 }
+
+/* Consolidated income-statement format */
+#pnlTable{
+  min-width:1040px;
+  border-collapse:separate;
+  border-spacing:0;
+  font-variant-numeric:tabular-nums;
+}
+
+#pnlTable thead th{
+  position:sticky;
+  top:0;
+  z-index:3;
+  padding:7px 10px;
+  border-right:5px solid #fff;
+  border-bottom:0;
+  background:#0b3158;
+  color:#fff;
+  text-align:center;
+  font-size:12px;
+  line-height:1.1;
+  cursor:default;
+}
+
+#pnlTable thead th::after{
+  display:none;
+}
+
+#pnlTable thead .pnl-group-head th:first-child{
+  left:0;
+  z-index:5;
+  min-width:230px;
+  text-align:left;
+  background:#0b3158;
+}
+
+#pnlTable thead .pnl-sub-head th{
+  top:29px;
+  padding:4px 10px 6px;
+  border-right:0;
+  background:#f7fbfa;
+  color:#17324f;
+  font-size:10px;
+  font-weight:800;
+}
+
+#pnlTable thead .pnl-sub-head th:first-child{
+  position:sticky;
+  left:auto;
+  text-align:center;
+}
+
+#pnlTable tbody td{
+  padding:6px 10px;
+  border-bottom:0;
+  background:#fff;
+  color:#111827;
+  font-size:12px;
+}
+
+#pnlTable tbody td:nth-child(2),
+#pnlTable tbody td:nth-child(3),
+#pnlTable tbody td:nth-child(4){
+  background:#fffef0;
+}
+
+#pnlTable tbody tr:not(.pnl-statement-total):not(.pnl-statement-ratio):hover td{
+  background:#f4f9f8;
+}
+
+#pnlTable tbody tr.pnl-cost-row td{
+  background:#fffcc9;
+  font-weight:750;
+}
+
+#pnlTable tbody tr.pnl-statement-total td,
+#pnlTable tbody tr.pnl-statement-total td:first-child{
+  border-top:2px solid #fff;
+  border-bottom:2px solid #fff;
+  background:#082d61;
+  color:#fff;
+  font-weight:900;
+}
+
+#pnlTable tbody tr.pnl-statement-total td.pnl-positive{
+  color:#86efac;
+}
+
+#pnlTable tbody tr.pnl-statement-total td.pnl-negative{
+  color:#ff5b62;
+}
+
+#pnlTable td.pnl-amount-negative{
+  color:#ef2525;
+}
+
+#pnlTable tbody tr.pnl-statement-total td.pnl-amount-negative{
+  color:#ff5b62;
+}
+
+#pnlTable tbody tr.pnl-ratio-spacer td{
+  height:15px;
+  padding:0;
+  background:#fff;
+}
+
+#pnlTable tbody tr.pnl-statement-ratio td{
+  padding-top:3px;
+  padding-bottom:3px;
+  border:0;
+  background:#fffef0;
+  color:#111827;
+  font-weight:700;
+}
+
+#pnlTable tbody tr.pnl-statement-ratio td:first-child{
+  background:#fff;
+  color:#071f43;
+  font-weight:900;
+}
+
+#pnlTable tbody tr.pnl-statement-ratio:hover td{
+  background:#fffbdc;
+}
+
+@media(max-width:700px){
+  #pnlTable thead th,
+  #pnlTable tbody td{
+    font-size:11px;
+    padding-left:7px;
+    padding-right:7px;
+  }
+}
