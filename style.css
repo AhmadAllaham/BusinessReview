@@ -1756,13 +1756,13 @@ body.stock-level-view .sales-header-upload{
 }
 
 #focTable .total-row td:nth-child(7).positive{
-  color:#008f5a;
-  background:rgba(0,143,90,.08);
+  color:#111827;
+  background:#fff;
 }
 
 #focTable .total-row td:nth-child(7).negative{
-  color:#ff1f2d;
-  background:rgba(255,31,45,.07);
+  color:#111827;
+  background:#fff;
 }
 
 .country-modal-title-row{
@@ -1854,6 +1854,19 @@ body.stock-level-view .sales-header-upload{
 #focTable tbody tr:not(.total-row):hover td:nth-child(4),
 #focTable tbody tr:not(.total-row):hover td:nth-child(5){
   background:#fff;
+}
+
+/* FOC variance uses text color only; Total never inherits status colors */
+#focTable tbody tr:not(.total-row) td:nth-child(7).positive,
+#focTable tbody tr:not(.total-row) td:nth-child(7).negative{
+  background:#fff!important;
+}
+
+#focTable .total-row td,
+#focTable .total-row td.positive,
+#focTable .total-row td.negative{
+  background:#fff!important;
+  color:#111827!important;
 }
 
 /* Net Income follows the same Total-row format used in Sales Analysis */
