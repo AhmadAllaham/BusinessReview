@@ -2843,6 +2843,16 @@ body.performance-table-spotlight .performance-spotlight-stage{
   animation:smSpotlightOpen .24s ease-out both;
 }
 
+/* Keep country, brand and SKU drill-downs interactive above Spotlight. */
+body.performance-table-spotlight .modal.open{
+  z-index:10020;
+}
+
+body.performance-table-spotlight .modal.open .modal-backdrop{
+  background:rgba(5,18,30,.66);
+  backdrop-filter:blur(2px);
+}
+
 body.performance-table-spotlight .performance-spotlight-stage #salesTable,
 body.performance-table-spotlight .performance-spotlight-stage #focTable,
 body.performance-table-spotlight .performance-spotlight-stage #stockTable{
