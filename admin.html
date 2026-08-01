@@ -79,7 +79,7 @@
               <input id="chunkCount" value="0" disabled>
             </div>
           </div>
-          <p class="portal-note">Upload the Sales workbook once for Sales Analysis and IMS FOC. Upload S&amp;M and P&amp;L as separate files. Large workbooks are packed into country-secured chunks to minimize Firestore writes.</p>
+          <p class="portal-note">Upload the Sales workbook once for Sales Analysis and IMS FOC. Upload Stock Level, S&amp;M and P&amp;L as separate files. For Stock Level, enter the reporting period to populate its Month filter. Large workbooks are packed into country-secured chunks to minimize Firestore writes.</p>
           <div class="portal-actions">
             <button id="uploadButton" class="portal-button" type="button" disabled>Upload and activate</button>
           </div>
@@ -116,6 +116,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="firebase-client.js"></script>
-  <script src="admin.js?v=20260729-2"></script>
+  <script src="admin.js?v=20260801-1"></script>
 </body>
 </html>
