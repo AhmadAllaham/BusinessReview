@@ -415,6 +415,13 @@ function setBusinessReportTab(tabId){
   if(isStock && typeof renderStockLevel==='function'){
     renderStockLevel();
   }
+
+  // Recalculate multi-row sticky headers after the selected section becomes
+  // visible, so subheaders such as USD and % stay attached to their group row.
+  window.requestAnimationFrame(()=>{
+    section?.querySelectorAll('.resizable-report-table')
+      .forEach(refreshStickyHeaderOffsets);
+  });
 }
 
 document.querySelectorAll('.tab-btn').forEach(btn=>btn.addEventListener('click',()=>{
@@ -2519,6 +2526,18 @@ function stockStatementTableHtml(rows,totals,dimension='Brand',clickable=false){
   </tbody>`;
 }
 
+function refreshStickyHeaderOffsets(table){
+  if(!table?.tHead) return;
+  let stickyTop=0;
+  [...table.tHead.rows].forEach((row,rowIndex)=>{
+    [...row.cells].forEach(header=>{
+      header.style.setProperty('--table-sticky-top',`${stickyTop}px`);
+      header.style.setProperty('--table-sticky-z',String(14-rowIndex));
+    });
+    stickyTop+=row.getBoundingClientRect().height;
+  });
+}
+
 function setupResizableColumns(table){
   if(!table) return;
 
@@ -2589,14 +2608,7 @@ function setupResizableColumns(table){
     });
   });
 
-  let stickyTop=0;
-  [...(table.tHead?.rows||[])].forEach((row,rowIndex)=>{
-    [...row.cells].forEach(header=>{
-      header.style.setProperty('--table-sticky-top',`${stickyTop}px`);
-      header.style.setProperty('--table-sticky-z',String(14-rowIndex));
-    });
-    stickyTop+=row.getBoundingClientRect().height;
-  });
+  refreshStickyHeaderOffsets(table);
 
   headerByColumn.forEach((header,index)=>{
     header.dataset.resizeColumn=String(index);
@@ -2642,6 +2654,15 @@ function setupResizableColumns(table){
   });
   syncTableWidth();
 }
+
+let stickyHeaderResizeFrame=0;
+window.addEventListener('resize',()=>{
+  window.cancelAnimationFrame(stickyHeaderResizeFrame);
+  stickyHeaderResizeFrame=window.requestAnimationFrame(()=>{
+    document.querySelectorAll('.resizable-report-table')
+      .forEach(refreshStickyHeaderOffsets);
+  });
+},{passive:true});
 
 let activeStockCountry='';
 let activeStockBrand='';
@@ -2698,6 +2719,7 @@ function openStockCountryDetails(country){
   renderStockCountryBrands();
   $('stockDetailModal').classList.add('open');
   $('stockDetailModal').setAttribute('aria-hidden','false');
+  window.requestAnimationFrame(()=>refreshStickyHeaderOffsets($('stockDetailTable')));
   $('closeStockDetailModal').focus();
 }
 
