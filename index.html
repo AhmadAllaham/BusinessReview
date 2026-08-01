@@ -223,14 +223,14 @@
         </section>
 
         <div class="table-toolbar">
-          <span id="stockCount">0 brands</span>
+          <span id="stockCount">0 markets</span>
           <div class="toolbar-actions">
             <span>Coverage = Stock ÷ Sales · Drag a column edge to resize</span>
             <button class="excel-export-btn" type="button" data-export-report="stock">Export Excel</button>
           </div>
         </div>
         <div class="sm-table-scroll stock-table-scroll">
-          <table id="stockTable" class="stock-statement-table stock-level-table" aria-label="Stock Level by brand"></table>
+          <table id="stockTable" class="stock-statement-table stock-level-table" aria-label="Stock Level by market"></table>
         </div>
       </article>
     </section>
@@ -439,13 +439,19 @@
       <div class="modal-head">
         <div>
           <span class="eyebrow">Stock Level Drill-down</span>
-          <h2 id="stockDetailModalTitle">Brand products</h2>
-          <p id="stockDetailModalSubtitle">SKU detail within the currently selected filters.</p>
+          <div class="country-modal-title-row">
+            <img id="stockDetailCountryFlag" class="country-modal-flag" alt="" hidden>
+            <h2 id="stockDetailModalTitle">Market stock</h2>
+          </div>
+          <p id="stockDetailModalSubtitle">Brand detail within the currently selected filters.</p>
         </div>
         <button id="closeStockDetailModal" class="modal-close" type="button" aria-label="Close">×</button>
       </div>
       <div class="modal-toolbar">
-        <span id="stockDetailCount">0 products</span>
+        <div class="modal-toolbar-left">
+          <button id="stockDetailBackButton" class="back-btn" type="button" hidden>← Back to Brands</button>
+          <span id="stockDetailCount">0 brands</span>
+        </div>
         <span>Drag a column edge to resize it</span>
       </div>
       <div class="table-wrap modal-table-wrap stock-detail-table-wrap">
@@ -460,7 +466,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="firebase-client.js"></script>
-  <script src="script.js?v=20260801-2"></script>
+  <script src="script.js?v=20260801-3"></script>
   <script src="dashboard-firebase.js"></script>
 </body>
 </html>
