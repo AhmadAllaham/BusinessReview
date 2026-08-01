@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Business Review</title>
-  <link rel="stylesheet" href="style.css?v=20260801-4" />
+  <link rel="stylesheet" href="style.css?v=20260801-5" />
 </head>
 <body>
   <header class="app-header">
@@ -223,7 +223,13 @@
         </section>
 
         <div class="table-toolbar">
-          <span id="stockCount">0 markets</span>
+          <div class="stock-toolbar-left">
+            <div class="pnl-view-switch stock-view-switch" role="group" aria-label="Stock Level view">
+              <button class="active" type="button" data-stock-view="table" aria-pressed="true">Table</button>
+              <button type="button" data-stock-view="dashboard" aria-pressed="false">Dashboard</button>
+            </div>
+            <span id="stockCount">0 markets</span>
+          </div>
           <div class="toolbar-actions">
             <span>Coverage = Stock ÷ Sales · Drag a column edge to resize</span>
             <div class="pnl-currency-switch performance-currency-switch" role="group" aria-label="Stock Level currency">
@@ -239,6 +245,7 @@
             <button class="excel-export-btn" type="button" data-export-report="stock">Export Excel</button>
           </div>
         </div>
+        <section id="stockDashboard" class="stock-dashboard" aria-label="Stock Level dashboard" hidden></section>
         <div class="sm-table-scroll stock-table-scroll">
           <table id="stockTable" class="stock-statement-table stock-level-table" aria-label="Stock Level by market"></table>
         </div>
@@ -493,7 +500,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="firebase-client.js"></script>
-  <script src="script.js?v=20260801-4"></script>
+  <script src="script.js?v=20260801-5"></script>
   <script src="dashboard-firebase.js"></script>
 </body>
 </html>
