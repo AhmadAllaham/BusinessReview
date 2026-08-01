@@ -2844,7 +2844,8 @@ body.performance-table-spotlight .performance-spotlight-stage{
 }
 
 body.performance-table-spotlight .performance-spotlight-stage #salesTable,
-body.performance-table-spotlight .performance-spotlight-stage #focTable{
+body.performance-table-spotlight .performance-spotlight-stage #focTable,
+body.performance-table-spotlight .performance-spotlight-stage #stockTable{
   width:100%;
   min-width:980px;
   margin:0 auto;
