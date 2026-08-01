@@ -460,6 +460,75 @@ setBusinessReportTab(
   document.querySelector('.tab-btn.active')?.dataset.tab || 'salesSection'
 );
 
+/* Auto-hide the page header while reading reports; reveal it near the top edge. */
+(function initAutoHideHeader(){
+  const header=document.querySelector('.app-header');
+  if(!header) return;
+
+  let lastScrollY=window.scrollY;
+  let hoverReveal=false;
+  let hideTimer=0;
+  const scrollThreshold=80;
+  const movementThreshold=5;
+
+  const clearHideTimer=()=>{
+    if(hideTimer){
+      window.clearTimeout(hideTimer);
+      hideTimer=0;
+    }
+  };
+
+  const showHeader=(fromPointer=false)=>{
+    clearHideTimer();
+    hoverReveal=fromPointer;
+    header.classList.remove('header-auto-hidden');
+    header.classList.toggle('header-hover-reveal',fromPointer);
+  };
+
+  const hideHeader=()=>{
+    if(window.scrollY<=scrollThreshold || header.matches(':hover') || header.contains(document.activeElement)) return;
+    hoverReveal=false;
+    header.classList.remove('header-hover-reveal');
+    header.classList.add('header-auto-hidden');
+  };
+
+  const scheduleHide=()=>{
+    clearHideTimer();
+    hideTimer=window.setTimeout(hideHeader,500);
+  };
+
+  window.addEventListener('scroll',()=>{
+    const currentScrollY=Math.max(0,window.scrollY);
+    const delta=currentScrollY-lastScrollY;
+
+    if(currentScrollY<=scrollThreshold){
+      showHeader(false);
+    }else if(delta>movementThreshold){
+      hideHeader();
+    }else if(delta<-movementThreshold){
+      showHeader(false);
+    }
+
+    lastScrollY=currentScrollY;
+  },{passive:true});
+
+  document.addEventListener('pointermove',event=>{
+    if(window.scrollY<=scrollThreshold) return;
+    if(event.clientY<=18){
+      showHeader(true);
+    }else if(hoverReveal && !header.matches(':hover') && event.clientY>header.offsetHeight+12){
+      scheduleHide();
+    }
+  },{passive:true});
+
+  header.addEventListener('pointerenter',()=>{
+    if(window.scrollY>scrollThreshold) showHeader(true);
+  });
+  header.addEventListener('pointerleave',scheduleHide);
+  header.addEventListener('focusin',()=>showHeader(true));
+  header.addEventListener('focusout',scheduleHide);
+})();
+
 function sum(rows,key){return rows.reduce((a,r)=>a+(typeof key==='function'?key(r):Number(r[key])||0),0);}
 function dimKey(r,dim){
   return dim==='Brand'?r.__brand:dim==='Product Name'?r.__product:dim==='Product Group'?r.__group:String(r[dim]||'Unassigned');
