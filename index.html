@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Business Review</title>
-  <link rel="stylesheet" href="style.css?v=20260801-2" />
+  <link rel="stylesheet" href="style.css?v=20260801-3" />
 </head>
 <body>
   <header class="app-header">
@@ -226,12 +226,33 @@
           <span id="stockCount">0 markets</span>
           <div class="toolbar-actions">
             <span>Coverage = Stock ÷ Sales · Drag a column edge to resize</span>
+            <div class="pnl-currency-switch performance-currency-switch" role="group" aria-label="Stock Level currency">
+              <button class="active" type="button" data-stock-currency="USD" aria-pressed="true">USD</button>
+              <button type="button" data-stock-currency="JOD" aria-pressed="false">JOD</button>
+            </div>
+            <button id="stockSpotlightBtn" class="sm-spotlight-btn" type="button" aria-pressed="false">
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path>
+              </svg>
+              <span>Spotlight</span>
+            </button>
             <button class="excel-export-btn" type="button" data-export-report="stock">Export Excel</button>
           </div>
         </div>
         <div class="sm-table-scroll stock-table-scroll">
           <table id="stockTable" class="stock-statement-table stock-level-table" aria-label="Stock Level by market"></table>
         </div>
+        <div id="stockSpotlightCountryHeader" class="sm-spotlight-country" hidden>
+          <img id="stockSpotlightCountryFlag" alt="" hidden>
+          <div>
+            <span>Selected market</span>
+            <strong id="stockSpotlightCountryName">All Markets</strong>
+          </div>
+        </div>
+        <button id="stockSpotlightExitBtn" class="sm-spotlight-exit" type="button" hidden>
+          <span aria-hidden="true">×</span>
+          Exit spotlight
+        </button>
       </article>
     </section>
 
@@ -452,7 +473,13 @@
           <button id="stockDetailBackButton" class="back-btn" type="button" hidden>← Back to Brands</button>
           <span id="stockDetailCount">0 brands</span>
         </div>
-        <span>Drag a column edge to resize it</span>
+        <div class="toolbar-actions">
+          <div class="pnl-currency-switch performance-currency-switch" role="group" aria-label="Stock detail currency">
+            <button class="active" type="button" data-stock-currency="USD" aria-pressed="true">USD</button>
+            <button type="button" data-stock-currency="JOD" aria-pressed="false">JOD</button>
+          </div>
+          <span>Drag a column edge to resize it</span>
+        </div>
       </div>
       <div class="table-wrap modal-table-wrap stock-detail-table-wrap">
         <table id="stockDetailTable" class="stock-statement-table stock-detail-table" aria-label="Stock Level product details"></table>
@@ -466,7 +493,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="firebase-client.js"></script>
-  <script src="script.js?v=20260801-3"></script>
+  <script src="script.js?v=20260801-4"></script>
   <script src="dashboard-firebase.js"></script>
 </body>
 </html>
