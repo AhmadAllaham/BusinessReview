@@ -755,7 +755,8 @@ $('focSpotlightExitBtn')?.addEventListener('click',()=>setPerformanceTableSpotli
 $('stockSpotlightBtn')?.addEventListener('click',()=>setPerformanceTableSpotlight('stock',true));
 $('stockSpotlightExitBtn')?.addEventListener('click',()=>setPerformanceTableSpotlight('stock',false));
 document.addEventListener('keydown',event=>{
-  if(event.key==='Escape' && performanceSpotlightState){
+  const drilldownOpen=Boolean(document.querySelector('.modal.open'));
+  if(event.key==='Escape' && performanceSpotlightState && !drilldownOpen){
     setPerformanceTableSpotlight(performanceSpotlightState.type,false);
   }
 });
