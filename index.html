@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Business Review</title>
-  <link rel="stylesheet" href="style.css?v=20260730-21" />
+  <link rel="stylesheet" href="style.css?v=20260801-2" />
 </head>
 <body>
   <header class="app-header">
@@ -225,24 +225,12 @@
         <div class="table-toolbar">
           <span id="stockCount">0 brands</span>
           <div class="toolbar-actions">
-            <span>Coverage = Stock ÷ Sales</span>
+            <span>Coverage = Stock ÷ Sales · Drag a column edge to resize</span>
             <button class="excel-export-btn" type="button" data-export-report="stock">Export Excel</button>
           </div>
         </div>
         <div class="sm-table-scroll stock-table-scroll">
-          <table id="stockTable" class="sm-reference-table sales-foc-reference-table stock-level-table">
-            <thead>
-              <tr>
-                <th>Brand</th>
-                <th>Stock $</th>
-                <th>Historical Sales $</th>
-                <th>Forecast Sales $</th>
-                <th>Monthly Coverage (Historical average)</th>
-                <th>Monthly Coverage (Forecasted average)</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
+          <table id="stockTable" class="stock-statement-table stock-level-table" aria-label="Stock Level by brand"></table>
         </div>
       </article>
     </section>
@@ -445,13 +433,34 @@
     </section>
   </div>
 
+  <div id="stockDetailModal" class="modal stock-detail-modal" aria-hidden="true">
+    <div class="modal-backdrop" data-close-stock-modal></div>
+    <section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="stockDetailModalTitle">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">Stock Level Drill-down</span>
+          <h2 id="stockDetailModalTitle">Brand products</h2>
+          <p id="stockDetailModalSubtitle">SKU detail within the currently selected filters.</p>
+        </div>
+        <button id="closeStockDetailModal" class="modal-close" type="button" aria-label="Close">×</button>
+      </div>
+      <div class="modal-toolbar">
+        <span id="stockDetailCount">0 products</span>
+        <span>Drag a column edge to resize it</span>
+      </div>
+      <div class="table-wrap modal-table-wrap stock-detail-table-wrap">
+        <table id="stockDetailTable" class="stock-statement-table stock-detail-table" aria-label="Stock Level product details"></table>
+      </div>
+    </section>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="firebase-client.js"></script>
-  <script src="script.js?v=20260801-1"></script>
+  <script src="script.js?v=20260801-2"></script>
   <script src="dashboard-firebase.js"></script>
 </body>
 </html>
