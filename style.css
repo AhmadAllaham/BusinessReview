@@ -3029,3 +3029,29 @@ body.resizing-table-column{
 .stock-detail-table tbody td:first-child{
   white-space:normal;
 }
+
+/* Keep report totals visible while scrolling Sales, FOC and Stock tables */
+#salesSection .sales-foc-table-scroll,
+#focSection .sales-foc-table-scroll,
+#stockSection .stock-table-scroll{
+  max-height:64vh;
+  padding-bottom:0;
+  overflow:auto;
+}
+
+#salesTable .total-row td,
+#focTable .total-row td,
+#stockTable .total-row td,
+#countryDetailTable.sales-statement-detail .total-row td,
+#countryDetailTable.foc-statement-detail .total-row td,
+#stockDetailTable .total-row td{
+  position:sticky;
+  bottom:0;
+  z-index:6;
+  background:#fff!important;
+  box-shadow:0 -5px 12px rgba(11,49,88,.10);
+}
+
+body.performance-table-spotlight .performance-spotlight-stage{
+  max-height:none;
+}
