@@ -2159,6 +2159,7 @@ document.addEventListener('keydown',event=>{
 // ============================================================
 let stockRows = [];
 let stockCurrency = 'USD';
+let stockViewMode = 'table';
 const STOCK_USD_TO_JOD = 0.709;
 const stockFilterIds = [
   'stockProductGroupFilter',
@@ -2242,6 +2243,111 @@ function stockCoverageFormat(value){
 function stockCurrencyValue(value){
   const amount=Number(value)||0;
   return stockCurrency==='JOD'?amount*STOCK_USD_TO_JOD:amount;
+}
+
+function stockDashboardAmount(value){
+  return `${fmt(stockCurrencyValue(value))} ${stockCurrency}`;
+}
+
+function stockDashboardBarRows(items,maxValue,clickable=false){
+  return items.map(item=>{
+    const width=maxValue?Math.max(2,item.stock/maxValue*100):0;
+    const content=`<span class="stock-dashboard-bar-label">${esc(item.name)}</span>
+      <span class="stock-dashboard-bar-track"><i style="width:${width.toFixed(2)}%"></i></span>
+      <strong>${stockDashboardAmount(item.stock)}</strong>`;
+    return clickable
+      ?`<button class="stock-dashboard-bar-row" type="button" data-stock-dashboard-country="${esc(item.name)}">${content}</button>`
+      :`<div class="stock-dashboard-bar-row">${content}</div>`;
+  }).join('');
+}
+
+function renderStockDashboard(){
+  const target=$('stockDashboard');
+  if(!target) return;
+  const rows=filteredStockRows();
+  if(!rows.length){
+    target.innerHTML='<div class="stock-dashboard-empty">No stock data matches the selected filters.</div>';
+    return;
+  }
+
+  const totals=rows.reduce((total,row)=>({
+    stock:total.stock+row.__stock,
+    historical:total.historical+row.__historical,
+    forecast:total.forecast+row.__forecast
+  }),{stock:0,historical:0,forecast:0});
+  const {data:countries}=stockAggregateRows(rows,'Country','Unassigned Market');
+  const {data:brands}=stockAggregateRows(rows,'Brand','Unassigned Brand');
+  const topCountries=countries.slice(0,8);
+  const topBrands=brands.slice(0,8);
+  const maxCountryStock=topCountries[0]?.stock||0;
+  const maxBrandStock=topBrands[0]?.stock||0;
+  const coverageBands=[
+    {label:'No forecast',hint:'Forecast Sales = 0',count:brands.filter(item=>item.forecast<=0).length,className:'no-forecast'},
+    {label:'Below 1×',hint:'Coverage below one month',count:brands.filter(item=>item.forecast>0&&stockCoverage(item.stock,item.forecast)<1).length,className:'low'},
+    {label:'1× to 3×',hint:'Coverage between one and three months',count:brands.filter(item=>{
+      const coverage=stockCoverage(item.stock,item.forecast);
+      return item.forecast>0&&coverage>=1&&coverage<=3;
+    }).length,className:'balanced'},
+    {label:'Above 3×',hint:'Coverage above three months',count:brands.filter(item=>item.forecast>0&&stockCoverage(item.stock,item.forecast)>3).length,className:'high'}
+  ];
+
+  target.innerHTML=`
+    <div class="stock-dashboard-kpis">
+      <article class="stock-dashboard-kpi"><span>Total Stock</span><strong>${stockDashboardAmount(totals.stock)}</strong><small>Filtered portfolio value</small></article>
+      <article class="stock-dashboard-kpi"><span>Forecast Sales</span><strong>${stockDashboardAmount(totals.forecast)}</strong><small>Forecasted sales base</small></article>
+      <article class="stock-dashboard-kpi"><span>Forecast Coverage</span><strong>${stockCoverageFormat(stockCoverage(totals.stock,totals.forecast))}×</strong><small>Stock ÷ Forecast Sales</small></article>
+      <article class="stock-dashboard-kpi"><span>Historical Coverage</span><strong>${stockCoverageFormat(stockCoverage(totals.stock,totals.historical))}×</strong><small>Stock ÷ Historical Sales</small></article>
+    </div>
+    <div class="stock-dashboard-grid">
+      <article class="stock-dashboard-card">
+        <div class="stock-dashboard-card-head"><div><span>MARKET VIEW</span><h3>Stock value by market</h3></div><small>Click a market for details</small></div>
+        <div class="stock-dashboard-bars">${stockDashboardBarRows(topCountries,maxCountryStock,true)}</div>
+      </article>
+      <article class="stock-dashboard-card">
+        <div class="stock-dashboard-card-head"><div><span>PORTFOLIO VIEW</span><h3>Top brands by stock</h3></div><small>Top ${topBrands.length}</small></div>
+        <div class="stock-dashboard-bars">${stockDashboardBarRows(topBrands,maxBrandStock)}</div>
+      </article>
+      <article class="stock-dashboard-card stock-coverage-card">
+        <div class="stock-dashboard-card-head"><div><span>COVERAGE PROFILE</span><h3>Brands by forecast coverage</h3></div><small>${brands.length} brands</small></div>
+        <div class="stock-coverage-bands">${coverageBands.map(band=>`<div class="stock-coverage-band ${band.className}">
+          <strong>${band.count.toLocaleString('en-US')}</strong><span>${band.label}</span><small>${band.hint}</small>
+        </div>`).join('')}</div>
+      </article>
+      <article class="stock-dashboard-card stock-market-summary-card">
+        <div class="stock-dashboard-card-head"><div><span>MARKET COVERAGE</span><h3>Forecast coverage by market</h3></div><small>Active filters</small></div>
+        <div class="stock-market-summary"><table><thead><tr><th>Market</th><th>Stock</th><th>Forecast</th><th>Coverage</th></tr></thead><tbody>
+          ${countries.map(country=>`<tr data-stock-dashboard-country="${esc(country.name)}" tabindex="0">
+            <td>${esc(country.name)}</td><td>${stockDashboardAmount(country.stock)}</td><td>${stockDashboardAmount(country.forecast)}</td><td>${stockCoverageFormat(stockCoverage(country.stock,country.forecast))}×</td>
+          </tr>`).join('')}
+        </tbody></table></div>
+      </article>
+    </div>`;
+
+  target.querySelectorAll('[data-stock-dashboard-country]').forEach(element=>{
+    const open=()=>openStockCountryDetails(element.dataset.stockDashboardCountry);
+    element.addEventListener('click',open);
+    element.addEventListener('keydown',event=>{
+      if(['Enter',' '].includes(event.key)){
+        event.preventDefault();
+        open();
+      }
+    });
+  });
+}
+
+function setStockViewMode(mode){
+  stockViewMode=mode==='dashboard'?'dashboard':'table';
+  const dashboard=$('stockDashboard');
+  const tableWrap=$('stockSection')?.querySelector('.stock-table-scroll');
+  if(dashboard) dashboard.hidden=stockViewMode!=='dashboard';
+  if(tableWrap) tableWrap.hidden=stockViewMode!=='table';
+  if($('stockSpotlightBtn')) $('stockSpotlightBtn').hidden=stockViewMode!=='table';
+  document.querySelectorAll('[data-stock-view]').forEach(button=>{
+    const active=button.dataset.stockView===stockViewMode;
+    button.classList.toggle('active',active);
+    button.setAttribute('aria-pressed',String(active));
+  });
+  if(stockViewMode==='dashboard') renderStockDashboard();
 }
 
 function stockStatementTableHtml(rows,totals,dimension='Brand',clickable=false){
@@ -2434,6 +2540,7 @@ function renderStockLevel(){
     button.addEventListener('click',()=>openStockCountryDetails(button.dataset.stockDrillValue));
   });
   setupResizableColumns(table);
+  renderStockDashboard();
 }
 
 $('stockResetBtn')?.addEventListener('click',()=>{
@@ -2442,6 +2549,9 @@ $('stockResetBtn')?.addEventListener('click',()=>{
 });
 $('closeStockDetailModal')?.addEventListener('click',closeStockDetailModal);
 $('stockDetailBackButton')?.addEventListener('click',renderStockCountryBrands);
+document.querySelectorAll('[data-stock-view]').forEach(button=>{
+  button.addEventListener('click',()=>setStockViewMode(button.dataset.stockView));
+});
 document.querySelectorAll('[data-stock-currency]').forEach(button=>{
   button.addEventListener('click',()=>{
     stockCurrency=button.dataset.stockCurrency==='JOD'?'JOD':'USD';
@@ -2462,6 +2572,7 @@ document.addEventListener('keydown',event=>{
 });
 buildStockFilters(true);
 renderStockLevel();
+setStockViewMode(stockViewMode);
 
 // Database loaders. The authenticated Firestore layer calls these after it has
 // already enforced the user's country access.
