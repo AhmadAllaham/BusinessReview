@@ -3017,6 +3017,13 @@ body.performance-table-spotlight .performance-spotlight-stage #stockTable{
   background:#9baeb4;
 }
 
+.sales-statement-sub-head .column-resize-handle::after,
+.foc-statement-sub-head .column-resize-handle::after,
+.pnl-sub-head .column-resize-handle::after,
+.sm-statement-column-head th:nth-child(n+5) .column-resize-handle::after{
+  background:#9baeb4;
+}
+
 .column-resize-handle:hover::after,
 body.resizing-table-column .column-resize-handle::after{
   width:2px;
@@ -3026,6 +3033,35 @@ body.resizing-table-column .column-resize-handle::after{
 body.resizing-table-column{
   cursor:col-resize!important;
   user-select:none!important;
+}
+
+/* Shared sticky headers and adjustable columns for every report table. */
+.resizable-report-table{
+  table-layout:fixed!important;
+  border-collapse:separate!important;
+  border-spacing:0!important;
+}
+
+.resizable-report-table thead th{
+  position:sticky!important;
+  top:var(--table-sticky-top,0)!important;
+  z-index:var(--table-sticky-z,12)!important;
+  overflow:visible;
+}
+
+#smExpensesSection .sm-table-scroll,
+#pnlSection .pnl-table-wrap,
+.modal-table-wrap{
+  max-height:64vh;
+  overflow:auto;
+}
+
+#smSimpleTable .sm-total-row td{
+  position:sticky;
+  bottom:0;
+  z-index:8;
+  background:#fff!important;
+  box-shadow:0 -5px 12px rgba(11,49,88,.10);
 }
 
 .stock-detail-modal .modal-panel{
