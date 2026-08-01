@@ -2234,7 +2234,7 @@ function stockCoverageFormat(value){
 function stockStatementTableHtml(rows,totals,dimension='Brand',clickable=false){
   const makeRow=(row,total=false)=>`<tr${total?' class="total-row"':''}>
     <td>${clickable&&!total
-      ?`<button class="stock-drill-button" type="button" data-stock-brand="${esc(row.name)}">${esc(row.name)}</button>`
+      ?`<button class="stock-drill-button" type="button" data-stock-drill-value="${esc(row.name)}">${esc(row.name)}</button>`
       :esc(row.name)}</td>
     <td>${fmt(row.stock)}</td>
     <td>${fmt(row.historical)}</td>
@@ -2324,31 +2324,78 @@ function setupResizableColumns(table){
   });
 }
 
-function openStockBrandDetails(brand){
+let activeStockCountry='';
+let activeStockBrand='';
+
+function stockAggregateRows(rows,key,fallback){
   const grouped=new Map();
-  filteredStockRows().filter(row=>row.Brand===brand).forEach(row=>{
-    const sku=row.SKU||'Unassigned SKU';
-    if(!grouped.has(sku)) grouped.set(sku,{name:sku,stock:0,historical:0,forecast:0});
-    const item=grouped.get(sku);
+  rows.forEach(row=>{
+    const name=String(row[key]||fallback).trim()||fallback;
+    if(!grouped.has(name)) grouped.set(name,{name,stock:0,historical:0,forecast:0});
+    const item=grouped.get(name);
     item.stock+=row.__stock;
     item.historical+=row.__historical;
     item.forecast+=row.__forecast;
   });
-  const products=[...grouped.values()].sort((a,b)=>b.stock-a.stock);
-  const totals=products.reduce((total,row)=>({
+  const data=[...grouped.values()].sort((a,b)=>b.stock-a.stock);
+  const totals=data.reduce((total,row)=>({
     stock:total.stock+row.stock,
     historical:total.historical+row.historical,
     forecast:total.forecast+row.forecast
   }),{stock:0,historical:0,forecast:0});
+  return {data,totals};
+}
 
-  $('stockDetailModalTitle').textContent=brand;
-  $('stockDetailModalSubtitle').textContent='SKU detail within the currently selected Stock Level filters.';
-  $('stockDetailCount').textContent=`${products.length.toLocaleString('en-US')} products`;
-  $('stockDetailTable').innerHTML=stockStatementTableHtml(products,totals,'SKU');
+function updateStockDetailFlag(){
+  const flag=$('stockDetailCountryFlag');
+  if(!flag) return;
+  const code=countryFlagCode(activeStockCountry);
+  flag.hidden=!code;
+  flag.src=code?countryFlagDataUri(code):'';
+  flag.alt=code?`${activeStockCountry} flag`:'';
+  flag.title=activeStockCountry;
+  flag.onerror=()=>{ flag.hidden=true; };
+}
+
+function renderStockCountryBrands(){
+  activeStockBrand='';
+  const rows=filteredStockRows().filter(row=>row.Country===activeStockCountry);
+  const {data:brands,totals}=stockAggregateRows(rows,'Brand','Unassigned Brand');
+
+  updateStockDetailFlag();
+  $('stockDetailModalTitle').textContent=activeStockCountry;
+  $('stockDetailModalSubtitle').textContent='Brand totals — click a brand to view its related SKUs.';
+  $('stockDetailCount').textContent=`${brands.length.toLocaleString('en-US')} brands`;
+  $('stockDetailBackButton').hidden=true;
+  $('stockDetailTable').innerHTML=stockStatementTableHtml(brands,totals,'Brand',true);
+  $('stockDetailTable').querySelectorAll('.stock-drill-button').forEach(button=>{
+    button.addEventListener('click',()=>openStockBrandDetails(button.dataset.stockDrillValue));
+  });
   setupResizableColumns($('stockDetailTable'));
+}
+
+function openStockCountryDetails(country){
+  activeStockCountry=country;
+  renderStockCountryBrands();
   $('stockDetailModal').classList.add('open');
   $('stockDetailModal').setAttribute('aria-hidden','false');
   $('closeStockDetailModal').focus();
+}
+
+function openStockBrandDetails(brand){
+  activeStockBrand=brand;
+  const rows=filteredStockRows().filter(row=>
+    row.Country===activeStockCountry&&row.Brand===activeStockBrand
+  );
+  const {data:products,totals}=stockAggregateRows(rows,'SKU','Unassigned SKU');
+
+  updateStockDetailFlag();
+  $('stockDetailModalTitle').textContent=`${activeStockCountry} · ${activeStockBrand}`;
+  $('stockDetailModalSubtitle').textContent='Related SKU detail within the currently selected Stock Level filters.';
+  $('stockDetailCount').textContent=`${products.length.toLocaleString('en-US')} products`;
+  $('stockDetailBackButton').hidden=false;
+  $('stockDetailTable').innerHTML=stockStatementTableHtml(products,totals,'SKU');
+  setupResizableColumns($('stockDetailTable'));
 }
 
 function closeStockDetailModal(){
@@ -2360,26 +2407,12 @@ function renderStockLevel(){
   const table=$('stockTable');
   if(!table) return;
   const rows=filteredStockRows();
-  const grouped=new Map();
-  rows.forEach(row=>{
-    const brand=row.Brand || 'Unassigned';
-    if(!grouped.has(brand)) grouped.set(brand,{name:brand,stock:0,historical:0,forecast:0});
-    const item=grouped.get(brand);
-    item.stock+=row.__stock;
-    item.historical+=row.__historical;
-    item.forecast+=row.__forecast;
-  });
-  const brands=[...grouped.values()].sort((a,b)=>b.stock-a.stock);
-  const totals=brands.reduce((total,row)=>({
-    stock:total.stock+row.stock,
-    historical:total.historical+row.historical,
-    forecast:total.forecast+row.forecast
-  }),{stock:0,historical:0,forecast:0});
+  const {data:countries,totals}=stockAggregateRows(rows,'Country','Unassigned Market');
 
-  $('stockCount').textContent=`${brands.length.toLocaleString('en-US')} brands`;
-  table.innerHTML=stockStatementTableHtml(brands,totals,'Brand',true);
+  $('stockCount').textContent=`${countries.length.toLocaleString('en-US')} markets`;
+  table.innerHTML=stockStatementTableHtml(countries,totals,'Market',true);
   table.querySelectorAll('.stock-drill-button').forEach(button=>{
-    button.addEventListener('click',()=>openStockBrandDetails(button.dataset.stockBrand));
+    button.addEventListener('click',()=>openStockCountryDetails(button.dataset.stockDrillValue));
   });
   setupResizableColumns(table);
 }
@@ -2389,6 +2422,7 @@ $('stockResetBtn')?.addEventListener('click',()=>{
   renderStockLevel();
 });
 $('closeStockDetailModal')?.addEventListener('click',closeStockDetailModal);
+$('stockDetailBackButton')?.addEventListener('click',renderStockCountryBrands);
 document.querySelector('[data-close-stock-modal]')?.addEventListener('click',closeStockDetailModal);
 document.addEventListener('keydown',event=>{
   if(event.key==='Escape'&&$('stockDetailModal')?.classList.contains('open')){
