@@ -536,6 +536,336 @@ setBusinessReportTab(
   header.addEventListener('focusout',scheduleHide);
 })();
 
+/* Management presentation mode — summary, top rows and single-row focus. */
+(function initManagementView(){
+  const overlay=$('managementView');
+  const content=$('managementContent');
+  if(!overlay||!content) return;
+
+  const reports={
+    sales:{tableId:'salesTable',title:'Sales Performance',scopeFilter:'countryFilter',scopeAll:'All Markets',kpis:[1,2,4,6]},
+    foc:{tableId:'focTable',title:'IMS FOC Utilization',scopeFilter:'countryFilter',scopeAll:'All Markets',kpis:[1,2,4,6]},
+    stock:{tableId:'stockTable',title:'Stock Level',scopeFilter:'stockCountryFilter',scopeAll:'All Markets',kpis:[1,2,3,5]},
+    sm:{tableId:'smSimpleTable',title:'Selling & Marketing Expenses',scopeFilter:'smSimpleCountryFilter',scopeAll:'All Countries',kpis:[1,2,4,6]},
+    pnl:{tableId:'pnlTable',title:'Consolidated P&L',scopeFilter:'pnlMarketFilter',scopeAll:'All Markets',kpis:[]}
+  };
+
+  let activeReport='sales';
+  let managementMode='summary';
+  let managementShowAll=false;
+  let managementFocusIndex=0;
+
+  const currentConfig=()=>reports[activeReport];
+  const currentTable=()=>$(currentConfig()?.tableId);
+  const isOpen=()=>!overlay.hidden;
+
+  function managementColumnCount(table){
+    return Math.max(0,...[...table.rows].map(row=>[...row.cells]
+      .reduce((count,cell)=>count+(Number(cell.colSpan)||1),0)));
+  }
+
+  function managementColumnLabels(table){
+    const count=managementColumnCount(table);
+    const labels=Array.from({length:count},()=>[]);
+    const occupied=[];
+
+    [...(table.tHead?.rows||[])].forEach((row,rowIndex)=>{
+      let columnIndex=0;
+      [...row.cells].forEach(cell=>{
+        while(occupied[rowIndex]?.[columnIndex]) columnIndex++;
+        const colspan=Number(cell.colSpan)||1;
+        const rowspan=Number(cell.rowSpan)||1;
+        for(let r=rowIndex;r<rowIndex+rowspan;r++){
+          occupied[r]??=[];
+          for(let c=columnIndex;c<columnIndex+colspan;c++) occupied[r][c]=true;
+        }
+
+        const label=cell.getAttribute('aria-hidden')==='true'
+          ?''
+          :String(cell.textContent||'').replace(/\s+/g,' ').trim();
+        if(label){
+          for(let c=columnIndex;c<columnIndex+colspan;c++){
+            if(!labels[c].includes(label)) labels[c].push(label);
+          }
+        }
+        columnIndex+=colspan;
+      });
+    });
+
+    return labels.map((parts,index)=>parts.join(' · ')||`Column ${index+1}`);
+  }
+
+  function managementDataRows(table){
+    return [...(table.tBodies?.[0]?.rows||[])].filter(row=>
+      !row.classList.contains('total-row')&&
+      !row.classList.contains('sm-total-row')&&
+      !row.classList.contains('pnl-ratio-spacer')&&
+      !row.classList.contains('pnl-statement-ratio')&&
+      !row.querySelector('.sm-no-data,.stock-empty')
+    );
+  }
+
+  function managementValueClass(cell){
+    const value=String(cell?.textContent||'').trim();
+    if(
+      cell?.classList.contains('negative')||
+      cell?.classList.contains('sm-bad')||
+      cell?.classList.contains('pnl-negative')||
+      cell?.classList.contains('pnl-kpi-negative')||
+      cell?.classList.contains('pnl-amount-negative')||
+      /^\(.*\)$/.test(value)
+    ) return 'negative';
+    if(
+      cell?.classList.contains('positive')||
+      cell?.classList.contains('sm-good')||
+      cell?.classList.contains('pnl-positive')
+    ) return 'positive';
+    return '';
+  }
+
+  function managementScope(){
+    const config=currentConfig();
+    const selected=getSelected(config.scopeFilter);
+    return selected.length?selected.join(' · '):config.scopeAll;
+  }
+
+  function updateManagementHeading(){
+    const config=currentConfig();
+    const scope=managementScope();
+    const singleCountry=scope&&!scope.startsWith('All ')&&!scope.includes(' · ')?scope:'';
+    const code=singleCountry?countryFlagCode(singleCountry):'';
+    const flag=$('managementFlag');
+
+    $('managementTitle').textContent=config.title;
+    $('managementScope').textContent=scope;
+    flag.hidden=!code;
+    flag.src=code?countryFlagDataUri(code):'';
+    flag.alt=code?`${singleCountry} flag`:'';
+    flag.onerror=()=>{flag.hidden=true;};
+  }
+
+  function pnlManagementKpis(){
+    return [
+      ['Net Sales',$('pnlNetSalesKpi')?.textContent,$('pnlNetSalesKpi')],
+      ['Gross Profit',$('pnlGrossProfitKpi')?.textContent,$('pnlGrossProfitKpi')],
+      ['Net Income',$('pnlNetIncomeKpi')?.textContent,$('pnlNetIncomeKpi')],
+      ['GP Margin',$('pnlGpMarginKpi')?.textContent,$('pnlGpMarginKpi')]
+    ].map(([label,value,source])=>({label,value:value||'—',className:managementValueClass(source)}));
+  }
+
+  function managementKpis(table,labels){
+    if(activeReport==='pnl') return pnlManagementKpis();
+    const total=table.querySelector('tbody .total-row,tbody .sm-total-row');
+    if(!total) return [];
+    return currentConfig().kpis
+      .filter(index=>total.cells[index])
+      .map(index=>({
+        label:labels[index],
+        value:String(total.cells[index].textContent||'').trim()||'—',
+        className:managementValueClass(total.cells[index])
+      }));
+  }
+
+  function managementTableClone(table,limit=10){
+    const sourceRows=[...(table.tBodies?.[0]?.rows||[])];
+    const focusRows=managementDataRows(table);
+    const focusIndex=new Map(focusRows.map((row,index)=>[row,index]));
+    const clone=table.cloneNode(true);
+    clone.removeAttribute('id');
+    clone.classList.add('management-report-table',`management-report-${activeReport}`);
+    clone.querySelector('colgroup')?.remove();
+    clone.querySelectorAll('.column-resize-handle').forEach(handle=>handle.remove());
+    clone.querySelectorAll('thead th').forEach(header=>{
+      header.removeAttribute('tabindex');
+      header.removeAttribute('title');
+      header.style.removeProperty('--table-sticky-top');
+      header.style.removeProperty('--table-sticky-z');
+    });
+
+    [...(clone.tBodies?.[0]?.rows||[])].forEach((row,index)=>{
+      const sourceRow=sourceRows[index];
+      const dataIndex=focusIndex.get(sourceRow);
+      const keepAlways=sourceRow?.classList.contains('total-row')||sourceRow?.classList.contains('sm-total-row');
+      const keepData=Number.isInteger(dataIndex)&&(managementShowAll||dataIndex<limit);
+      const keepSupporting=managementShowAll&&sourceRow&&!Number.isInteger(dataIndex);
+      if(!(keepAlways||keepData||keepSupporting)){
+        row.remove();
+        return;
+      }
+      if(Number.isInteger(dataIndex)){
+        row.dataset.managementRowIndex=String(dataIndex);
+        if(dataIndex===managementFocusIndex) row.classList.add('management-row-selected');
+      }
+    });
+    return clone;
+  }
+
+  function bindManagementTableRows(){
+    content.querySelectorAll('[data-management-row-index]').forEach(row=>{
+      row.tabIndex=0;
+      const openFocus=()=>{
+        managementFocusIndex=Number(row.dataset.managementRowIndex)||0;
+        managementMode='focus';
+        renderManagementView();
+      };
+      row.addEventListener('click',openFocus);
+      row.addEventListener('keydown',event=>{
+        if(event.key==='Enter'||event.key===' '){
+          event.preventDefault();
+          openFocus();
+        }
+      });
+    });
+  }
+
+  function renderManagementTable(table,limit=10,title='Management Table'){
+    const rows=managementDataRows(table);
+    content.innerHTML=`<section class="management-panel">
+      <div class="management-panel-head"><strong>${esc(title)}</strong><span>${managementShowAll?rows.length:Math.min(limit,rows.length)} of ${rows.length} rows</span></div>
+      <div class="management-table-stage"></div>
+    </section>`;
+    content.querySelector('.management-table-stage').appendChild(managementTableClone(table,limit));
+    bindManagementTableRows();
+  }
+
+  function renderManagementSummary(table,labels){
+    const kpis=managementKpis(table,labels);
+    const rows=managementDataRows(table);
+    content.innerHTML=`<section class="management-summary">
+      <div class="management-kpis">${kpis.map(item=>`<article class="management-kpi ${item.className}"><span>${esc(item.label)}</span><strong>${esc(item.value)}</strong></article>`).join('')}</div>
+      <section class="management-panel">
+        <div class="management-panel-head"><strong>Key lines</strong><span>${Math.min(5,rows.length)} of ${rows.length} rows · click to focus</span></div>
+        <div class="management-table-stage"></div>
+      </section>
+    </section>`;
+    const previousShowAll=managementShowAll;
+    managementShowAll=false;
+    content.querySelector('.management-table-stage').appendChild(managementTableClone(table,5));
+    managementShowAll=previousShowAll;
+    bindManagementTableRows();
+  }
+
+  function renderManagementFocus(table,labels){
+    const rows=managementDataRows(table);
+    if(!rows.length){
+      content.innerHTML='<div class="management-empty">No displayed rows are available for Focus view.</div>';
+      return;
+    }
+    managementFocusIndex=Math.max(0,Math.min(managementFocusIndex,rows.length-1));
+    const row=rows[managementFocusIndex];
+    const name=String(row.cells[0]?.textContent||`Row ${managementFocusIndex+1}`).trim();
+    const cards=[...row.cells].slice(1).map((cell,index)=>({
+      label:labels[index+1]||`Value ${index+1}`,
+      value:String(cell.textContent||'').trim()||'—',
+      className:managementValueClass(cell)
+    }));
+
+    content.innerHTML=`<section class="management-focus">
+      <div class="management-focus-title"><span>Focused line</span><h3>${esc(name)}</h3></div>
+      <div class="management-focus-grid">${cards.map(item=>`<article class="management-focus-card ${item.className}"><span>${esc(item.label)}</span><strong>${esc(item.value)}</strong></article>`).join('')}</div>
+      <div class="management-focus-nav">
+        <button type="button" data-management-step="-1" ${managementFocusIndex===0?'disabled':''}>← Previous</button>
+        <span>${managementFocusIndex+1} / ${rows.length}</span>
+        <button type="button" data-management-step="1" ${managementFocusIndex===rows.length-1?'disabled':''}>Next →</button>
+      </div>
+    </section>`;
+
+    content.querySelectorAll('[data-management-step]').forEach(button=>{
+      button.addEventListener('click',()=>{
+        managementFocusIndex+=Number(button.dataset.managementStep)||0;
+        renderManagementView();
+      });
+    });
+  }
+
+  function renderManagementView(){
+    const table=currentTable();
+    updateManagementHeading();
+    document.querySelectorAll('[data-management-mode]').forEach(button=>{
+      const active=button.dataset.managementMode===managementMode;
+      button.classList.toggle('active',active);
+      button.setAttribute('aria-pressed',String(active));
+    });
+    $('managementRowsToggle').hidden=managementMode!=='table';
+    $('managementRowsToggle').textContent=managementShowAll?'Top 10':'Show All';
+
+    if(!table?.tHead||!table.tBodies?.[0]){
+      content.innerHTML='<div class="management-empty">No report data is currently displayed.</div>';
+      return;
+    }
+
+    const labels=managementColumnLabels(table);
+    if(managementMode==='table') renderManagementTable(table,10,'Management Table');
+    else if(managementMode==='focus') renderManagementFocus(table,labels);
+    else renderManagementSummary(table,labels);
+  }
+
+  function openManagementView(report){
+    if(!reports[report]) return;
+    activeReport=report;
+    managementMode='summary';
+    managementShowAll=false;
+    managementFocusIndex=0;
+    overlay.hidden=false;
+    overlay.setAttribute('aria-hidden','false');
+    document.body.classList.add('management-view-open');
+    renderManagementView();
+    $('managementExitBtn').focus();
+  }
+
+  async function closeManagementView(){
+    if(document.fullscreenElement===overlay){
+      try{await document.exitFullscreen();}catch(error){ /* Browser already exited. */ }
+    }
+    overlay.hidden=true;
+    overlay.setAttribute('aria-hidden','true');
+    document.body.classList.remove('management-view-open');
+  }
+
+  document.querySelectorAll('[data-management-report]').forEach(button=>{
+    button.addEventListener('click',()=>openManagementView(button.dataset.managementReport));
+  });
+  document.querySelectorAll('[data-management-mode]').forEach(button=>{
+    button.addEventListener('click',()=>{
+      managementMode=button.dataset.managementMode;
+      renderManagementView();
+    });
+  });
+  $('managementRowsToggle').addEventListener('click',()=>{
+    managementShowAll=!managementShowAll;
+    renderManagementView();
+  });
+  $('managementExitBtn').addEventListener('click',closeManagementView);
+  $('managementFullscreenBtn').addEventListener('click',async()=>{
+    try{
+      if(document.fullscreenElement===overlay) await document.exitFullscreen();
+      else await overlay.requestFullscreen();
+    }catch(error){
+      console.warn('Fullscreen is unavailable.',error);
+    }
+  });
+  document.addEventListener('fullscreenchange',()=>{
+    $('managementFullscreenBtn').textContent=document.fullscreenElement===overlay?'Exit Fullscreen':'Fullscreen';
+  });
+  document.addEventListener('keydown',event=>{
+    if(!isOpen()) return;
+    if(event.key==='Escape'){
+      closeManagementView();
+      return;
+    }
+    if(managementMode==='focus'&&(event.key==='ArrowLeft'||event.key==='ArrowRight')){
+      const rows=managementDataRows(currentTable());
+      const delta=event.key==='ArrowRight'?1:-1;
+      const next=Math.max(0,Math.min(rows.length-1,managementFocusIndex+delta));
+      if(next!==managementFocusIndex){
+        event.preventDefault();
+        managementFocusIndex=next;
+        renderManagementView();
+      }
+    }
+  });
+})();
+
 function sum(rows,key){return rows.reduce((a,r)=>a+(typeof key==='function'?key(r):Number(r[key])||0),0);}
 function dimKey(r,dim){
   return dim==='Brand'?r.__brand:dim==='Product Name'?r.__product:dim==='Product Group'?r.__group:String(r[dim]||'Unassigned');
@@ -1888,9 +2218,9 @@ document.addEventListener('DOMContentLoaded',()=>{
   });
 
   document.addEventListener('keydown', event => {
-    const header = event.target.closest(
+    const header = event.target instanceof Element ? event.target.closest(
       '#salesTable thead th, #focTable thead th, #stockTable thead th, #stockDetailTable thead th, #countryDetailTable thead th, #pnlTable thead th'
-    );
+    ) : null;
 
     if (
       !header ||
