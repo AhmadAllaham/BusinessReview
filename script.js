@@ -2180,10 +2180,12 @@ function stockNumber(value){
 }
 
 function stockNormalize(row){
+  const brand=String(stockField(row,['brand','product','productname']) || 'Unassigned').trim();
   return {
     ...row,
-    Brand:String(stockField(row,['brand','product','productname']) || 'Unassigned').trim(),
-    'Product Group':String(stockField(row,['productgroup','group']) || 'Unassigned').trim(),
+    Brand:brand,
+    SKU:String(stockField(row,['sku','product','productname']) || '').trim(),
+    'Product Group':String(stockField(row,['productgroup','group']) || brand).trim(),
     Month:String(stockField(row,['month','reportingmonth','period']) || '').trim(),
     Country:String(stockField(row,['country','countryname','market']) || '').trim(),
     Agent:String(stockField(row,['agent','customer']) || '').trim(),
