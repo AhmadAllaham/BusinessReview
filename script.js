@@ -651,9 +651,11 @@ function updatePerformanceSpotlightHeader(type){
   const name=$(`${type}SpotlightCountryName`);
   if(!header || !flag || !name) return;
 
-  const selected=getSelected('countryFilter');
+  const isStock=type==='stock';
+  const selected=getSelected(isStock?'stockCountryFilter':'countryFilter');
   const available=[...new Set(
-    filtered().map(row=>String(row.Country||'').trim()).filter(Boolean)
+    (isStock?filteredStockRows():filtered())
+      .map(row=>String(row.Country||'').trim()).filter(Boolean)
   )].sort((a,b)=>a.localeCompare(b));
   const countries=selected.length?selected:available;
   const singleCountry=countries.length===1?countries[0]:'';
@@ -678,7 +680,9 @@ function setPerformanceTableSpotlight(type,active){
     if(performanceSpotlightState){
       setPerformanceTableSpotlight(performanceSpotlightState.type,false);
     }
-    const tableWrap=$(`${type}Section`)?.querySelector('.sales-foc-table-scroll');
+    const tableWrap=$(`${type}Section`)?.querySelector(
+      type==='stock'?'.stock-table-scroll':'.sales-foc-table-scroll'
+    );
     if(!tableWrap) return;
 
     performanceSpotlightState={
@@ -720,6 +724,8 @@ $('salesSpotlightBtn')?.addEventListener('click',()=>setPerformanceTableSpotligh
 $('salesSpotlightExitBtn')?.addEventListener('click',()=>setPerformanceTableSpotlight('sales',false));
 $('focSpotlightBtn')?.addEventListener('click',()=>setPerformanceTableSpotlight('foc',true));
 $('focSpotlightExitBtn')?.addEventListener('click',()=>setPerformanceTableSpotlight('foc',false));
+$('stockSpotlightBtn')?.addEventListener('click',()=>setPerformanceTableSpotlight('stock',true));
+$('stockSpotlightExitBtn')?.addEventListener('click',()=>setPerformanceTableSpotlight('stock',false));
 document.addEventListener('keydown',event=>{
   if(event.key==='Escape' && performanceSpotlightState){
     setPerformanceTableSpotlight(performanceSpotlightState.type,false);
@@ -2152,6 +2158,8 @@ document.addEventListener('keydown',event=>{
 // Stock $ | Historical Sales $ | Forecast Sales $
 // ============================================================
 let stockRows = [];
+let stockCurrency = 'USD';
+const STOCK_USD_TO_JOD = 0.709;
 const stockFilterIds = [
   'stockProductGroupFilter',
   'stockMonthFilter',
@@ -2231,14 +2239,19 @@ function stockCoverageFormat(value){
   });
 }
 
+function stockCurrencyValue(value){
+  const amount=Number(value)||0;
+  return stockCurrency==='JOD'?amount*STOCK_USD_TO_JOD:amount;
+}
+
 function stockStatementTableHtml(rows,totals,dimension='Brand',clickable=false){
   const makeRow=(row,total=false)=>`<tr${total?' class="total-row"':''}>
     <td>${clickable&&!total
       ?`<button class="stock-drill-button" type="button" data-stock-drill-value="${esc(row.name)}">${esc(row.name)}</button>`
       :esc(row.name)}</td>
-    <td>${fmt(row.stock)}</td>
-    <td>${fmt(row.historical)}</td>
-    <td>${fmt(row.forecast)}</td>
+    <td>${fmt(stockCurrencyValue(row.stock))}</td>
+    <td>${fmt(stockCurrencyValue(row.historical))}</td>
+    <td>${fmt(stockCurrencyValue(row.forecast))}</td>
     <td>${stockCoverageFormat(stockCoverage(row.stock,row.historical))}</td>
     <td>${stockCoverageFormat(stockCoverage(row.stock,row.forecast))}</td>
   </tr>`;
@@ -2250,9 +2263,9 @@ function stockStatementTableHtml(rows,totals,dimension='Brand',clickable=false){
   <thead>
     <tr class="stock-statement-group-head">
       <th rowspan="2" data-sort-index="0" data-resize-column="0">${esc(dimension)}</th>
-      <th rowspan="2" data-sort-index="1" data-resize-column="1">Stock $</th>
-      <th rowspan="2" data-sort-index="2" data-resize-column="2">Historical Sales $</th>
-      <th rowspan="2" data-sort-index="3" data-resize-column="3">Forecast Sales $</th>
+      <th rowspan="2" data-sort-index="1" data-resize-column="1">Stock (${stockCurrency})</th>
+      <th rowspan="2" data-sort-index="2" data-resize-column="2">Historical Sales (${stockCurrency})</th>
+      <th rowspan="2" data-sort-index="3" data-resize-column="3">Forecast Sales (${stockCurrency})</th>
       <th colspan="2" data-no-sort="true">Monthly Coverage</th>
     </tr>
     <tr class="stock-statement-sub-head">
@@ -2403,6 +2416,12 @@ function closeStockDetailModal(){
   $('stockDetailModal')?.setAttribute('aria-hidden','true');
 }
 
+function rerenderOpenStockDetail(){
+  if(!$('stockDetailModal')?.classList.contains('open')) return;
+  if(activeStockBrand) openStockBrandDetails(activeStockBrand);
+  else renderStockCountryBrands();
+}
+
 function renderStockLevel(){
   const table=$('stockTable');
   if(!table) return;
@@ -2423,6 +2442,18 @@ $('stockResetBtn')?.addEventListener('click',()=>{
 });
 $('closeStockDetailModal')?.addEventListener('click',closeStockDetailModal);
 $('stockDetailBackButton')?.addEventListener('click',renderStockCountryBrands);
+document.querySelectorAll('[data-stock-currency]').forEach(button=>{
+  button.addEventListener('click',()=>{
+    stockCurrency=button.dataset.stockCurrency==='JOD'?'JOD':'USD';
+    document.querySelectorAll('[data-stock-currency]').forEach(option=>{
+      const active=option.dataset.stockCurrency===stockCurrency;
+      option.classList.toggle('active',active);
+      option.setAttribute('aria-pressed',String(active));
+    });
+    renderStockLevel();
+    rerenderOpenStockDetail();
+  });
+});
 document.querySelector('[data-close-stock-modal]')?.addEventListener('click',closeStockDetailModal);
 document.addEventListener('keydown',event=>{
   if(event.key==='Escape'&&$('stockDetailModal')?.classList.contains('open')){
