@@ -559,6 +559,7 @@ function renderSalesTable(rows){
   $('salesCount').textContent=`${data.length.toLocaleString('en-US')} rows`;
   $('salesTable').innerHTML=salesStatementTableHtml(data,dim);
   if(dim==='Country') [...$('salesTable').querySelectorAll('tbody tr:not(.total-row) td:first-child')].forEach(td=>{td.classList.add('drill-link');td.addEventListener('click',()=>openCountry(td.textContent));});
+  setupResizableColumns($('salesTable'));
 }
 
 function salesStatementValue(value){
@@ -673,6 +674,7 @@ function renderFocTable(rows){
         td.addEventListener('click',()=>openFocCountry(td.textContent));
       });
   }
+  setupResizableColumns($('focTable'));
 }
 function focTableHtml(rows,totals,dimension='Name'){
   const dimensionLabel=dimension==='Country'?'Market':dimension;
@@ -997,6 +999,7 @@ function renderCountryBrands(){
       td.classList.add('drill-link');
       td.addEventListener('click',()=>renderBrandProducts(td.textContent));
     });
+  setupResizableColumns($('countryDetailTable'));
 }
 
 function renderBrandProducts(brand){
@@ -1015,6 +1018,7 @@ function renderBrandProducts(brand){
   $('countryDetailCount').textContent=`${data.length} products`;
   $('countryDetailTable').className='sales-statement-detail';
   $('countryDetailTable').innerHTML=salesStatementTableHtml(data,'Product');
+  setupResizableColumns($('countryDetailTable'));
 }
 
 function renderFocCountryGroups(){
@@ -1053,6 +1057,7 @@ function renderFocCountryGroups(){
       td.title='Click to view products';
       td.addEventListener('click',()=>renderFocGroupProducts(td.textContent));
     });
+  setupResizableColumns($('countryDetailTable'));
 }
 
 function renderFocGroupProducts(group){
@@ -1088,6 +1093,7 @@ function renderFocGroupProducts(group){
     'Total',
     'Product'
   );
+  setupResizableColumns($('countryDetailTable'));
 }
 
 $('backToBrands').addEventListener('click',()=>{
@@ -1445,6 +1451,7 @@ function renderPnlVertical() {
 
   html += '</tbody>';
   table.innerHTML = html;
+  setupResizableColumns(table);
 
   const netSalesVar = actual.netSales - budget.netSales;
   const gpVar = actual.grossProfit - budget.grossProfit;
@@ -2140,6 +2147,7 @@ function renderSmExpenses(){
 
   if(!rows.length){
     tbody.innerHTML = '<tr><td colspan="8" class="sm-no-data">No matching data for the selected month and country.</td></tr>';
+    setupResizableColumns($('smSimpleTable'));
     return;
   }
 
@@ -2179,6 +2187,7 @@ function renderSmExpenses(){
     <td class="${smSimpleCellClass(totalVsLy,true)}">${smSimpleFormat(totalVsLy)}</td>
     <td class="${smSimpleCellClass(totalVsLyPct,false)}">${smSimplePercent(totalVsLyPct)}</td>
   </tr>`);
+  setupResizableColumns($('smSimpleTable'));
 }
 
 function initSmSimpleReport(){
@@ -2512,9 +2521,44 @@ function stockStatementTableHtml(rows,totals,dimension='Brand',clickable=false){
 
 function setupResizableColumns(table){
   if(!table) return;
-  const columns=[...table.querySelectorAll('colgroup col')];
-  if(!columns.length) return;
-  const storageKey=`br-column-widths:${table.id}`;
+
+  const rowColumnCount=row=>[...row.cells]
+    .reduce((count,cell)=>count+(Number(cell.colSpan)||1),0);
+  const columnCount=Math.max(
+    0,
+    ...[...table.rows].map(rowColumnCount)
+  );
+  if(!columnCount) return;
+
+  let colgroup=table.querySelector(':scope > colgroup');
+  if(!colgroup){
+    const measurementRow=[...table.tBodies]
+      .flatMap(body=>[...body.rows])
+      .find(row=>row.cells.length===columnCount&&[...row.cells].every(cell=>cell.colSpan===1));
+    const tableIsVisible=table.getBoundingClientRect().width>0;
+    const measuredWidths=measurementRow&&tableIsVisible
+      ?[...measurementRow.cells].map(cell=>Math.max(80,Math.round(cell.getBoundingClientRect().width)))
+      :Array.from({length:columnCount},(_,index)=>index===0?230:125);
+
+    colgroup=document.createElement('colgroup');
+    measuredWidths.forEach(width=>{
+      const column=document.createElement('col');
+      column.style.width=`${width}px`;
+      colgroup.appendChild(column);
+    });
+    table.insertBefore(colgroup,table.firstChild);
+  }
+
+  const columns=[...colgroup.querySelectorAll('col')];
+  while(columns.length<columnCount){
+    const column=document.createElement('col');
+    column.style.width='125px';
+    colgroup.appendChild(column);
+    columns.push(column);
+  }
+
+  table.classList.add('resizable-report-table');
+  const storageKey=`br-column-widths:${table.id}:${columnCount}`;
   try{
     const saved=JSON.parse(localStorage.getItem(storageKey)||'[]');
     saved.forEach((width,index)=>{
@@ -2524,13 +2568,42 @@ function setupResizableColumns(table){
 
   const syncTableWidth=()=>{
     const width=columns.reduce((sum,column)=>sum+(parseFloat(column.style.width)||column.getBoundingClientRect().width||120),0);
-    table.style.width=`${Math.max(width,900)}px`;
+    table.style.width=`${Math.max(width,640)}px`;
+    table.style.minWidth='100%';
   };
-  syncTableWidth();
 
-  table.querySelectorAll('th[data-resize-column]').forEach(header=>{
+  const headerByColumn=new Map();
+  const occupied=[];
+  [...(table.tHead?.rows||[])].forEach((row,rowIndex)=>{
+    let columnIndex=0;
+    [...row.cells].forEach(header=>{
+      while(occupied[rowIndex]?.[columnIndex]) columnIndex++;
+      const colspan=Number(header.colSpan)||1;
+      const rowspan=Number(header.rowSpan)||1;
+      for(let r=rowIndex;r<rowIndex+rowspan;r++){
+        occupied[r]??=[];
+        for(let c=columnIndex;c<columnIndex+colspan;c++) occupied[r][c]=true;
+      }
+      if(colspan===1) headerByColumn.set(columnIndex,header);
+      columnIndex+=colspan;
+    });
+  });
+
+  let stickyTop=0;
+  [...(table.tHead?.rows||[])].forEach((row,rowIndex)=>{
+    [...row.cells].forEach(header=>{
+      header.style.setProperty('--table-sticky-top',`${stickyTop}px`);
+      header.style.setProperty('--table-sticky-z',String(14-rowIndex));
+    });
+    stickyTop+=row.getBoundingClientRect().height;
+  });
+
+  headerByColumn.forEach((header,index)=>{
+    header.dataset.resizeColumn=String(index);
+    header.querySelector('.column-resize-handle')?.remove();
     const handle=document.createElement('span');
     handle.className='column-resize-handle';
+    handle.title='Drag to resize column';
     handle.setAttribute('aria-hidden','true');
     header.appendChild(handle);
     handle.addEventListener('click',event=>event.stopPropagation());
@@ -2560,12 +2633,14 @@ function setupResizableColumns(table){
             Math.round(column.getBoundingClientRect().width)
           )));
         }catch(error){ /* Keep resizing even when storage is unavailable. */ }
+        setupResizableColumns(table);
       };
       handle.addEventListener('pointermove',move);
       handle.addEventListener('pointerup',stop);
       handle.addEventListener('pointercancel',stop);
     });
   });
+  syncTableWidth();
 }
 
 let activeStockCountry='';
