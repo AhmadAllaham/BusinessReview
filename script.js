@@ -1762,7 +1762,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   document.addEventListener('click', event => {
     const header = event.target.closest(
-      '#salesTable thead th, #focTable thead th, #stockTable thead th, #countryDetailTable thead th, #pnlTable thead th'
+      '#salesTable thead th, #focTable thead th, #stockTable thead th, #stockDetailTable thead th, #countryDetailTable thead th, #pnlTable thead th'
     );
 
     if (!header || header.dataset.noSort === 'true') return;
@@ -1776,7 +1776,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   document.addEventListener('keydown', event => {
     const header = event.target.closest(
-      '#salesTable thead th, #focTable thead th, #stockTable thead th, #countryDetailTable thead th, #pnlTable thead th'
+      '#salesTable thead th, #focTable thead th, #stockTable thead th, #stockDetailTable thead th, #countryDetailTable thead th, #pnlTable thead th'
     );
 
     if (
@@ -1794,7 +1794,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   function makeHeadersAccessible() {
     document
       .querySelectorAll(
-        '#salesTable thead th, #focTable thead th, #stockTable thead th, #countryDetailTable thead th, #pnlTable thead th'
+        '#salesTable thead th, #focTable thead th, #stockTable thead th, #stockDetailTable thead th, #countryDetailTable thead th, #pnlTable thead th'
       )
       .forEach(th => {
         if (th.dataset.noSort === 'true') {
@@ -2231,14 +2231,139 @@ function stockCoverageFormat(value){
   });
 }
 
+function stockStatementTableHtml(rows,totals,dimension='Brand',clickable=false){
+  const makeRow=(row,total=false)=>`<tr${total?' class="total-row"':''}>
+    <td>${clickable&&!total
+      ?`<button class="stock-drill-button" type="button" data-stock-brand="${esc(row.name)}">${esc(row.name)}</button>`
+      :esc(row.name)}</td>
+    <td>${fmt(row.stock)}</td>
+    <td>${fmt(row.historical)}</td>
+    <td>${fmt(row.forecast)}</td>
+    <td>${stockCoverageFormat(stockCoverage(row.stock,row.historical))}</td>
+    <td>${stockCoverageFormat(stockCoverage(row.stock,row.forecast))}</td>
+  </tr>`;
+
+  return `<colgroup>
+    <col style="width:250px"><col style="width:145px"><col style="width:180px">
+    <col style="width:180px"><col style="width:180px"><col style="width:180px">
+  </colgroup>
+  <thead>
+    <tr class="stock-statement-group-head">
+      <th rowspan="2" data-sort-index="0" data-resize-column="0">${esc(dimension)}</th>
+      <th rowspan="2" data-sort-index="1" data-resize-column="1">Stock $</th>
+      <th rowspan="2" data-sort-index="2" data-resize-column="2">Historical Sales $</th>
+      <th rowspan="2" data-sort-index="3" data-resize-column="3">Forecast Sales $</th>
+      <th colspan="2" data-no-sort="true">Monthly Coverage</th>
+    </tr>
+    <tr class="stock-statement-sub-head">
+      <th data-sort-index="4" data-resize-column="4">Historical average</th>
+      <th data-sort-index="5" data-resize-column="5">Forecasted average</th>
+    </tr>
+  </thead>
+  <tbody>${rows.map(row=>makeRow(row)).join('')}${rows.length
+    ?makeRow({name:'Total',...totals},true)
+    :'<tr><td colspan="6" class="stock-empty">No stock data matches the selected filters.</td></tr>'}
+  </tbody>`;
+}
+
+function setupResizableColumns(table){
+  if(!table) return;
+  const columns=[...table.querySelectorAll('colgroup col')];
+  if(!columns.length) return;
+  const storageKey=`br-column-widths:${table.id}`;
+  try{
+    const saved=JSON.parse(localStorage.getItem(storageKey)||'[]');
+    saved.forEach((width,index)=>{
+      if(columns[index]&&Number(width)>=80) columns[index].style.width=`${Number(width)}px`;
+    });
+  }catch(error){ /* Ignore unavailable or invalid local preferences. */ }
+
+  const syncTableWidth=()=>{
+    const width=columns.reduce((sum,column)=>sum+(parseFloat(column.style.width)||column.getBoundingClientRect().width||120),0);
+    table.style.width=`${Math.max(width,900)}px`;
+  };
+  syncTableWidth();
+
+  table.querySelectorAll('th[data-resize-column]').forEach(header=>{
+    const handle=document.createElement('span');
+    handle.className='column-resize-handle';
+    handle.setAttribute('aria-hidden','true');
+    header.appendChild(handle);
+    handle.addEventListener('click',event=>event.stopPropagation());
+    handle.addEventListener('pointerdown',event=>{
+      event.preventDefault();
+      event.stopPropagation();
+      const index=Number(header.dataset.resizeColumn);
+      const column=columns[index];
+      if(!column) return;
+      const startX=event.clientX;
+      const startWidth=column.getBoundingClientRect().width;
+      document.body.classList.add('resizing-table-column');
+      handle.setPointerCapture?.(event.pointerId);
+
+      const move=moveEvent=>{
+        const width=Math.max(80,Math.round(startWidth+moveEvent.clientX-startX));
+        column.style.width=`${width}px`;
+        syncTableWidth();
+      };
+      const stop=()=>{
+        document.body.classList.remove('resizing-table-column');
+        handle.removeEventListener('pointermove',move);
+        handle.removeEventListener('pointerup',stop);
+        handle.removeEventListener('pointercancel',stop);
+        try{
+          localStorage.setItem(storageKey,JSON.stringify(columns.map(column=>
+            Math.round(column.getBoundingClientRect().width)
+          )));
+        }catch(error){ /* Keep resizing even when storage is unavailable. */ }
+      };
+      handle.addEventListener('pointermove',move);
+      handle.addEventListener('pointerup',stop);
+      handle.addEventListener('pointercancel',stop);
+    });
+  });
+}
+
+function openStockBrandDetails(brand){
+  const grouped=new Map();
+  filteredStockRows().filter(row=>row.Brand===brand).forEach(row=>{
+    const sku=row.SKU||'Unassigned SKU';
+    if(!grouped.has(sku)) grouped.set(sku,{name:sku,stock:0,historical:0,forecast:0});
+    const item=grouped.get(sku);
+    item.stock+=row.__stock;
+    item.historical+=row.__historical;
+    item.forecast+=row.__forecast;
+  });
+  const products=[...grouped.values()].sort((a,b)=>b.stock-a.stock);
+  const totals=products.reduce((total,row)=>({
+    stock:total.stock+row.stock,
+    historical:total.historical+row.historical,
+    forecast:total.forecast+row.forecast
+  }),{stock:0,historical:0,forecast:0});
+
+  $('stockDetailModalTitle').textContent=brand;
+  $('stockDetailModalSubtitle').textContent='SKU detail within the currently selected Stock Level filters.';
+  $('stockDetailCount').textContent=`${products.length.toLocaleString('en-US')} products`;
+  $('stockDetailTable').innerHTML=stockStatementTableHtml(products,totals,'SKU');
+  setupResizableColumns($('stockDetailTable'));
+  $('stockDetailModal').classList.add('open');
+  $('stockDetailModal').setAttribute('aria-hidden','false');
+  $('closeStockDetailModal').focus();
+}
+
+function closeStockDetailModal(){
+  $('stockDetailModal')?.classList.remove('open');
+  $('stockDetailModal')?.setAttribute('aria-hidden','true');
+}
+
 function renderStockLevel(){
-  const tbody=$('stockTable')?.tBodies?.[0];
-  if(!tbody) return;
+  const table=$('stockTable');
+  if(!table) return;
   const rows=filteredStockRows();
   const grouped=new Map();
   rows.forEach(row=>{
     const brand=row.Brand || 'Unassigned';
-    if(!grouped.has(brand)) grouped.set(brand,{brand,stock:0,historical:0,forecast:0});
+    if(!grouped.has(brand)) grouped.set(brand,{name:brand,stock:0,historical:0,forecast:0});
     const item=grouped.get(brand);
     item.stock+=row.__stock;
     item.historical+=row.__historical;
@@ -2252,31 +2377,23 @@ function renderStockLevel(){
   }),{stock:0,historical:0,forecast:0});
 
   $('stockCount').textContent=`${brands.length.toLocaleString('en-US')} brands`;
-  if(!brands.length){
-    tbody.innerHTML='<tr><td colspan="6" class="stock-empty">No stock data matches the selected filters.</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML=brands.map(row=>`<tr>
-    <td>${esc(row.brand)}</td>
-    <td>${fmt(row.stock)}</td>
-    <td>${fmt(row.historical)}</td>
-    <td>${fmt(row.forecast)}</td>
-    <td>${stockCoverageFormat(stockCoverage(row.stock,row.historical))}</td>
-    <td>${stockCoverageFormat(stockCoverage(row.stock,row.forecast))}</td>
-  </tr>`).join('')+`<tr class="total-row">
-    <td>Total</td>
-    <td>${fmt(totals.stock)}</td>
-    <td>${fmt(totals.historical)}</td>
-    <td>${fmt(totals.forecast)}</td>
-    <td>${stockCoverageFormat(stockCoverage(totals.stock,totals.historical))}</td>
-    <td>${stockCoverageFormat(stockCoverage(totals.stock,totals.forecast))}</td>
-  </tr>`;
+  table.innerHTML=stockStatementTableHtml(brands,totals,'Brand',true);
+  table.querySelectorAll('.stock-drill-button').forEach(button=>{
+    button.addEventListener('click',()=>openStockBrandDetails(button.dataset.stockBrand));
+  });
+  setupResizableColumns(table);
 }
 
 $('stockResetBtn')?.addEventListener('click',()=>{
   buildStockFilters(true);
   renderStockLevel();
+});
+$('closeStockDetailModal')?.addEventListener('click',closeStockDetailModal);
+document.querySelector('[data-close-stock-modal]')?.addEventListener('click',closeStockDetailModal);
+document.addEventListener('keydown',event=>{
+  if(event.key==='Escape'&&$('stockDetailModal')?.classList.contains('open')){
+    closeStockDetailModal();
+  }
 });
 buildStockFilters(true);
 renderStockLevel();
