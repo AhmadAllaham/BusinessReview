@@ -62,9 +62,72 @@
     });
   }
 
+  function stockHeaderIndex(matrix) {
+    const required = [
+      "country","agent","brand","sku","stock","historicalsales","forecastsales"
+    ];
+    return matrix.findIndex(row => {
+      const headers = new Set(row.map(normalizeHeader));
+      return required.every(header => headers.has(header));
+    });
+  }
+
+  function canonicalCountry(value) {
+    const raw = String(value ?? "").trim();
+    const key = normalizeHeader(raw);
+    const known = {
+      bahrain:"Bahrain",
+      iraq:"Iraq",
+      jordan:"Jordan",
+      kuwait:"Kuwait",
+      lebanon:"Lebanon",
+      libya:"Libya",
+      oman:"Oman",
+      qatar:"Qatar",
+      ksa:"KSA",
+      saudiarabia:"KSA",
+      uae:"UAE",
+      unitedarabemirates:"UAE"
+    };
+    if (known[key]) return known[key];
+    return raw.toLowerCase().replace(/(^|[\s-])\S/g,letter => letter.toUpperCase());
+  }
+
+  function numberValue(value) {
+    if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+    const text = String(value ?? "").trim();
+    if (!text) return 0;
+    const parsed = Number(
+      text.replace(/,/g,"").replace(/^\((.*)\)$/, "-$1").replace(/[^0-9.-]/g,"")
+    );
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function stockPayload(headers,values) {
+    const source = Object.fromEntries(headers.map((header,index) => [
+      normalizeHeader(header),normalizeValue(values[index])
+    ]));
+    const read = (...names) => {
+      const key = names.map(normalizeHeader).find(name => Object.hasOwn(source,name));
+      return key ? source[key] : "";
+    };
+    const brand = String(read("brand","product group") || "Unassigned").trim();
+    return {
+      Country:canonicalCountry(read("country","country name","market")),
+      Agent:String(read("agent","customer","distributor") || "").trim(),
+      Brand:brand,
+      SKU:String(read("sku","product","product name") || "").trim(),
+      "Product Group":String(read("product group","group") || brand).trim(),
+      Month:String(read("month","reporting month","period") || "").trim(),
+      "Stock $":numberValue(read("stock","stock $","stock value")),
+      "Historical Sales $":numberValue(read("historical sales","historical sales $")),
+      "Forecast Sales $":numberValue(read("forecast sales","forecast sales $","forcast sales"))
+    };
+  }
+
   function headerValue(row,names) {
     const key = Object.keys(row).find(item =>
-      names.includes(String(item).trim().toLowerCase())
+      names.map(normalizeHeader).includes(normalizeHeader(item))
     );
     return key ? String(row[key] ?? "").trim() : "";
   }
@@ -80,7 +143,9 @@
       });
       const headerIndex = reportType === "pnl"
         ? pnlHeaderIndex(matrix)
-        : firstNonEmptyRow(matrix);
+        : reportType === "stock"
+          ? stockHeaderIndex(matrix)
+          : firstNonEmptyRow(matrix);
       if (headerIndex < 0) return;
       const headers = matrix[headerIndex].map((value,index) =>
         String(value || `Column ${index + 1}`).trim()
@@ -88,9 +153,11 @@
       const rows = matrix.slice(headerIndex + 1)
         .filter(row => row.some(value => String(value ?? "").trim() !== ""))
         .map((values,index) => {
-          const payload = Object.fromEntries(headers.map((header,columnIndex) => [
-            header,normalizeValue(values[columnIndex])
-          ]));
+          const payload = reportType === "stock"
+            ? stockPayload(headers,values)
+            : Object.fromEntries(headers.map((header,columnIndex) => [
+              header,normalizeValue(values[columnIndex])
+            ]));
           const rawCountry = headerValue(payload,["country","country name","market"]);
           const country = rawCountry && !/^total\b/i.test(rawCountry)
             ? rawCountry
@@ -110,6 +177,11 @@
     if (reportType === "pnl" && !parsedSheets.length) {
       throw new Error(
         "No valid P&L table was found. The header must include Scenario/Period, Market/Country, and P&L value columns."
+      );
+    }
+    if (reportType === "stock" && !parsedSheets.length) {
+      throw new Error(
+        "No valid Stock Level table was found. Required columns: Country, Agent, Brand, SKU, Stock, Historical Sales, and Forecast Sales."
       );
     }
     return {
@@ -215,10 +287,24 @@
   async function upload() {
     const datasetName = $("datasetName").value.trim();
     const reportType = $("reportType").value;
+    const reportingPeriod = $("reportingPeriod").value.trim();
     if (!datasetName || !reportType || !state.rows.length || !state.chunks.length) {
       show("uploadStatus","Select a report type, enter a dataset name, and choose a workbook.","error");
       return;
     }
+    if (reportType === "stock" && !reportingPeriod) {
+      show("uploadStatus","Enter the Stock Level reporting period so the Month filter can be populated.","error");
+      $("reportingPeriod").focus();
+      return;
+    }
+
+    const uploadRows = reportType === "stock"
+      ? state.rows.map(row => ({
+        ...row,
+        payload:{...row.payload,Month:row.payload.Month || reportingPeriod}
+      }))
+      : state.rows;
+    const uploadChunks = reportType === "stock" ? buildChunks(uploadRows) : state.chunks;
 
     const button = $("uploadButton");
     const datasetRef = db.collection("datasets").doc();
@@ -235,12 +321,12 @@
       await datasetRef.set({
         name:datasetName,
         reportType,
-        reportingPeriod:$("reportingPeriod").value.trim(),
+        reportingPeriod,
         fileName:state.file.name,
         sheets:state.sheets.map(sheet => ({name:sheet.name,rowCount:sheet.rowCount})),
         countries:state.countries,
-        rowCount:state.rows.length,
-        chunkCount:state.chunks.length,
+        rowCount:uploadRows.length,
+        chunkCount:uploadChunks.length,
         status:"uploading",
         active:false,
         uploadedBy:session.user.uid,
@@ -248,9 +334,9 @@
         uploadedAt:BRPortal.serverTimestamp()
       });
 
-      for (let start=0; start<state.chunks.length; start+=WRITES_PER_BATCH) {
+      for (let start=0; start<uploadChunks.length; start+=WRITES_PER_BATCH) {
         const batch = db.batch();
-        state.chunks.slice(start,start + WRITES_PER_BATCH).forEach((chunk,index) => {
+        uploadChunks.slice(start,start + WRITES_PER_BATCH).forEach((chunk,index) => {
           const chunkRef = db.collection("reportChunks").doc();
           batch.set(chunkRef,{
             datasetId,
@@ -263,13 +349,13 @@
           });
         });
         await batch.commit();
-        const completed = state.chunks.slice(start,start + WRITES_PER_BATCH);
+        const completed = uploadChunks.slice(start,start + WRITES_PER_BATCH);
         uploadedChunks += completed.length;
         uploadedRows += completed.reduce((sum,chunk)=>sum + chunk.rows.length,0);
-        $("progressBar").style.width = `${Math.round(uploadedChunks / state.chunks.length * 100)}%`;
+        $("progressBar").style.width = `${Math.round(uploadedChunks / uploadChunks.length * 100)}%`;
         show(
           "uploadStatus",
-          `Uploaded ${uploadedRows.toLocaleString("en-US")} of ${state.rows.length.toLocaleString("en-US")} rows…`
+          `Uploaded ${uploadedRows.toLocaleString("en-US")} of ${uploadRows.length.toLocaleString("en-US")} rows…`
         );
       }
 
