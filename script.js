@@ -85,7 +85,6 @@ function createMultiFilter(el,data,col,onChange,defaultValues=[]){
       </div>
       <div class="multi-filter-actions">
         <button type="button" class="cancel-selection">Close</button>
-        <button type="button" class="apply-selection">Apply</button>
       </div>
     </div>`;
 
@@ -98,7 +97,6 @@ function createMultiFilter(el,data,col,onChange,defaultValues=[]){
   const countEl=menu.querySelector('.multi-filter-count');
   const selectVisibleBtn=menu.querySelector('.select-visible');
   const clearBtn=menu.querySelector('.clear-selection');
-  const applyBtn=menu.querySelector('.apply-selection');
   const closeBtn=menu.querySelector('.cancel-selection');
 
   const visibleBoxes=()=>labels
@@ -148,6 +146,48 @@ function createMultiFilter(el,data,col,onChange,defaultValues=[]){
     selectVisibleBtn.disabled=visible.length===0;
   };
 
+  const applySelection=(keepOpen=false)=>{
+    updateLabel();
+
+    const searchValue=search.value;
+    const optionsScrollTop=menu.querySelector('.multi-options')?.scrollTop||0;
+    const selectedNow=boxes
+      .filter(box=>box.checked)
+      .map(box=>String(box.value));
+
+    // Freeze the current values before dependent filters rebuild this control.
+    el._getSelected=()=>[...selectedNow];
+
+    btn.classList.add('filter-applied');
+    setTimeout(()=>el.querySelector('.multi-filter-btn')?.classList.remove('filter-applied'),450);
+    onChange();
+    updateActiveFilterChips();
+
+    if(keepOpen){
+      // Rebuilding dependent filters replaces the menu. Restore it so users can
+      // continue selecting multiple values without reopening the filter.
+      const nextBtn=el.querySelector('.multi-filter-btn');
+      const nextMenu=el.querySelector('.multi-filter-menu');
+      const nextSearch=nextMenu?.querySelector('.multi-filter-search input');
+      const nextOptions=nextMenu?.querySelector('.multi-options');
+      if(nextBtn&&nextMenu){
+        nextMenu.hidden=false;
+        nextBtn.setAttribute('aria-expanded','true');
+      }
+      if(nextSearch){
+        nextSearch.value=searchValue;
+        nextSearch.dispatchEvent(new Event('input'));
+        nextSearch.focus({preventScroll:true});
+      }
+      if(nextOptions) nextOptions.scrollTop=optionsScrollTop;
+    }else{
+      const nextBtn=el.querySelector('.multi-filter-btn');
+      const nextMenu=el.querySelector('.multi-filter-menu');
+      if(nextMenu) nextMenu.hidden=true;
+      nextBtn?.setAttribute('aria-expanded','false');
+    }
+  };
+
   btn.addEventListener('click',e=>{
     e.stopPropagation();
     closeOtherMenus(el);
@@ -176,7 +216,7 @@ function createMultiFilter(el,data,col,onChange,defaultValues=[]){
       if(visible.length===1){
         visible[0].checked=true;
         updateLabel();
-        applyBtn.click();
+        applySelection(false);
       }
     }
   });
@@ -187,6 +227,7 @@ function createMultiFilter(el,data,col,onChange,defaultValues=[]){
       all.indeterminate=false;
     }
     updateLabel();
+    applySelection(true);
   });
 
   boxes.forEach(box=>box.addEventListener('change',()=>{
@@ -201,6 +242,7 @@ function createMultiFilter(el,data,col,onChange,defaultValues=[]){
     }
 
     updateLabel();
+    applySelection(true);
   }));
 
   selectVisibleBtn.addEventListener('click',()=>{
@@ -208,6 +250,7 @@ function createMultiFilter(el,data,col,onChange,defaultValues=[]){
     all.checked=false;
     all.indeterminate=false;
     updateLabel();
+    applySelection(true);
   });
 
   clearBtn.addEventListener('click',()=>{
@@ -215,28 +258,12 @@ function createMultiFilter(el,data,col,onChange,defaultValues=[]){
     all.checked=true;
     all.indeterminate=false;
     updateLabel();
+    applySelection(true);
   });
 
   closeBtn.addEventListener('click',()=>{
     menu.hidden=true;
     btn.setAttribute('aria-expanded','false');
-  });
-
-  applyBtn.addEventListener('click',()=>{
-    updateLabel();
-    menu.hidden=true;
-    btn.setAttribute('aria-expanded','false');
-
-    // Ensure the selected values are available before dependent filters rebuild.
-    const selectedNow=boxes
-      .filter(box=>box.checked)
-      .map(box=>String(box.value));
-    el._getSelected=()=>[...selectedNow];
-
-    btn.classList.add('filter-applied');
-    setTimeout(()=>btn.classList.remove('filter-applied'),450);
-    onChange();
-    updateActiveFilterChips();
   });
 
   // Expose the current selection so the dashboard tables can read it.
@@ -254,6 +281,7 @@ function createMultiFilter(el,data,col,onChange,defaultValues=[]){
     all.indeterminate=false;
     updateLabel();
   };
+  el._applySelection=()=>applySelection(false);
 
   updateLabel();
   updateActiveFilterChips();
@@ -1606,9 +1634,8 @@ function removeFilterValue(filterEl,value){
   const remaining=selected.filter(item=>item!==String(value));
   filterEl._setSelected(remaining);
 
-  const applyButton=filterEl.querySelector('.apply-selection');
-  if(applyButton){
-    applyButton.click();
+  if(typeof filterEl._applySelection==='function'){
+    filterEl._applySelection();
   }else{
     updateActiveFilterChips();
   }
@@ -1616,10 +1643,7 @@ function removeFilterValue(filterEl,value){
 
 function clearDashboardFilter(filterEl){
   filterEl._setSelected([]);
-  const applyButton=filterEl.querySelector('.apply-selection');
-  if(applyButton){
-    applyButton.click();
-  }
+  filterEl._applySelection?.();
 }
 
 function updateActiveFilterChips(){
@@ -1656,10 +1680,9 @@ document.addEventListener('click',event=>{
     const filters=getDashboardFilterElements().filter(el=>el._getSelected().length);
     filters.forEach(el=>el._setSelected([]));
 
-    // Trigger the dashboard refresh once using the first available Apply action.
-    const applyButton=filters[0]?.querySelector('.apply-selection');
-    if(applyButton){
-      applyButton.click();
+    // Trigger the dashboard refresh once after clearing every active filter.
+    if(typeof filters[0]?._applySelection==='function'){
+      filters[0]._applySelection();
     }else{
       updateActiveFilterChips();
     }
