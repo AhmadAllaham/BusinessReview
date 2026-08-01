@@ -2281,15 +2281,29 @@ function renderStockDashboard(){
   const topBrands=brands.slice(0,8);
   const maxCountryStock=topCountries[0]?.stock||0;
   const maxBrandStock=topBrands[0]?.stock||0;
-  const coverageBands=[
-    {label:'No forecast',hint:'Forecast Sales = 0',count:brands.filter(item=>item.forecast<=0).length,className:'no-forecast'},
-    {label:'Below 1×',hint:'Coverage below one month',count:brands.filter(item=>item.forecast>0&&stockCoverage(item.stock,item.forecast)<1).length,className:'low'},
-    {label:'1× to 3×',hint:'Coverage between one and three months',count:brands.filter(item=>{
-      const coverage=stockCoverage(item.stock,item.forecast);
-      return item.forecast>0&&coverage>=1&&coverage<=3;
-    }).length,className:'balanced'},
-    {label:'Above 3×',hint:'Coverage above three months',count:brands.filter(item=>item.forecast>0&&stockCoverage(item.stock,item.forecast)>3).length,className:'high'}
-  ];
+  const marketBrandMap=new Map();
+  rows.forEach(row=>{
+    const country=String(row.Country||'Unassigned Market').trim()||'Unassigned Market';
+    const brand=String(row.Brand||'Unassigned Brand').trim()||'Unassigned Brand';
+    const key=`${country}\u0001${brand}`;
+    if(!marketBrandMap.has(key)) marketBrandMap.set(key,{country,brand,stock:0,forecast:0});
+    const item=marketBrandMap.get(key);
+    item.stock+=row.__stock;
+    item.forecast+=row.__forecast;
+  });
+  const priorityRows=[...marketBrandMap.values()].map(item=>{
+    const gap=item.stock-item.forecast;
+    const coverage=stockCoverage(item.stock,item.forecast);
+    const status=item.forecast<=0
+      ?'No forecast'
+      :gap>0
+        ?'Above 1× forecast'
+        :gap<0
+          ?'Below 1× forecast'
+          :'Aligned';
+    const statusClass=item.forecast<=0?'no-forecast':gap>0?'above':'below';
+    return {...item,gap,coverage,status,statusClass};
+  }).sort((a,b)=>Math.abs(b.gap)-Math.abs(a.gap)).slice(0,10);
 
   target.innerHTML=`
     <div class="stock-dashboard-kpis">
@@ -2307,11 +2321,16 @@ function renderStockDashboard(){
         <div class="stock-dashboard-card-head"><div><span>PORTFOLIO VIEW</span><h3>Top brands by stock</h3></div><small>Top ${topBrands.length}</small></div>
         <div class="stock-dashboard-bars">${stockDashboardBarRows(topBrands,maxBrandStock)}</div>
       </article>
-      <article class="stock-dashboard-card stock-coverage-card">
-        <div class="stock-dashboard-card-head"><div><span>COVERAGE PROFILE</span><h3>Brands by forecast coverage</h3></div><small>${brands.length} brands</small></div>
-        <div class="stock-coverage-bands">${coverageBands.map(band=>`<div class="stock-coverage-band ${band.className}">
-          <strong>${band.count.toLocaleString('en-US')}</strong><span>${band.label}</span><small>${band.hint}</small>
-        </div>`).join('')}</div>
+      <article class="stock-dashboard-card stock-priority-card">
+        <div class="stock-dashboard-card-head"><div><span>ACTION PRIORITIES</span><h3>Largest stock gaps vs 1× monthly forecast</h3></div><small>Click a row for SKU details</small></div>
+        <div class="stock-priority-table"><table><thead><tr><th>Market</th><th>Brand</th><th>Stock</th><th>Forecast</th><th>Coverage</th><th>Gap vs 1×</th><th>Status</th></tr></thead><tbody>
+          ${priorityRows.map(item=>`<tr data-stock-priority-country="${esc(item.country)}" data-stock-priority-brand="${esc(item.brand)}" tabindex="0">
+            <td>${esc(item.country)}</td><td>${esc(item.brand)}</td><td>${stockDashboardAmount(item.stock)}</td><td>${stockDashboardAmount(item.forecast)}</td>
+            <td>${item.forecast>0?`${stockCoverageFormat(item.coverage)}×`:'—'}</td>
+            <td class="${item.gap>=0?'stock-gap-positive':'stock-gap-negative'}">${stockDashboardAmount(item.gap)}</td>
+            <td><span class="stock-priority-status ${item.statusClass}">${item.status}</span></td>
+          </tr>`).join('')}
+        </tbody></table></div>
       </article>
       <article class="stock-dashboard-card stock-market-summary-card">
         <div class="stock-dashboard-card-head"><div><span>MARKET COVERAGE</span><h3>Forecast coverage by market</h3></div><small>Active filters</small></div>
@@ -2325,6 +2344,19 @@ function renderStockDashboard(){
 
   target.querySelectorAll('[data-stock-dashboard-country]').forEach(element=>{
     const open=()=>openStockCountryDetails(element.dataset.stockDashboardCountry);
+    element.addEventListener('click',open);
+    element.addEventListener('keydown',event=>{
+      if(['Enter',' '].includes(event.key)){
+        event.preventDefault();
+        open();
+      }
+    });
+  });
+  target.querySelectorAll('[data-stock-priority-country]').forEach(element=>{
+    const open=()=>{
+      openStockCountryDetails(element.dataset.stockPriorityCountry);
+      openStockBrandDetails(element.dataset.stockPriorityBrand);
+    };
     element.addEventListener('click',open);
     element.addEventListener('keydown',event=>{
       if(['Enter',' '].includes(event.key)){
