@@ -554,6 +554,7 @@ setBusinessReportTab(
   let managementMode='summary';
   let managementShowAll=false;
   let managementFocusIndex=0;
+  let managementDrill={level:'root',country:'',item:''};
 
   const currentConfig=()=>reports[activeReport];
   const currentTable=()=>$(currentConfig()?.tableId);
@@ -629,18 +630,113 @@ setBusinessReportTab(
     return selected.length?selected.join(' · '):config.scopeAll;
   }
 
+  function managementRootCanDrill(){
+    if(activeReport==='sales') return $('salesView')?.value==='Country';
+    if(activeReport==='foc') return $('focView')?.value==='Country';
+    return activeReport==='stock';
+  }
+
+  function managementFocRows(rows){
+    return aggregate(rows,'Product Name',[]).sort((a,b)=>b.actual-a.actual).map(item=>{
+      const actualRate=item.actual?item.actualFoc/item.actual:0;
+      const budgetRate=item.actual?item.budgetFoc/item.actual:0;
+      return {
+        name:item.name,
+        actual:item.actual,
+        actualFoc:item.actualFoc,
+        budgetFoc:item.budgetFoc,
+        varianceRate:actualRate-budgetRate
+      };
+    });
+  }
+
+  function managementSourceTable(){
+    if(managementDrill.level==='root') return currentTable();
+
+    const table=document.createElement('table');
+    const country=managementDrill.country;
+
+    if(activeReport==='sales'){
+      const rows=filtered().filter(row=>String(row.Country||'')===country);
+      const lyRows=filteredLY().filter(row=>String(row.Country||'')===country);
+      if(managementDrill.level==='country'){
+        const data=aggregate(rows,'Brand',lyRows).sort((a,b)=>b.actual-a.actual);
+        table.className='sales-statement-detail';
+        table.innerHTML=salesStatementTableHtml(data,'Brand');
+      }else{
+        const itemRows=rows.filter(row=>row.__brand===managementDrill.item);
+        const itemLyRows=lyRows.filter(row=>row.__brand===managementDrill.item);
+        const data=aggregate(itemRows,'Product Name',itemLyRows).sort((a,b)=>b.actual-a.actual);
+        table.className='sales-statement-detail';
+        table.innerHTML=salesStatementTableHtml(data,'Product');
+      }
+      return table;
+    }
+
+    if(activeReport==='foc'){
+      let rows=filtered().filter(row=>
+        String(row.Country||'')===country&&String(row.Type||'').toUpperCase()==='IMS'
+      );
+      let dimension='Product Group';
+      if(managementDrill.level==='country'){
+        const grouped=aggregate(rows,'Product Group',[]).sort((a,b)=>b.actual-a.actual);
+        rows=grouped.map(item=>{
+          const actualRate=item.actual?item.actualFoc/item.actual:0;
+          const budgetRate=item.actual?item.budgetFoc/item.actual:0;
+          return {...item,varianceRate:actualRate-budgetRate};
+        });
+      }else{
+        rows=rows.filter(row=>
+          String(row['Product Group']||row.__group||'').trim()===managementDrill.item
+        );
+        rows=managementFocRows(rows);
+        dimension='Product';
+      }
+      table.className='foc-statement-detail';
+      table.innerHTML=focDetailTableHtml(rows,'Total',dimension);
+      return table;
+    }
+
+    if(activeReport==='stock'){
+      let rows=filteredStockRows().filter(row=>String(row.Country||'')===country);
+      let dimension='Brand';
+      if(managementDrill.level==='detail'){
+        rows=rows.filter(row=>String(row.Brand||'')===managementDrill.item);
+        dimension='SKU';
+      }
+      const {data,totals}=stockAggregateRows(
+        rows,
+        dimension,
+        dimension==='Brand'?'Unassigned Brand':'Unassigned SKU'
+      );
+      table.className='stock-statement-table';
+      table.innerHTML=stockStatementTableHtml(data,totals,dimension);
+      return table;
+    }
+
+    return currentTable();
+  }
+
   function updateManagementHeading(){
     const config=currentConfig();
-    const scope=managementScope();
+    const scope=managementDrill.level==='root'
+      ?managementScope()
+      :[managementDrill.country,managementDrill.item].filter(Boolean).join(' · ');
     const singleCountry=scope&&!scope.startsWith('All ')&&!scope.includes(' · ')?scope:'';
-    const code=singleCountry?countryFlagCode(singleCountry):'';
+    const flagCountry=managementDrill.country||singleCountry;
+    const code=flagCountry?countryFlagCode(flagCountry):'';
     const flag=$('managementFlag');
+    const backButton=$('managementBackBtn');
 
     $('managementTitle').textContent=config.title;
     $('managementScope').textContent=scope;
+    backButton.hidden=managementDrill.level==='root';
+    backButton.textContent=managementDrill.level==='detail'
+      ?`← Back to ${activeReport==='foc'?'Product Groups':'Brands'}`
+      :'← Back to Markets';
     flag.hidden=!code;
     flag.src=code?countryFlagDataUri(code):'';
-    flag.alt=code?`${singleCountry} flag`:'';
+    flag.alt=code?`${flagCountry} flag`:'';
     flag.onerror=()=>{flag.hidden=true;};
   }
 
@@ -705,6 +801,27 @@ setBusinessReportTab(
       row.tabIndex=0;
       const openFocus=()=>{
         managementFocusIndex=Number(row.dataset.managementRowIndex)||0;
+        const rowName=String(row.cells[0]?.textContent||'').replace(/\s+/g,' ').trim();
+        if(managementDrill.level==='root'&&managementRootCanDrill()&&rowName){
+          managementDrill={level:'country',country:rowName,item:''};
+          managementMode='table';
+          managementShowAll=false;
+          managementFocusIndex=0;
+          renderManagementView();
+          return;
+        }
+        if(
+          managementDrill.level==='country'&&
+          ['sales','foc','stock'].includes(activeReport)&&
+          rowName
+        ){
+          managementDrill={...managementDrill,level:'detail',item:rowName};
+          managementMode='table';
+          managementShowAll=false;
+          managementFocusIndex=0;
+          renderManagementView();
+          return;
+        }
         managementMode='focus';
         renderManagementView();
       };
@@ -779,7 +896,7 @@ setBusinessReportTab(
   }
 
   function renderManagementView(){
-    const table=currentTable();
+    const table=managementSourceTable();
     updateManagementHeading();
     document.querySelectorAll('[data-management-mode]').forEach(button=>{
       const active=button.dataset.managementMode===managementMode;
@@ -806,6 +923,7 @@ setBusinessReportTab(
     managementMode='summary';
     managementShowAll=false;
     managementFocusIndex=0;
+    managementDrill={level:'root',country:'',item:''};
     overlay.hidden=false;
     overlay.setAttribute('aria-hidden','false');
     document.body.classList.add('management-view-open');
@@ -835,6 +953,17 @@ setBusinessReportTab(
     managementShowAll=!managementShowAll;
     renderManagementView();
   });
+  $('managementBackBtn').addEventListener('click',()=>{
+    if(managementDrill.level==='detail'){
+      managementDrill={...managementDrill,level:'country',item:''};
+    }else{
+      managementDrill={level:'root',country:'',item:''};
+    }
+    managementMode='table';
+    managementShowAll=false;
+    managementFocusIndex=0;
+    renderManagementView();
+  });
   $('managementExitBtn').addEventListener('click',closeManagementView);
   $('managementFullscreenBtn').addEventListener('click',async()=>{
     try{
@@ -854,7 +983,7 @@ setBusinessReportTab(
       return;
     }
     if(managementMode==='focus'&&(event.key==='ArrowLeft'||event.key==='ArrowRight')){
-      const rows=managementDataRows(currentTable());
+      const rows=managementDataRows(managementSourceTable());
       const delta=event.key==='ArrowRight'?1:-1;
       const next=Math.max(0,Math.min(rows.length-1,managementFocusIndex+delta));
       if(next!==managementFocusIndex){
