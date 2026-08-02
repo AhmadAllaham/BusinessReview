@@ -1083,23 +1083,24 @@ function salesStatementTableHtml(rows,dimension){
     ];
     return `<tr${total?' class="total-row"':''}>${values.map((value,index)=>{
       const negative=index>0 && rawValues[index]<0?' sales-statement-negative':'';
-      const comparison=[3,4,6,7].includes(index)?' comparison-cell':'';
-      const positive=comparison && rawValues[index]>0?' sales-statement-positive':'';
-      const zero=comparison && rawValues[index]===0?' sales-statement-zero':'';
-      return `<td class="${`${negative}${positive}${zero}${comparison}`.trim()}">${index===0?esc(value):value}</td>`;
+      return `<td class="${negative.trim()}">${index===0?esc(value):value}</td>`;
     }).join('')}</tr>`;
   };
 
   let html=`<thead>
-    <tr class="sales-statement-column-head comparison-table-head">
-      <th data-sort-index="0">${esc(dimensionLabel)}</th>
-      <th data-sort-index="1">Actual</th>
-      <th data-sort-index="2">Budget</th>
-      <th data-sort-index="3">Vs Budget</th>
-      <th data-sort-index="4">Vs Budget %</th>
-      <th data-sort-index="5">LY</th>
-      <th data-sort-index="6">Vs LY</th>
-      <th data-sort-index="7">Vs LY %</th>
+    <tr class="sales-statement-group-head">
+      <th rowspan="2" data-sort-index="0">${esc(dimensionLabel)}</th>
+      <th rowspan="2" data-sort-index="1">Actual (${performanceCurrency})</th>
+      <th rowspan="2" data-sort-index="2">Budget (${performanceCurrency})</th>
+      <th colspan="2" data-no-sort="true">Vs. Budget</th>
+      <th rowspan="2" data-sort-index="5">LY (${performanceCurrency})</th>
+      <th colspan="2" data-no-sort="true">Vs. Last Year</th>
+    </tr>
+    <tr class="sales-statement-sub-head">
+      <th data-sort-index="3">${performanceCurrency}</th>
+      <th data-sort-index="4">%</th>
+      <th data-sort-index="6">${performanceCurrency}</th>
+      <th data-sort-index="7">%</th>
     </tr>
   </thead><tbody>`;
 
@@ -1874,7 +1875,7 @@ function pnlConvertCurrency(totals) {
 }
 
 function pnlVarianceClass(value) {
-  return value > 0 ? 'pnl-positive' : value < 0 ? 'pnl-negative' : 'pnl-zero';
+  return value > 0 ? 'pnl-positive' : value < 0 ? 'pnl-negative' : '';
 }
 
 function pnlAmountClass(value) {
@@ -1899,15 +1900,19 @@ function renderPnlVertical() {
 
   let html = `
     <thead>
-      <tr class="pnl-group-head comparison-table-head">
-        <th>Consolidated P&amp;L</th>
-        <th>Actual</th>
-        <th>Budget</th>
-        <th>Vs Budget</th>
-        <th>Vs Budget %</th>
-        <th>LY</th>
-        <th>Vs LY</th>
-        <th>Vs LY %</th>
+      <tr class="pnl-group-head">
+        <th rowspan="2">Consolidated P&amp;L</th>
+        <th rowspan="2">Actual (${pnlCurrency})</th>
+        <th rowspan="2">Budget (${pnlCurrency})</th>
+        <th colspan="2">Vs Budget</th>
+        <th rowspan="2">LY (${pnlCurrency})</th>
+        <th colspan="2">Vs Last Year</th>
+      </tr>
+      <tr class="pnl-sub-head">
+        <th>Value</th>
+        <th>%</th>
+        <th>Value</th>
+        <th>%</th>
       </tr>
     </thead>
     <tbody>`;
