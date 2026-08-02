@@ -26,7 +26,8 @@ service cloud.firestore {
         datasetId == active.pnl ||
         datasetId == active.sm ||
         datasetId == active.stock ||
-        datasetId == active.nearlyExpired;
+        datasetId == active.nearlyExpired ||
+        datasetId == active.profitability;
     }
 
     function gccCountry(country) {
