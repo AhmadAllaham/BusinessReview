@@ -2207,12 +2207,15 @@ body.stock-level-view .sales-header-upload{
   background:#0b3158;
 }
 
-#smSimpleTable thead .sm-statement-column-head th:nth-child(4){
+#smSimpleTable thead .sm-statement-column-head th:nth-child(6){
   background:#0b3158;
   color:#fff;
 }
 
-#smSimpleTable thead .sm-statement-column-head th:nth-child(n+5){
+#smSimpleTable thead .sm-statement-column-head th:nth-child(4),
+#smSimpleTable thead .sm-statement-column-head th:nth-child(5),
+#smSimpleTable thead .sm-statement-column-head th:nth-child(7),
+#smSimpleTable thead .sm-statement-column-head th:nth-child(8){
   background:#fff;
   color:#0b3158;
 }
@@ -3242,7 +3245,10 @@ body.performance-table-spotlight .performance-spotlight-stage #nearExpiryTable{
 .sales-statement-sub-head .column-resize-handle::after,
 .foc-statement-sub-head .column-resize-handle::after,
 .pnl-sub-head .column-resize-handle::after,
-.sm-statement-column-head th:nth-child(n+5) .column-resize-handle::after{
+.sm-statement-column-head th:nth-child(4) .column-resize-handle::after,
+.sm-statement-column-head th:nth-child(5) .column-resize-handle::after,
+.sm-statement-column-head th:nth-child(7) .column-resize-handle::after,
+.sm-statement-column-head th:nth-child(8) .column-resize-handle::after{
   background:#9baeb4;
 }
 
@@ -4057,79 +4063,4 @@ body table tbody tr:focus-within > td{
   body table tbody td{
     transition:background-color .14s ease,background-image .14s ease;
   }
-}
-
-/* Unified Actual / Budget / Variance / LY comparison layout. */
-#salesTable thead .comparison-table-head th,
-#smSimpleTable thead .comparison-table-head th,
-#pnlTable thead .comparison-table-head th{
-  padding:8px 10px!important;
-  border-right:1px solid #8ea6a3!important;
-  border-bottom:1px solid #8ea6a3!important;
-  background:#fff!important;
-  color:#111827!important;
-  text-align:right!important;
-  font-size:12px!important;
-  font-weight:900!important;
-  white-space:nowrap;
-}
-
-#salesTable thead .comparison-table-head th:first-child,
-#smSimpleTable thead .comparison-table-head th:first-child,
-#pnlTable thead .comparison-table-head th:first-child{
-  background:#0b3158!important;
-  color:#fff!important;
-  text-align:left!important;
-}
-
-#salesTable thead .comparison-table-head th:nth-child(4),
-#salesTable thead .comparison-table-head th:nth-child(5),
-#salesTable thead .comparison-table-head th:nth-child(7),
-#salesTable thead .comparison-table-head th:nth-child(8),
-#smSimpleTable thead .comparison-table-head th:nth-child(4),
-#smSimpleTable thead .comparison-table-head th:nth-child(5),
-#smSimpleTable thead .comparison-table-head th:nth-child(7),
-#smSimpleTable thead .comparison-table-head th:nth-child(8),
-#pnlTable thead .comparison-table-head th:nth-child(4),
-#pnlTable thead .comparison-table-head th:nth-child(5),
-#pnlTable thead .comparison-table-head th:nth-child(7),
-#pnlTable thead .comparison-table-head th:nth-child(8){
-  background:#a9dcd5!important;
-  color:#10233e!important;
-}
-
-#salesTable tbody tr:not(.total-row) td:nth-child(4),
-#salesTable tbody tr:not(.total-row) td:nth-child(5),
-#salesTable tbody tr:not(.total-row) td:nth-child(7),
-#salesTable tbody tr:not(.total-row) td:nth-child(8),
-#smSimpleTable tbody tr:not(.sm-total-row) td:nth-child(4),
-#smSimpleTable tbody tr:not(.sm-total-row) td:nth-child(5),
-#smSimpleTable tbody tr:not(.sm-total-row) td:nth-child(7),
-#smSimpleTable tbody tr:not(.sm-total-row) td:nth-child(8),
-#pnlTable tbody tr:not(.pnl-statement-total):not(.pnl-statement-ratio) td:nth-child(4),
-#pnlTable tbody tr:not(.pnl-statement-total):not(.pnl-statement-ratio) td:nth-child(5),
-#pnlTable tbody tr:not(.pnl-statement-total):not(.pnl-statement-ratio) td:nth-child(7),
-#pnlTable tbody tr:not(.pnl-statement-total):not(.pnl-statement-ratio) td:nth-child(8){
-  background-color:rgba(83,190,176,.25)!important;
-}
-
-#salesTable td.sales-statement-positive,
-#salesTable td.sales-statement-zero,
-#pnlTable td.pnl-positive,
-#pnlTable td.pnl-zero,
-#smSimpleTable td.sm-good,
-#smSimpleTable td.sm-zero{
-  color:#009640!important;
-  font-weight:800!important;
-}
-
-#salesTable td.sales-statement-negative,
-#pnlTable td.pnl-negative,
-#smSimpleTable td.sm-bad{
-  color:#ff2d3c!important;
-  font-weight:800!important;
-}
-
-.comparison-table-head .column-resize-handle::after{
-  background:#638782!important;
 }
