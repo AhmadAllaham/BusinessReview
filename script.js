@@ -7,6 +7,15 @@ let detailMode = 'sales';
 
 const $ = id => document.getElementById(id);
 const salesFilterIds = ['yearFilter','monthFilter','typeFilter','countryFilter','sectorFilter','agentFilter','groupFilter','productFilter'];
+const globalCountryFilterIds = [
+  'countryFilter',
+  'stockCountryFilter',
+  'nearExpiryCountryFilter',
+  'smSimpleCountryFilter',
+  'pnlMarketFilter'
+];
+let globalCountrySelection = [];
+let globalCountrySyncing = false;
 const aliases = {
   actual:['Actual  Value','Actual Value','Actual'],
   budget:['Budget  Value','Budget Value','Budget'],
@@ -59,10 +68,72 @@ function uniqueValues(data,col){
   return [...new Set(data.map(r=>String(r[col]??'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
 }
 
+function isGlobalCountryFilter(id){
+  return globalCountryFilterIds.includes(String(id||''));
+}
+
+function mapCountrySelection(values,selection){
+  return selection.map(selected=>
+    values.find(value=>sameText(value,selected)) || String(selected)
+  );
+}
+
+function refreshGlobalCountryTarget(id){
+  if(id==='countryFilter'){
+    buildAllSalesFilters(false,'countryFilter');
+    renderAll();
+  }else if(id==='stockCountryFilter'){
+    buildStockFilters(false,'stockCountryFilter');
+    renderStockLevel();
+  }else if(id==='nearExpiryCountryFilter'){
+    buildNearExpiryFilters(false,'nearExpiryCountryFilter');
+    renderNearlyExpired();
+  }else if(id==='smSimpleCountryFilter'){
+    renderSmExpenses();
+  }else if(id==='pnlMarketFilter'){
+    rebuildPnlFilters(false,'pnlMarketFilter');
+    renderPnlVertical();
+  }
+}
+
+function syncGlobalCountryFilters(sourceId,selectedValues=[]){
+  if(globalCountrySyncing) return;
+  globalCountrySyncing=true;
+  globalCountrySelection=[...new Set(
+    selectedValues.map(value=>String(value).trim()).filter(Boolean)
+  )];
+
+  try{
+    globalCountryFilterIds.forEach(id=>{
+      if(id===sourceId || !$(id)) return;
+      const target=$(id);
+      const available=[...(target.querySelectorAll('.multi-options input')||[])]
+        .map(input=>String(input.value));
+      target._setSelected?.(
+        globalCountrySelection.length
+          ?mapCountrySelection(available,globalCountrySelection)
+          :[]
+      );
+      refreshGlobalCountryTarget(id);
+    });
+    updateActiveFilterChips();
+  }finally{
+    globalCountrySyncing=false;
+  }
+}
+
 function createMultiFilter(el,data,col,onChange,defaultValues=[]){
   el.dataset.filterLabel=col;
   const values=uniqueValues(data,col);
-  const defaults=new Set(defaultValues.map(String));
+  let requestedDefaults=defaultValues.map(String);
+  if(isGlobalCountryFilter(el.id) && globalCountrySelection.length){
+    requestedDefaults=mapCountrySelection(values,globalCountrySelection);
+    requestedDefaults.forEach(value=>{
+      if(!values.some(option=>sameText(option,value))) values.push(value);
+    });
+    values.sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  }
+  const defaults=new Set(requestedDefaults);
 
   el.innerHTML=`
     <button type="button" class="multi-filter-btn" aria-expanded="false">
@@ -168,7 +239,13 @@ function createMultiFilter(el,data,col,onChange,defaultValues=[]){
 
     btn.classList.add('filter-applied');
     setTimeout(()=>el.querySelector('.multi-filter-btn')?.classList.remove('filter-applied'),450);
+    if(isGlobalCountryFilter(el.id) && !globalCountrySyncing){
+      globalCountrySelection=[...new Set(selectedNow)];
+    }
     onChange();
+    if(isGlobalCountryFilter(el.id) && !globalCountrySyncing){
+      syncGlobalCountryFilters(el.id,selectedNow);
+    }
     updateActiveFilterChips();
 
     if(keepOpen){
@@ -300,7 +377,14 @@ document.addEventListener('click',()=>closeOtherMenus(null));
 function getSelected(id){return $(id)?._getSelected?.()||[];}
 
 function captureSelections(ids){
-  return Object.fromEntries(ids.map(id=>[id,getSelected(id)]));
+  return Object.fromEntries(ids.map(id=>{
+    if(isGlobalCountryFilter(id) && globalCountrySelection.length){
+      const values=[...($(id)?.querySelectorAll('.multi-options input')||[])]
+        .map(input=>String(input.value));
+      return [id,mapCountrySelection(values,globalCountrySelection)];
+    }
+    return [id,getSelected(id)];
+  }));
 }
 function constrainChildrenToParent(data,selections,parentId,childIds){
   const parentValues=selections[parentId]||[];
@@ -2339,6 +2423,25 @@ document.addEventListener('DOMContentLoaded',()=>{
   setTimeout(updateActiveFilterChips,0);
 });
 
+const globalCountryResetSources={
+  resetBtn:'countryFilter',
+  stockResetBtn:'stockCountryFilter',
+  nearExpiryResetBtn:'nearExpiryCountryFilter',
+  smSimpleFilterResetBtn:'smSimpleCountryFilter',
+  pnlResetBtn:'pnlMarketFilter'
+};
+
+document.addEventListener('click',event=>{
+  const resetButton=event.target.closest(
+    '#resetBtn,#stockResetBtn,#nearExpiryResetBtn,#smSimpleFilterResetBtn,#pnlResetBtn'
+  );
+  if(!resetButton) return;
+  setTimeout(()=>syncGlobalCountryFilters(
+    globalCountryResetSources[resetButton.id]||'',
+    []
+  ),0);
+});
+
 /* Universal sortable tables */
 (function () {
   const sortState = new WeakMap();
@@ -2595,10 +2698,6 @@ function smSimplePopulateFilters(){
     .reverse();
 
   const latestMonthLabel = actualMonthKeys[0] ? smSimpleMonthLabel(actualMonthKeys[0]) : '';
-  const countries = [...new Set(smSimpleRows.map(r=>r.Country).filter(Boolean))]
-    .sort((a,b)=>a.localeCompare(b));
-  const defaultCountry = countries.includes('Jordan') ? 'Jordan' : (countries[0] || '');
-
   createMultiFilter(
     monthEl,
     filterData,
@@ -2612,7 +2711,7 @@ function smSimplePopulateFilters(){
     filterData,
     'Country',
     renderSmExpenses,
-    defaultCountry ? [defaultCountry] : []
+    []
   );
 }
 
