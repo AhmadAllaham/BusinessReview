@@ -2859,10 +2859,207 @@ body.performance-table-spotlight .modal.open .modal-backdrop{
 
 body.performance-table-spotlight .performance-spotlight-stage #salesTable,
 body.performance-table-spotlight .performance-spotlight-stage #focTable,
-body.performance-table-spotlight .performance-spotlight-stage #stockTable{
+body.performance-table-spotlight .performance-spotlight-stage #stockTable,
+body.performance-table-spotlight .performance-spotlight-stage #nearExpiryTable{
   width:100%;
   min-width:980px;
   margin:0 auto;
+}
+
+/* Stock workspace report switch and Nearly Expired exposure report */
+.stock-report-tabs{
+  display:inline-flex;
+  gap:4px;
+  margin:16px 18px 10px;
+  padding:5px;
+  border:1px solid #cfe0dd;
+  border-radius:14px;
+  background:#edf6f4;
+  box-shadow:0 7px 18px rgba(11,49,88,.06);
+}
+
+.stock-report-tabs button{
+  min-width:130px;
+  padding:10px 17px;
+  border:0;
+  border-radius:10px;
+  background:transparent;
+  color:#31504c;
+  font-size:13px;
+  font-weight:900;
+  cursor:pointer;
+  transition:background .18s ease,color .18s ease,box-shadow .18s ease,transform .18s ease;
+}
+
+.stock-report-tabs button:hover,
+.stock-report-tabs button:focus-visible{transform:translateY(-1px);background:#dff3ef}
+.stock-report-tabs button.active{background:#0f766e;color:#fff;box-shadow:0 6px 15px rgba(15,118,110,.25)}
+
+.near-expiry-filters-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.near-expiry-toolbar .stock-toolbar-left{gap:16px}
+.near-expiry-formula{color:#65758a;font-size:11px;font-weight:650}
+
+.near-expiry-kpis{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:10px;
+  margin:2px 18px 14px;
+}
+
+.near-expiry-kpis[hidden]{display:none!important}
+
+.near-expiry-kpis article{
+  position:relative;
+  min-height:92px;
+  padding:14px 15px;
+  overflow:hidden;
+  border:1px solid #dbe8e5;
+  border-radius:14px;
+  background:#fff;
+  box-shadow:0 8px 22px rgba(11,49,88,.06);
+}
+
+.near-expiry-kpis article::after{
+  content:"";
+  position:absolute;
+  right:-20px;
+  bottom:-28px;
+  width:82px;
+  height:82px;
+  border-radius:50%;
+  background:rgba(15,118,110,.07);
+}
+
+.near-expiry-kpis article.urgent{border-color:#f2d1d1;background:#fffafa}
+.near-expiry-kpis article.urgent::after{background:rgba(220,48,56,.07)}
+.near-expiry-kpis article.watch{border-color:#f0dfbd;background:#fffdf8}
+.near-expiry-kpis article.watch::after{background:rgba(217,145,10,.08)}
+.near-expiry-kpis span{display:block;color:#68788c;font-size:9px;font-weight:900;letter-spacing:.06em;text-transform:uppercase}
+.near-expiry-kpis strong{display:block;margin:8px 0 3px;color:#0b3158;font-size:21px;font-weight:950;font-variant-numeric:tabular-nums}
+.near-expiry-kpis article.urgent strong{color:#c82d35}
+.near-expiry-kpis article.watch strong{color:#9a6500}
+.near-expiry-kpis small{position:relative;z-index:1;color:#748188;font-size:9px;font-weight:650}
+
+#stockSection .near-expiry-table-scroll{
+  max-height:62vh;
+  margin:0 18px 18px;
+  padding:0;
+  overflow:auto;
+  border:1px solid #dce7e5;
+  border-radius:12px;
+  background:#fff;
+}
+
+.near-expiry-table{
+  width:100%;
+  min-width:1280px;
+  border-collapse:separate;
+  border-spacing:0;
+  table-layout:fixed;
+  color:#111827;
+  font-variant-numeric:tabular-nums;
+}
+
+.near-expiry-table thead th{
+  position:sticky;
+  top:var(--table-sticky-top,0);
+  z-index:var(--table-sticky-z,12);
+  padding:7px 10px;
+  border:0;
+  border-right:4px solid #fff;
+  background:#0b3158!important;
+  color:#fff!important;
+  text-align:center;
+  font-size:12px;
+  font-weight:900;
+  line-height:1.15;
+  white-space:normal;
+}
+
+.near-expiry-table thead tr:first-child th:first-child{text-align:left}
+.near-expiry-table thead th:last-child{border-right:0}
+.near-expiry-table thead .near-expiry-within-head{background:#8f2830!important}
+.near-expiry-table thead .near-expiry-plus-head{background:#9a6500!important}
+
+.near-expiry-table thead .near-expiry-sub-head th{
+  padding:6px 9px;
+  border-right:1px solid #dfe8e7;
+  border-bottom:1px solid #d6e1df;
+  background:#f7faf9!important;
+  color:#20364d!important;
+  font-size:10px;
+}
+
+.near-expiry-table tbody td{
+  padding:8px 10px;
+  border:0;
+  border-bottom:1px solid #e7eeed;
+  background:#fff;
+  color:#172033;
+  text-align:right;
+  font-size:13px;
+  font-weight:550;
+  white-space:nowrap;
+}
+
+.near-expiry-table tbody td:first-child{
+  overflow:hidden;
+  text-align:left;
+  text-overflow:ellipsis;
+  font-weight:750;
+}
+
+.near-expiry-table tbody tr:hover:not(.total-row) td{background:#f8fbfb}
+.near-expiry-table tbody td.near-expiry-within{background:#fff7f7;color:#bd2d35;font-weight:750}
+.near-expiry-table tbody td.near-expiry-plus{background:#fffbf2;color:#8a5b05;font-weight:700}
+.near-expiry-table tbody td.near-expiry-total-value{color:#0b3158;font-weight:900}
+
+.near-expiry-exposure{
+  display:inline-flex;
+  min-width:54px;
+  justify-content:center;
+  padding:4px 7px;
+  border-radius:999px;
+  background:#eef3f4;
+  color:#52616b;
+  font-size:11px;
+  font-weight:900;
+}
+.near-expiry-exposure.low{background:#edf8f5;color:#087f75}
+.near-expiry-exposure.medium{background:#fff4df;color:#9a6500}
+.near-expiry-exposure.high{background:#fff0f0;color:#c82d35}
+
+.near-expiry-table .total-row td{
+  position:sticky;
+  bottom:0;
+  z-index:6;
+  border-top:1px solid #0b3158;
+  border-bottom:1px solid #0b3158;
+  background:#fff!important;
+  color:#111827!important;
+  font-weight:950!important;
+  box-shadow:0 -5px 12px rgba(11,49,88,.08);
+}
+
+.near-expiry-detail-modal .modal-panel{width:min(1540px,96vw)}
+.near-expiry-detail-modal .stock-detail-table-wrap{max-height:70vh}
+
+body.performance-table-spotlight .performance-spotlight-stage #nearExpiryTable{
+  width:100%;
+  min-width:1280px;
+  margin:0 auto;
+}
+
+@media(max-width:1100px){
+  .near-expiry-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+@media(max-width:760px){
+  .stock-report-tabs{display:flex;margin:12px 10px 8px}
+  .stock-report-tabs button{min-width:0;flex:1}
+  .near-expiry-filters-grid{grid-template-columns:1fr}
+  .near-expiry-kpis{grid-template-columns:1fr;margin-right:10px;margin-left:10px}
+  #stockSection .near-expiry-table-scroll{margin-right:10px;margin-left:10px}
 }
 
 @media(max-width:700px){
