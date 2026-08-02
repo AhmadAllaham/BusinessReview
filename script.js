@@ -1818,7 +1818,8 @@ const PNL_USD_TO_JOD = 0.709;
 
 const pnlLineConfig = [
   { key: 'grossSales', label: 'Gross Sales' },
-  { key: 'salesReturns', label: 'Sales Returns' },
+  { key: 'actualReturn', label: 'Actual Return' },
+  { key: 'expectedReturn', label: 'Expected Return' },
   { key: 'discounts', label: 'Discounts' },
   { key: 'commissions', label: 'Commissions' },
   { key: 'restoun', label: 'Restoun' },
@@ -2272,6 +2273,13 @@ function pnlReadNumber(value) {
 function pnlMapWorkbookRows(rows, headerIndex) {
   const header = rows[headerIndex].map(pnlNormalizeHeader);
   const col = name => header.indexOf(pnlNormalizeHeader(name));
+  const colAny = names => {
+    for (const name of names) {
+      const index = col(name);
+      if (index >= 0) return index;
+    }
+    return -1;
+  };
 
   const required = ['Sales Type', 'Market', 'Agent', 'Scenario'];
   const missing = required.filter(name => col(name) < 0);
@@ -2281,7 +2289,6 @@ function pnlMapWorkbookRows(rows, headerIndex) {
 
   const numericColumns = {
     grossSales: 'Gross Sales',
-    salesReturns: 'Sales Returns',
     discounts: 'Discounts',
     commissions: 'Commissions',
     restoun: 'Restoun',
@@ -2306,6 +2313,21 @@ function pnlMapWorkbookRows(rows, headerIndex) {
         const index = col(label);
         record[key] = index >= 0 ? pnlReadNumber(row[index]) : 0;
       });
+
+      const actualReturnIndex = colAny([
+        'Actual Return','Actual Returns','Actual Sales Return','Actual Sales Returns'
+      ]);
+      const expectedReturnIndex = colAny([
+        'Expected Return','Expected Returns','Expected Sales Return','Expected Sales Returns'
+      ]);
+      const legacyReturnIndex = colAny(['Sales Returns','Sales Return']);
+      const hasSplitReturns = actualReturnIndex >= 0 || expectedReturnIndex >= 0;
+      record.actualReturn = actualReturnIndex >= 0
+        ? pnlReadNumber(row[actualReturnIndex])
+        : hasSplitReturns ? 0 : pnlReadNumber(row[legacyReturnIndex]);
+      record.expectedReturn = expectedReturnIndex >= 0
+        ? pnlReadNumber(row[expectedReturnIndex])
+        : 0;
 
       return record;
     })
@@ -3932,7 +3954,8 @@ window.loadPnlRowsFromDatabase = function(rows){
     const scenarioNames = new Set(['scenario','period','version']);
     const marketNames = new Set(['market','country','countryname']);
     const metricNames = new Set([
-      'grosssales','netsales','salesreturns','discounts','commissions',
+      'grosssales','netsales','salesreturns','actualreturn','actualreturns',
+      'expectedreturn','expectedreturns','discounts','commissions',
       'cogs','costofgoodssold','grossprofit','sellingandmarketing',
       'sm','netincome','netprofit'
     ]);
@@ -3963,6 +3986,12 @@ window.loadPnlRowsFromDatabase = function(rows){
     return key === undefined ? '' : row[key];
   };
   const numeric = names => row => pnlReadNumber(value(row,names));
+  const hasField = (row,names) => {
+    const normalizedNames = names.map(normalizeKey);
+    return Object.keys(row || {}).some(item =>
+      normalizedNames.includes(normalizeKey(item))
+    );
+  };
   const scenarioName = value => {
     const normalized = normalizeKey(value);
     if (normalized.includes('actual')) return 'Actual';
@@ -3973,7 +4002,15 @@ window.loadPnlRowsFromDatabase = function(rows){
   };
 
   const grossSales = numeric(['gross sales','grosssales','sales']);
-  const salesReturns = numeric(['sales returns','salesreturns','sales return']);
+  const actualReturnAliases = [
+    'actual return','actual returns','actual sales return','actual sales returns'
+  ];
+  const expectedReturnAliases = [
+    'expected return','expected returns','expected sales return','expected sales returns'
+  ];
+  const legacySalesReturns = numeric(['sales returns','salesreturns','sales return']);
+  const actualReturn = numeric(actualReturnAliases);
+  const expectedReturn = numeric(expectedReturnAliases);
   const discounts = numeric(['discounts','discount']);
   const commissions = numeric(['commissions','commission']);
   const restoun = numeric(['restoun']);
@@ -3983,22 +4020,27 @@ window.loadPnlRowsFromDatabase = function(rows){
   const sm = numeric(['s&m','sm','selling & marketing','selling and marketing','selling & marketing expenses']);
   const netIncome = numeric(['net income','netincome','net profit','netprofit']);
 
-  pnlRawData = sourceRows.map(row => ({
-    salesType:String(value(row,['sales type','salestype','type']) || '').trim(),
-    market:String(value(row,['market','country']) || '').trim(),
-    agent:String(value(row,['agent','distributor','customer']) || '').trim(),
-    scenario:scenarioName(value(row,['scenario','period','version'])),
-    grossSales:grossSales(row),
-    salesReturns:salesReturns(row),
-    discounts:discounts(row),
-    commissions:commissions(row),
-    restoun:restoun(row),
-    netSales:netSales(row),
-    cogs:cogs(row),
-    grossProfit:grossProfit(row),
-    sm:sm(row),
-    netIncome:netIncome(row)
-  })).filter(row => row.scenario);
+  pnlRawData = sourceRows.map(row => {
+    const hasSplitReturns = hasField(row,actualReturnAliases) ||
+      hasField(row,expectedReturnAliases);
+    return {
+      salesType:String(value(row,['sales type','salestype','type']) || '').trim(),
+      market:String(value(row,['market','country']) || '').trim(),
+      agent:String(value(row,['agent','distributor','customer']) || '').trim(),
+      scenario:scenarioName(value(row,['scenario','period','version'])),
+      grossSales:grossSales(row),
+      actualReturn:hasSplitReturns ? actualReturn(row) : legacySalesReturns(row),
+      expectedReturn:hasSplitReturns ? expectedReturn(row) : 0,
+      discounts:discounts(row),
+      commissions:commissions(row),
+      restoun:restoun(row),
+      netSales:netSales(row),
+      cogs:cogs(row),
+      grossProfit:grossProfit(row),
+      sm:sm(row),
+      netIncome:netIncome(row)
+    };
+  }).filter(row => row.scenario);
 
   initPnlFilters();
   rebuildPnlFilters(true);
