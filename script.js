@@ -1089,16 +1089,16 @@ function salesStatementTableHtml(rows,dimension){
   let html=`<thead>
     <tr class="sales-statement-group-head">
       <th rowspan="2" data-sort-index="0">${esc(dimensionLabel)}</th>
-      <th rowspan="2" data-sort-index="1">Actual (${performanceCurrency} '000)</th>
-      <th rowspan="2" data-sort-index="2">Budget (${performanceCurrency} '000)</th>
-      <th rowspan="2" data-sort-index="3">LY (${performanceCurrency} '000)</th>
+      <th rowspan="2" data-sort-index="1">Actual (${performanceCurrency})</th>
+      <th rowspan="2" data-sort-index="2">Budget (${performanceCurrency})</th>
+      <th rowspan="2" data-sort-index="3">LY (${performanceCurrency})</th>
       <th colspan="2" data-no-sort="true">Vs. Budget</th>
       <th colspan="2" data-no-sort="true">Vs. Last Year</th>
     </tr>
     <tr class="sales-statement-sub-head">
-      <th data-sort-index="4">${performanceCurrency} '000</th>
+      <th data-sort-index="4">${performanceCurrency}</th>
       <th data-sort-index="5">%</th>
-      <th data-sort-index="6">${performanceCurrency} '000</th>
+      <th data-sort-index="6">${performanceCurrency}</th>
       <th data-sort-index="7">%</th>
     </tr>
   </thead><tbody>`;
