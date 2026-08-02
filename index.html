@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Business Review</title>
-  <link rel="stylesheet" href="style.css?v=20260802-5" />
+  <link rel="stylesheet" href="style.css?v=20260802-6" />
 </head>
 <body>
   <header class="app-header">
@@ -368,20 +368,15 @@
     <div class="sm-table-scroll sales-foc-table-scroll">
       <table id="smSimpleTable" class="sm-reference-table sales-foc-reference-table">
         <thead>
-          <tr class="sm-statement-group-head">
-            <th class="sm-statement-head-spacer" colspan="4" aria-hidden="true"></th>
-            <th class="sm-statement-group" colspan="2">Vs. Budget</th>
-            <th class="sm-statement-group" colspan="2">Vs. Last Year</th>
-          </tr>
-          <tr class="sm-statement-column-head">
+          <tr class="sm-statement-column-head comparison-table-head">
             <th data-sm-sort-index="0">Item</th>
             <th class="sm-actual-head" data-sm-sort-index="1">Actual</th>
             <th data-sm-sort-index="2">Budget</th>
-            <th data-sm-sort-index="3">LY</th>
-            <th data-sm-sort-index="4">JOD</th>
-            <th data-sm-sort-index="5">%</th>
-            <th data-sm-sort-index="6">JOD</th>
-            <th data-sm-sort-index="7">%</th>
+            <th data-sm-sort-index="3">Vs Budget</th>
+            <th data-sm-sort-index="4">Vs Budget %</th>
+            <th data-sm-sort-index="5">LY</th>
+            <th data-sm-sort-index="6">Vs LY</th>
+            <th data-sm-sort-index="7">Vs LY %</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -627,7 +622,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="firebase-client.js"></script>
-  <script src="script.js?v=20260802-8"></script>
+  <script src="script.js?v=20260802-9"></script>
   <script src="dashboard-firebase.js?v=20260802-3"></script>
 </body>
 </html>
