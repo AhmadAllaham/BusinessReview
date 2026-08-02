@@ -1217,9 +1217,12 @@ function updatePerformanceSpotlightHeader(type){
   if(!header || !flag || !name) return;
 
   const isStock=type==='stock';
-  const selected=getSelected(isStock?'stockCountryFilter':'countryFilter');
+  const isNearlyExpired=type==='nearExpiry';
+  const selected=getSelected(
+    isNearlyExpired?'nearExpiryCountryFilter':isStock?'stockCountryFilter':'countryFilter'
+  );
   const available=[...new Set(
-    (isStock?filteredStockRows():filtered())
+    (isNearlyExpired?filteredNearExpiryRows():isStock?filteredStockRows():filtered())
       .map(row=>String(row.Country||'').trim()).filter(Boolean)
   )].sort((a,b)=>a.localeCompare(b));
   const countries=selected.length?selected:available;
@@ -1245,8 +1248,11 @@ function setPerformanceTableSpotlight(type,active){
     if(performanceSpotlightState){
       setPerformanceTableSpotlight(performanceSpotlightState.type,false);
     }
-    const tableWrap=$(`${type}Section`)?.querySelector(
-      type==='stock'?'.stock-table-scroll':'.sales-foc-table-scroll'
+    const section=type==='nearExpiry'?$('stockSection'):$(`${type}Section`);
+    const tableWrap=section?.querySelector(
+      type==='nearExpiry'
+        ?'.near-expiry-table-scroll'
+        :type==='stock'?'.stock-table-scroll':'.sales-foc-table-scroll'
     );
     if(!tableWrap) return;
 
@@ -1291,6 +1297,8 @@ $('focSpotlightBtn')?.addEventListener('click',()=>setPerformanceTableSpotlight(
 $('focSpotlightExitBtn')?.addEventListener('click',()=>setPerformanceTableSpotlight('foc',false));
 $('stockSpotlightBtn')?.addEventListener('click',()=>setPerformanceTableSpotlight('stock',true));
 $('stockSpotlightExitBtn')?.addEventListener('click',()=>setPerformanceTableSpotlight('stock',false));
+$('nearExpirySpotlightBtn')?.addEventListener('click',()=>setPerformanceTableSpotlight('nearExpiry',true));
+$('nearExpirySpotlightExitBtn')?.addEventListener('click',()=>setPerformanceTableSpotlight('nearExpiry',false));
 document.addEventListener('keydown',event=>{
   const drilldownOpen=Boolean(document.querySelector('.modal.open'));
   if(event.key==='Escape' && performanceSpotlightState && !drilldownOpen){
@@ -2728,6 +2736,7 @@ document.addEventListener('keydown',event=>{
 let stockRows = [];
 let stockCurrency = 'USD';
 let stockViewMode = 'table';
+let stockReportMode = 'stock';
 const STOCK_USD_TO_JOD = 0.709;
 const stockFilterIds = [
   'stockProductGroupFilter',
@@ -2939,9 +2948,9 @@ function setStockViewMode(mode){
   stockViewMode=mode==='dashboard'?'dashboard':'table';
   const dashboard=$('stockDashboard');
   const tableWrap=$('stockSection')?.querySelector('.stock-table-scroll');
-  if(dashboard) dashboard.hidden=stockViewMode!=='dashboard';
-  if(tableWrap) tableWrap.hidden=stockViewMode!=='table';
-  if($('stockSpotlightBtn')) $('stockSpotlightBtn').hidden=stockViewMode!=='table';
+  if(dashboard) dashboard.hidden=stockReportMode!=='stock'||stockViewMode!=='dashboard';
+  if(tableWrap) tableWrap.hidden=stockReportMode!=='stock'||stockViewMode!=='table';
+  if($('stockSpotlightBtn')) $('stockSpotlightBtn').hidden=stockReportMode!=='stock'||stockViewMode!=='table';
   document.querySelectorAll('[data-stock-view]').forEach(button=>{
     const active=button.dataset.stockView===stockViewMode;
     button.classList.toggle('active',active);
@@ -3255,6 +3264,312 @@ buildStockFilters(true);
 renderStockLevel();
 setStockViewMode(stockViewMode);
 
+// ============================================================
+// Nearly Expired — uploaded workbook columns:
+// Country | Party Name | Item Description | Unit Price | Agent Stock
+// Nearly Expired Goods 6 Month | Nearly Expired 6M+
+// Values are always recalculated as Quantity × Unit Price.
+// ============================================================
+let nearExpiryRows=[];
+let nearExpiryCurrency='USD';
+let activeNearExpiryCountry='';
+let activeNearExpiryAgent='';
+const nearExpiryFilterIds=[
+  'nearExpiryCountryFilter','nearExpiryAgentFilter','nearExpiryItemFilter'
+];
+
+function nearExpiryNormalize(row){
+  const unitPrice=stockNumber(stockField(row,['unitprice','price']));
+  const withinSixQty=stockNumber(stockField(row,[
+    'nearlyexpiredwithin6mqty','nearlyexpiredgoods6month','nearlyexpiredgoods6months'
+  ]));
+  const sixPlusQty=stockNumber(stockField(row,[
+    'nearlyexpired6mqty','nearlyexpired6monthsqty','nearlyexpired6m'
+  ]));
+  return {
+    ...row,
+    Country:String(stockField(row,['country','countryname','market']) || '').trim(),
+    Agent:String(stockField(row,['agent','partyname','customer','distributor']) || '').trim(),
+    Item:String(stockField(row,['item','itemdescription','product','productname','sku']) || '').trim(),
+    __unitPrice:unitPrice,
+    __agentStockQty:stockNumber(stockField(row,[
+      'agentstockqty','juneagentstock','agentstock','stockquantity'
+    ])),
+    __withinSixQty:withinSixQty,
+    __sixPlusQty:sixPlusQty,
+    __withinSixValue:withinSixQty*unitPrice,
+    __sixPlusValue:sixPlusQty*unitPrice
+  };
+}
+
+function buildNearExpiryFilters(reset=false,changedId=''){
+  const selections=reset
+    ?Object.fromEntries(nearExpiryFilterIds.map(id=>[id,[]]))
+    :captureSelections(nearExpiryFilterIds);
+  if(changedId==='nearExpiryCountryFilter'){
+    constrainChildrenToParent(nearExpiryRows,selections,'nearExpiryCountryFilter',[
+      'nearExpiryAgentFilter','nearExpiryItemFilter'
+    ]);
+  }
+  rebuildDependentFilters(nearExpiryRows,nearExpiryFilterIds,selections,nextChangedId=>{
+    buildNearExpiryFilters(false,nextChangedId);
+    renderNearlyExpired();
+  });
+}
+
+function filteredNearExpiryRows(){
+  return nearExpiryRows.filter(row=>nearExpiryFilterIds.every(id=>{
+    const selected=getSelected(id);
+    const column=$(id)?.dataset.column;
+    return !selected.length||selected.includes(String(row[column]??''));
+  }));
+}
+
+function nearExpiryCurrencyValue(value){
+  const amount=Number(value)||0;
+  return nearExpiryCurrency==='JOD'?amount*STOCK_USD_TO_JOD:amount;
+}
+
+function nearExpiryMoney(value,decimals=0){
+  return nearExpiryCurrencyValue(value).toLocaleString('en-US',{
+    minimumFractionDigits:decimals,
+    maximumFractionDigits:decimals
+  });
+}
+
+function nearExpiryQty(value){
+  const number=Number(value)||0;
+  return number?Math.round(number).toLocaleString('en-US'):'—';
+}
+
+function nearExpiryAggregateRows(rows,key,fallback){
+  const grouped=new Map();
+  rows.forEach(row=>{
+    const name=String(row[key]||fallback).trim()||fallback;
+    if(!grouped.has(name)) grouped.set(name,{
+      name,agentStockQty:0,withinSixQty:0,sixPlusQty:0,
+      withinSixValue:0,sixPlusValue:0
+    });
+    const item=grouped.get(name);
+    item.agentStockQty+=row.__agentStockQty;
+    item.withinSixQty+=row.__withinSixQty;
+    item.sixPlusQty+=row.__sixPlusQty;
+    item.withinSixValue+=row.__withinSixValue;
+    item.sixPlusValue+=row.__sixPlusValue;
+  });
+  const enrich=item=>{
+    const totalQty=item.withinSixQty+item.sixPlusQty;
+    const totalValue=item.withinSixValue+item.sixPlusValue;
+    return {
+      ...item,totalQty,totalValue,
+      unitPrice:totalQty?totalValue/totalQty:0,
+      exposure:item.agentStockQty?totalQty/item.agentStockQty:null
+    };
+  };
+  const data=[...grouped.values()].map(enrich).sort((a,b)=>b.totalValue-a.totalValue);
+  const totals=enrich(data.reduce((total,row)=>({
+    name:'Total',
+    agentStockQty:total.agentStockQty+row.agentStockQty,
+    withinSixQty:total.withinSixQty+row.withinSixQty,
+    sixPlusQty:total.sixPlusQty+row.sixPlusQty,
+    withinSixValue:total.withinSixValue+row.withinSixValue,
+    sixPlusValue:total.sixPlusValue+row.sixPlusValue
+  }),{agentStockQty:0,withinSixQty:0,sixPlusQty:0,withinSixValue:0,sixPlusValue:0}));
+  return {data,totals};
+}
+
+function nearExpiryExposureClass(value){
+  if(value===null) return '';
+  if(value>=.5) return 'high';
+  if(value>=.2) return 'medium';
+  return 'low';
+}
+
+function nearExpiryTableHtml(rows,totals,dimension='Market',clickable=false,showUnitPrice=false){
+  const makeRow=(row,total=false)=>{
+    const exposureText=row.exposure===null?'—':`${Math.round(row.exposure*100)}%`;
+    return `<tr${total?' class="total-row"':''}>
+      <td>${clickable&&!total
+        ?`<button class="stock-drill-button" type="button" data-near-expiry-drill="${esc(row.name)}">${esc(row.name)}</button>`
+        :esc(row.name)}</td>
+      ${showUnitPrice?`<td>${total?'—':nearExpiryMoney(row.unitPrice,2)}</td>`:''}
+      <td>${nearExpiryQty(row.agentStockQty)}</td>
+      <td class="near-expiry-within">${nearExpiryQty(row.withinSixQty)}</td>
+      <td class="near-expiry-within">${nearExpiryMoney(row.withinSixValue)}</td>
+      <td class="near-expiry-plus">${nearExpiryQty(row.sixPlusQty)}</td>
+      <td class="near-expiry-plus">${nearExpiryMoney(row.sixPlusValue)}</td>
+      <td>${nearExpiryQty(row.totalQty)}</td>
+      <td class="near-expiry-total-value">${nearExpiryMoney(row.totalValue)}</td>
+      <td><span class="near-expiry-exposure ${nearExpiryExposureClass(row.exposure)}">${exposureText}</span></td>
+    </tr>`;
+  };
+  const columns=showUnitPrice?10:9;
+  return `<colgroup>
+    <col style="width:${showUnitPrice?'300':'220'}px">
+    ${showUnitPrice?'<col style="width:115px">':''}
+    <col style="width:145px"><col style="width:120px"><col style="width:145px">
+    <col style="width:120px"><col style="width:145px"><col style="width:130px">
+    <col style="width:155px"><col style="width:115px">
+  </colgroup>
+  <thead>
+    <tr class="near-expiry-group-head">
+      <th rowspan="2" data-sort-index="0">${esc(dimension)}</th>
+      ${showUnitPrice?`<th rowspan="2" data-sort-index="1">Unit Price (${nearExpiryCurrency})</th>`:''}
+      <th rowspan="2">Agent Stock Qty</th>
+      <th colspan="2" class="near-expiry-within-head">Nearly Expired Goods · Within 6M</th>
+      <th colspan="2" class="near-expiry-plus-head">Nearly Expired · 6M+</th>
+      <th colspan="3">Total Exposure</th>
+    </tr>
+    <tr class="near-expiry-sub-head">
+      <th>Quantity</th><th>Value (${nearExpiryCurrency})</th>
+      <th>Quantity</th><th>Value (${nearExpiryCurrency})</th>
+      <th>Total Qty</th><th>Total Value (${nearExpiryCurrency})</th><th>Exposure %</th>
+    </tr>
+  </thead>
+  <tbody>${rows.map(row=>makeRow(row)).join('')}${rows.length
+    ?makeRow(totals,true)
+    :`<tr><td colspan="${columns}" class="stock-empty">No Nearly Expired items match the selected filters.</td></tr>`}
+  </tbody>`;
+}
+
+function renderNearExpiryKpis(rows){
+  const target=$('nearExpiryKpis');
+  if(!target) return;
+  const {totals}=nearExpiryAggregateRows(rows,'Country','Unassigned Market');
+  const markets=new Set(rows.map(row=>row.Country).filter(Boolean)).size;
+  target.innerHTML=`
+    <article><span>Markets with Exposure</span><strong>${markets.toLocaleString('en-US')}</strong><small>Filtered markets</small></article>
+    <article class="urgent"><span>Within 6M Quantity</span><strong>${nearExpiryQty(totals.withinSixQty)}</strong><small>Units requiring priority</small></article>
+    <article class="urgent"><span>Within 6M Value</span><strong>${nearExpiryMoney(totals.withinSixValue)}</strong><small>${nearExpiryCurrency} · Qty × Unit Price</small></article>
+    <article class="watch"><span>6M+ Value</span><strong>${nearExpiryMoney(totals.sixPlusValue)}</strong><small>${nearExpiryCurrency} · monitoring exposure</small></article>
+    <article><span>Total Exposure Value</span><strong>${nearExpiryMoney(totals.totalValue)}</strong><small>${nearExpiryCurrency} · both buckets</small></article>`;
+}
+
+function updateNearExpiryDetailFlag(){
+  const flag=$('nearExpiryDetailCountryFlag');
+  if(!flag) return;
+  const code=countryFlagCode(activeNearExpiryCountry);
+  flag.hidden=!code;
+  flag.src=code?countryFlagDataUri(code):'';
+  flag.alt=code?`${activeNearExpiryCountry} flag`:'';
+  flag.title=activeNearExpiryCountry;
+  flag.onerror=()=>{flag.hidden=true;};
+}
+
+function renderNearExpiryCountryParties(){
+  activeNearExpiryAgent='';
+  const rows=filteredNearExpiryRows().filter(row=>row.Country===activeNearExpiryCountry);
+  const {data,totals}=nearExpiryAggregateRows(rows,'Agent','Unassigned Party');
+  updateNearExpiryDetailFlag();
+  $('nearExpiryDetailModalTitle').textContent=activeNearExpiryCountry;
+  $('nearExpiryDetailModalSubtitle').textContent='Party exposure — click a party to view its related items.';
+  $('nearExpiryDetailCount').textContent=`${data.length.toLocaleString('en-US')} parties`;
+  $('nearExpiryDetailBackButton').hidden=true;
+  $('nearExpiryDetailTable').innerHTML=nearExpiryTableHtml(data,totals,'Party / Agent',true);
+  $('nearExpiryDetailTable').querySelectorAll('[data-near-expiry-drill]').forEach(button=>{
+    button.addEventListener('click',()=>renderNearExpiryAgentItems(button.dataset.nearExpiryDrill));
+  });
+  setupResizableColumns($('nearExpiryDetailTable'));
+}
+
+function openNearExpiryCountry(country){
+  activeNearExpiryCountry=country;
+  renderNearExpiryCountryParties();
+  $('nearExpiryDetailModal').classList.add('open');
+  $('nearExpiryDetailModal').setAttribute('aria-hidden','false');
+  window.requestAnimationFrame(()=>refreshStickyHeaderOffsets($('nearExpiryDetailTable')));
+  $('closeNearExpiryDetailModal').focus();
+}
+
+function renderNearExpiryAgentItems(agent){
+  activeNearExpiryAgent=agent;
+  const rows=filteredNearExpiryRows().filter(row=>
+    row.Country===activeNearExpiryCountry&&row.Agent===activeNearExpiryAgent
+  );
+  const {data,totals}=nearExpiryAggregateRows(rows,'Item','Unassigned Item');
+  updateNearExpiryDetailFlag();
+  $('nearExpiryDetailModalTitle').textContent=`${activeNearExpiryCountry} · ${agent}`;
+  $('nearExpiryDetailModalSubtitle').textContent='Item-level quantity, unit price and calculated Nearly Expired value.';
+  $('nearExpiryDetailCount').textContent=`${data.length.toLocaleString('en-US')} items`;
+  $('nearExpiryDetailBackButton').hidden=false;
+  $('nearExpiryDetailTable').innerHTML=nearExpiryTableHtml(data,totals,'Item Description',false,true);
+  setupResizableColumns($('nearExpiryDetailTable'));
+}
+
+function closeNearExpiryDetailModal(){
+  $('nearExpiryDetailModal')?.classList.remove('open');
+  $('nearExpiryDetailModal')?.setAttribute('aria-hidden','true');
+}
+
+function renderNearlyExpired(){
+  const table=$('nearExpiryTable');
+  if(!table) return;
+  const rows=filteredNearExpiryRows();
+  const {data,totals}=nearExpiryAggregateRows(rows,'Country','Unassigned Market');
+  $('nearExpiryCount').textContent=`${data.length.toLocaleString('en-US')} markets · ${rows.length.toLocaleString('en-US')} exposed items`;
+  table.innerHTML=nearExpiryTableHtml(data,totals,'Market',true);
+  table.querySelectorAll('[data-near-expiry-drill]').forEach(button=>{
+    button.addEventListener('click',()=>openNearExpiryCountry(button.dataset.nearExpiryDrill));
+  });
+  setupResizableColumns(table);
+  renderNearExpiryKpis(rows);
+}
+
+function setStockReportMode(mode){
+  stockReportMode=mode==='nearlyExpired'?'nearlyExpired':'stock';
+  if(performanceSpotlightState){
+    setPerformanceTableSpotlight(performanceSpotlightState.type,false);
+  }
+  const stockActive=stockReportMode==='stock';
+  $('stockLevelFilterCard').hidden=!stockActive;
+  $('stockLevelToolbar').hidden=!stockActive;
+  $('nearExpiryFilterCard').hidden=stockActive;
+  $('nearExpiryToolbar').hidden=stockActive;
+  $('nearExpiryKpis').hidden=stockActive;
+  $('stockSection')?.querySelector('.near-expiry-table-scroll')?.toggleAttribute('hidden',stockActive);
+  document.querySelectorAll('[data-stock-report-mode]').forEach(button=>{
+    const active=button.dataset.stockReportMode===stockReportMode;
+    button.classList.toggle('active',active);
+    button.setAttribute('aria-pressed',String(active));
+  });
+  setStockViewMode(stockViewMode);
+  if(!stockActive) renderNearlyExpired();
+}
+
+$('nearExpiryResetBtn')?.addEventListener('click',()=>{
+  buildNearExpiryFilters(true);
+  renderNearlyExpired();
+});
+document.querySelectorAll('[data-stock-report-mode]').forEach(button=>{
+  button.addEventListener('click',()=>setStockReportMode(button.dataset.stockReportMode));
+});
+document.querySelectorAll('[data-near-expiry-currency]').forEach(button=>{
+  button.addEventListener('click',()=>{
+    nearExpiryCurrency=button.dataset.nearExpiryCurrency==='JOD'?'JOD':'USD';
+    document.querySelectorAll('[data-near-expiry-currency]').forEach(option=>{
+      const active=option.dataset.nearExpiryCurrency===nearExpiryCurrency;
+      option.classList.toggle('active',active);
+      option.setAttribute('aria-pressed',String(active));
+    });
+    renderNearlyExpired();
+    if($('nearExpiryDetailModal')?.classList.contains('open')){
+      if(activeNearExpiryAgent) renderNearExpiryAgentItems(activeNearExpiryAgent);
+      else renderNearExpiryCountryParties();
+    }
+  });
+});
+$('nearExpiryDetailBackButton')?.addEventListener('click',renderNearExpiryCountryParties);
+$('closeNearExpiryDetailModal')?.addEventListener('click',closeNearExpiryDetailModal);
+document.querySelector('[data-close-near-expiry-modal]')?.addEventListener('click',closeNearExpiryDetailModal);
+document.addEventListener('keydown',event=>{
+  if(event.key==='Escape'&&$('nearExpiryDetailModal')?.classList.contains('open')){
+    closeNearExpiryDetailModal();
+  }
+});
+buildNearExpiryFilters(true);
+renderNearlyExpired();
+setStockReportMode(stockReportMode);
+
 // Database loaders. The authenticated Firestore layer calls these after it has
 // already enforced the user's country access.
 window.loadSalesRowsFromDatabase = function(rows){
@@ -3362,6 +3677,13 @@ window.loadStockRowsFromDatabase = function(rows){
   renderStockLevel();
 };
 
+window.loadNearlyExpiredRowsFromDatabase = function(rows){
+  nearExpiryRows=(rows || []).map(nearExpiryNormalize)
+    .filter(row=>row.Country&&row.Item&&(row.__withinSixQty||row.__sixPlusQty));
+  buildNearExpiryFilters(true);
+  renderNearlyExpired();
+};
+
 // Enable sorting for Selling & Marketing table
 (function(){
 let smSort={index:0,asc:true};
@@ -3430,6 +3752,10 @@ renderSmExpenses=function(){
     stock:{
       file:"Stock_Level",
       sheets:[{tableId:"stockTable",name:"Stock Level"}]
+    },
+    nearlyExpired:{
+      file:"Nearly_Expired",
+      sheets:[{tableId:"nearExpiryTable",name:"Nearly Expired"}]
     },
     sm:{
       file:"Selling_Marketing_Expenses",
