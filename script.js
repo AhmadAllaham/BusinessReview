@@ -45,6 +45,78 @@ function textIdentity(value){
     .toLocaleLowerCase('en-US');
 }
 function sameText(left,right){return textIdentity(left)===textIdentity(right);}
+
+let profitabilityRows=[];
+let profitabilityVisible=false;
+
+function profitabilityBucket(ratio){
+  if(!Number.isFinite(ratio)) return '';
+  if(ratio>=0.5) return 'H';
+  if(ratio>=0.3) return 'M';
+  if(ratio>=0.2) return 'LH';
+  if(ratio>=0.1) return 'LM';
+  if(ratio>=0) return 'LL';
+  return 'LS';
+}
+
+function profitabilityScopeRows(scope={type:'sales'}){
+  const selectedFilters=scope.type==='stock'
+    ?[
+      ['stockCountryFilter','country'],
+      ['stockAgentFilter','agent'],
+      ['stockProductGroupFilter','brand']
+    ]
+    :[
+      ['countryFilter','country'],
+      ['agentFilter','agent'],
+      ['groupFilter','brand'],
+      ['productFilter','product']
+    ];
+
+  return profitabilityRows.filter(row=>{
+    const matchesSelections=selectedFilters.every(([id,key])=>{
+      const selected=getSelected(id);
+      return !selected.length||selected.some(value=>sameText(value,row[key]));
+    });
+    if(!matchesSelections) return false;
+    return (!scope.country||sameText(scope.country,row.country))&&
+      (!scope.agent||sameText(scope.agent,row.agent))&&
+      (!scope.brand||sameText(scope.brand,row.brand))&&
+      (!scope.product||sameText(scope.product,row.product));
+  });
+}
+
+function profitabilityClass(dimension,name,scope={type:'sales'}){
+  const key={
+    Country:'country',Market:'country',Agent:'agent',
+    Brand:'brand','Product Group':'brand',
+    Product:'product','Product Name':'product',SKU:'product'
+  }[dimension];
+  const rows=profitabilityScopeRows(scope).filter(row=>
+    !key||sameText(row[key],name)
+  );
+  const netSales=sum(rows,'netSales');
+  if(!rows.length||Math.abs(netSales)<1e-9) return '';
+  return profitabilityBucket(sum(rows,'grossProfit')/netSales);
+}
+
+function profitabilityCell(category){
+  const value=category||'—';
+  const css=category?` gp-${category.toLowerCase()}`:' gp-empty';
+  return `<td class="gp-class-cell${css}">${esc(value)}</td>`;
+}
+
+function updateProfitabilityButtons(){
+  document.querySelectorAll('[data-profitability-toggle]').forEach(button=>{
+    button.disabled=!profitabilityRows.length;
+    button.classList.toggle('active',profitabilityVisible);
+    button.setAttribute('aria-pressed',String(profitabilityVisible));
+    button.textContent=profitabilityVisible?'Hide GP%':'Show GP%';
+    button.title=profitabilityRows.length
+      ?'Show or hide the Budget 2026 profitability classification'
+      :'Upload the Budget 2026 profitability workbook in Data Admin first';
+  });
+}
 function normalize(row){
   const bonusRaw=num(field(row,aliases.bonusPct));
   return {...row,
@@ -1117,7 +1189,7 @@ function renderAll(){if(!rawData.length)return;const rows=filtered();renderSales
 function renderSalesTable(rows){
   const dim=$('salesView').value; const data=aggregate(rows,dim).sort((a,b)=>b.actual-a.actual);
   $('salesCount').textContent=`${data.length.toLocaleString('en-US')} rows`;
-  $('salesTable').innerHTML=salesStatementTableHtml(data,dim);
+  $('salesTable').innerHTML=salesStatementTableHtml(data,dim,{type:'sales'});
   if(dim==='Country') [...$('salesTable').querySelectorAll('tbody tr:not(.total-row) td:first-child')].forEach(td=>{td.classList.add('drill-link');td.addEventListener('click',()=>openCountry(td.textContent));});
   setupResizableColumns($('salesTable'));
 }
@@ -1138,7 +1210,7 @@ function salesStatementPercent(value,base){
   return percentage<0?`(${Math.abs(percentage)}%)`:`${percentage}%`;
 }
 
-function salesStatementTableHtml(rows,dimension){
+function salesStatementTableHtml(rows,dimension,profitabilityScope={type:'sales'}){
   const dimensionLabel=dimension==='Country'?'Market':dimension;
   const totals=rows.reduce((total,row)=>({
     actual:total.actual+row.actual,
@@ -1165,10 +1237,13 @@ function salesStatementTableHtml(rows,dimension){
       row.ly,
       vsLy,row.ly?vsLy/Math.abs(row.ly):0
     ];
+    const gpClass=profitabilityVisible
+      ?profitabilityClass(total?'':dimension,total?'':row.name,profitabilityScope)
+      :'';
     return `<tr${total?' class="total-row"':''}>${values.map((value,index)=>{
       const negative=index>0 && rawValues[index]<0?' sales-statement-negative':'';
       return `<td class="${negative.trim()}">${index===0?esc(value):value}</td>`;
-    }).join('')}</tr>`;
+    }).join('')}${profitabilityVisible?profitabilityCell(gpClass):''}</tr>`;
   };
 
   let html=`<thead>
@@ -1179,6 +1254,7 @@ function salesStatementTableHtml(rows,dimension){
       <th colspan="2" data-no-sort="true">Vs. Budget</th>
       <th rowspan="2" data-sort-index="5">LY (${performanceCurrency})</th>
       <th colspan="2" data-no-sort="true">Vs. Last Year</th>
+      ${profitabilityVisible?'<th rowspan="2" data-no-sort="true">GP%</th>':''}
     </tr>
     <tr class="sales-statement-sub-head">
       <th data-sort-index="3">${performanceCurrency}</th>
@@ -1227,7 +1303,7 @@ function renderFocTable(rows){
     {actual:0,actualFoc:0,budgetFoc:0}
   );
 
-  $('focTable').innerHTML=focTableHtml(tableRows,totals,dim);
+  $('focTable').innerHTML=focTableHtml(tableRows,totals,dim,{type:'sales'});
 
   if(dim==='Country'){
     [...$('focTable').querySelectorAll('tbody tr:not(.total-row) td:first-child')]
@@ -1239,7 +1315,7 @@ function renderFocTable(rows){
   }
   setupResizableColumns($('focTable'));
 }
-function focTableHtml(rows,totals,dimension='Name'){
+function focTableHtml(rows,totals,dimension='Name',profitabilityScope={type:'sales'}){
   const dimensionLabel=dimension==='Country'?'Market':dimension;
   let h=`<thead>
     <tr class="foc-statement-group-head">
@@ -1248,6 +1324,7 @@ function focTableHtml(rows,totals,dimension='Name'){
       <th colspan="2" data-no-sort="true">Actual FG</th>
       <th colspan="2" data-no-sort="true">Budget FG</th>
       <th rowspan="2" data-sort-index="6">FG Variance %</th>
+      ${profitabilityVisible?'<th rowspan="2" data-no-sort="true">GP%</th>':''}
     </tr>
     <tr class="foc-statement-sub-head">
       <th data-sort-index="2">${performanceCurrency}</th>
@@ -1260,6 +1337,9 @@ function focTableHtml(rows,totals,dimension='Name'){
     const cls=r.varianceRate<=0?'positive':'negative';
     const variance=Math.round(r.varianceRate*100);
     const varianceText=variance<0?`(${Math.abs(variance)}%)`:`${variance}%`;
+    const gpClass=profitabilityVisible
+      ?profitabilityClass(total?'':dimension,total?'':r.name,profitabilityScope)
+      :'';
     return `<tr${total?' class="total-row"':''}>
       <td>${esc(r.name)}</td>
       <td>${focStatementValue(r.actual)}</td>
@@ -1268,6 +1348,7 @@ function focTableHtml(rows,totals,dimension='Name'){
       <td>${focStatementValue(r.budgetFoc)}</td>
       <td>${salesStatementPercent(r.budgetFoc,r.actual)}</td>
       <td class="highlight ${cls}">${varianceText}</td>
+      ${profitabilityVisible?profitabilityCell(gpClass):''}
     </tr>`;
   };
   rows.forEach(r=>h+=makeRow(r));
@@ -1570,7 +1651,7 @@ function focDetailRows(){
   return detailBaseRows().filter(r=>String(r.Type||'').toUpperCase()==='IMS');
 }
 
-function focDetailTableHtml(rows,totalLabel='Total',dimension='Name'){
+function focDetailTableHtml(rows,totalLabel='Total',dimension='Name',profitabilityScope={type:'sales'}){
   const totals=rows.reduce(
     (t,r)=>({
       actual:t.actual+r.actual,
@@ -1580,7 +1661,7 @@ function focDetailTableHtml(rows,totalLabel='Total',dimension='Name'){
     {actual:0,actualFoc:0,budgetFoc:0}
   );
 
-  let html=focTableHtml(rows,totals,dimension);
+  let html=focTableHtml(rows,totals,dimension,profitabilityScope);
   if(totalLabel!=='Total'){
     html=html.replace('<td>Total</td>',`<td>${esc(totalLabel)}</td>`);
   }
@@ -1600,7 +1681,9 @@ function renderCountryBrands(){
   const data=aggregate(detailBaseRows(),'Brand',detailLyRows()).sort((a,b)=>b.actual-a.actual);
   $('countryDetailCount').textContent=`${data.length} brands`;
   $('countryDetailTable').className='sales-statement-detail';
-  $('countryDetailTable').innerHTML=salesStatementTableHtml(data,'Brand');
+  $('countryDetailTable').innerHTML=salesStatementTableHtml(
+    data,'Brand',{type:'sales',country:activeCountry}
+  );
 
   [...$('countryDetailTable').querySelectorAll('tbody tr:not(.total-row) td:first-child')]
     .forEach(td=>{
@@ -1625,7 +1708,9 @@ function renderBrandProducts(brand){
 
   $('countryDetailCount').textContent=`${data.length} products`;
   $('countryDetailTable').className='sales-statement-detail';
-  $('countryDetailTable').innerHTML=salesStatementTableHtml(data,'Product');
+  $('countryDetailTable').innerHTML=salesStatementTableHtml(
+    data,'Product',{type:'sales',country:activeCountry,brand:activeBrand}
+  );
   setupResizableColumns($('countryDetailTable'));
 }
 
@@ -1656,7 +1741,8 @@ function renderFocCountryGroups(){
   $('countryDetailTable').innerHTML=focDetailTableHtml(
     tableRows,
     'Total',
-    'Product Group'
+    'Product Group',
+    {type:'sales',country:activeCountry}
   );
 
   [...$('countryDetailTable').querySelectorAll('tbody tr:not(.total-row) td:first-child')]
@@ -1699,7 +1785,8 @@ function renderFocGroupProducts(group){
   $('countryDetailTable').innerHTML=focDetailTableHtml(
     tableRows,
     'Total',
-    'Product'
+    'Product',
+    {type:'sales',country:activeCountry,brand:activeFocGroup}
   );
   setupResizableColumns($('countryDetailTable'));
 }
@@ -3168,8 +3255,12 @@ function setStockViewMode(mode){
   if(stockViewMode==='dashboard') renderStockDashboard();
 }
 
-function stockStatementTableHtml(rows,totals,dimension='Brand',clickable=false){
-  const makeRow=(row,total=false)=>`<tr${total?' class="total-row"':''}>
+function stockStatementTableHtml(rows,totals,dimension='Brand',clickable=false,profitabilityScope={type:'stock'}){
+  const makeRow=(row,total=false)=>{
+    const gpClass=profitabilityVisible
+      ?profitabilityClass(total?'':dimension,total?'':row.name,profitabilityScope)
+      :'';
+    return `<tr${total?' class="total-row"':''}>
     <td>${clickable&&!total
       ?`<button class="stock-drill-button" type="button" data-stock-drill-value="${esc(row.name)}">${esc(row.name)}</button>`
       :esc(row.name)}</td>
@@ -3178,11 +3269,14 @@ function stockStatementTableHtml(rows,totals,dimension='Brand',clickable=false){
     <td>${fmt(stockCurrencyValue(row.forecast))}</td>
     <td>${stockCoverageFormat(stockCoverage(row.stock,row.historical))}</td>
     <td>${stockCoverageFormat(stockCoverage(row.stock,row.forecast))}</td>
+    ${profitabilityVisible?profitabilityCell(gpClass):''}
   </tr>`;
+  };
 
   return `<colgroup>
     <col style="width:250px"><col style="width:145px"><col style="width:180px">
     <col style="width:180px"><col style="width:180px"><col style="width:180px">
+    ${profitabilityVisible?'<col style="width:95px">':''}
   </colgroup>
   <thead>
     <tr class="stock-statement-group-head">
@@ -3191,6 +3285,7 @@ function stockStatementTableHtml(rows,totals,dimension='Brand',clickable=false){
       <th rowspan="2" data-sort-index="2" data-resize-column="2">Historical Sales (${stockCurrency})</th>
       <th rowspan="2" data-sort-index="3" data-resize-column="3">Forecast Sales (${stockCurrency})</th>
       <th colspan="2" data-no-sort="true">Monthly Coverage</th>
+      ${profitabilityVisible?'<th rowspan="2" data-no-sort="true">GP%</th>':''}
     </tr>
     <tr class="stock-statement-sub-head">
       <th data-sort-index="4" data-resize-column="4">Historical average</th>
@@ -3199,7 +3294,7 @@ function stockStatementTableHtml(rows,totals,dimension='Brand',clickable=false){
   </thead>
   <tbody>${rows.map(row=>makeRow(row)).join('')}${rows.length
     ?makeRow({name:'Total',...totals},true)
-    :'<tr><td colspan="6" class="stock-empty">No stock data matches the selected filters.</td></tr>'}
+    :`<tr><td colspan="${profitabilityVisible?7:6}" class="stock-empty">No stock data matches the selected filters.</td></tr>`}
   </tbody>`;
 }
 
@@ -3384,7 +3479,9 @@ function renderStockCountryBrands(){
   $('stockDetailModalSubtitle').textContent='Brand totals — click a brand to view its related SKUs.';
   $('stockDetailCount').textContent=`${brands.length.toLocaleString('en-US')} brands`;
   $('stockDetailBackButton').hidden=true;
-  $('stockDetailTable').innerHTML=stockStatementTableHtml(brands,totals,'Brand',true);
+  $('stockDetailTable').innerHTML=stockStatementTableHtml(
+    brands,totals,'Brand',true,{type:'stock',country:activeStockCountry}
+  );
   $('stockDetailTable').querySelectorAll('.stock-drill-button').forEach(button=>{
     button.addEventListener('click',()=>openStockBrandDetails(button.dataset.stockDrillValue));
   });
@@ -3412,7 +3509,10 @@ function openStockBrandDetails(brand){
   $('stockDetailModalSubtitle').textContent='Related SKU detail within the currently selected Stock Level filters.';
   $('stockDetailCount').textContent=`${products.length.toLocaleString('en-US')} products`;
   $('stockDetailBackButton').hidden=false;
-  $('stockDetailTable').innerHTML=stockStatementTableHtml(products,totals,'SKU');
+  $('stockDetailTable').innerHTML=stockStatementTableHtml(
+    products,totals,'SKU',false,
+    {type:'stock',country:activeStockCountry,brand:activeStockBrand}
+  );
   setupResizableColumns($('stockDetailTable'));
 }
 
@@ -3434,7 +3534,7 @@ function renderStockLevel(){
   const {data:countries,totals}=stockAggregateRows(rows,'Country','Unassigned Market');
 
   $('stockCount').textContent=`${countries.length.toLocaleString('en-US')} markets`;
-  table.innerHTML=stockStatementTableHtml(countries,totals,'Market',true);
+  table.innerHTML=stockStatementTableHtml(countries,totals,'Market',true,{type:'stock'});
   table.querySelectorAll('.stock-drill-button').forEach(button=>{
     button.addEventListener('click',()=>openStockCountryDetails(button.dataset.stockDrillValue));
   });
@@ -3778,6 +3878,19 @@ buildNearExpiryFilters(true);
 renderNearlyExpired();
 setStockDisplayMode('stock');
 
+document.querySelectorAll('[data-profitability-toggle]').forEach(button=>{
+  button.addEventListener('click',()=>{
+    if(!profitabilityRows.length) return;
+    profitabilityVisible=!profitabilityVisible;
+    updateProfitabilityButtons();
+    renderAll();
+    renderStockLevel();
+    rerenderOpenCountryModal();
+    rerenderOpenStockDetail();
+  });
+});
+updateProfitabilityButtons();
+
 // Database loaders. The authenticated Firestore layer calls these after it has
 // already enforced the user's country access.
 window.loadSalesRowsFromDatabase = function(rows){
@@ -3891,6 +4004,23 @@ window.loadNearlyExpiredRowsFromDatabase = function(rows){
     .filter(row=>row.Country&&row.Item&&(row.__withinSixQty||row.__sixPlusQty));
   buildNearExpiryFilters(true);
   renderNearlyExpired();
+};
+
+window.loadProfitabilityRowsFromDatabase = function(rows){
+  profitabilityRows=(rows||[]).map(row=>({
+    country:String(stockField(row,['country','countryname','market'])||'').trim(),
+    agent:String(stockField(row,['agent','submarket','customer','distributor'])||'').trim(),
+    brand:String(stockField(row,['brand','productgroup'])||'Unassigned').trim(),
+    product:String(stockField(row,['product','sku','productname'])||'').trim(),
+    netSales:stockNumber(stockField(row,['netsalesusd','netsales'])),
+    grossProfit:stockNumber(stockField(row,['grossprofitusd','grossprofit']))
+  })).filter(row=>row.country&&row.product&&(row.netSales||row.grossProfit));
+  if(!profitabilityRows.length) profitabilityVisible=false;
+  updateProfitabilityButtons();
+  renderAll();
+  renderStockLevel();
+  rerenderOpenCountryModal();
+  rerenderOpenStockDetail();
 };
 
 // Enable sorting for Selling & Marketing table
