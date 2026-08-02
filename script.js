@@ -2322,12 +2322,16 @@ function pnlMapWorkbookRows(rows, headerIndex) {
       ]);
       const legacyReturnIndex = colAny(['Sales Returns','Sales Return']);
       const hasSplitReturns = actualReturnIndex >= 0 || expectedReturnIndex >= 0;
+      const isBudgetScenario = pnlNormalizeHeader(record.scenario).includes('budget');
+      const legacyReturn = legacyReturnIndex >= 0
+        ? pnlReadNumber(row[legacyReturnIndex])
+        : 0;
       record.actualReturn = actualReturnIndex >= 0
         ? pnlReadNumber(row[actualReturnIndex])
-        : hasSplitReturns ? 0 : pnlReadNumber(row[legacyReturnIndex]);
+        : hasSplitReturns || isBudgetScenario ? 0 : legacyReturn;
       record.expectedReturn = expectedReturnIndex >= 0
         ? pnlReadNumber(row[expectedReturnIndex])
-        : 0;
+        : hasSplitReturns || !isBudgetScenario ? 0 : legacyReturn;
 
       return record;
     })
@@ -4023,14 +4027,17 @@ window.loadPnlRowsFromDatabase = function(rows){
   pnlRawData = sourceRows.map(row => {
     const hasSplitReturns = hasField(row,actualReturnAliases) ||
       hasField(row,expectedReturnAliases);
+    const scenario = scenarioName(value(row,['scenario','period','version']));
+    const isBudgetScenario = scenario === 'Budget' || scenario === 'FY Budget';
+    const legacyReturn = legacySalesReturns(row);
     return {
       salesType:String(value(row,['sales type','salestype','type']) || '').trim(),
       market:String(value(row,['market','country']) || '').trim(),
       agent:String(value(row,['agent','distributor','customer']) || '').trim(),
-      scenario:scenarioName(value(row,['scenario','period','version'])),
+      scenario,
       grossSales:grossSales(row),
-      actualReturn:hasSplitReturns ? actualReturn(row) : legacySalesReturns(row),
-      expectedReturn:hasSplitReturns ? expectedReturn(row) : 0,
+      actualReturn:hasSplitReturns ? actualReturn(row) : isBudgetScenario ? 0 : legacyReturn,
+      expectedReturn:hasSplitReturns ? expectedReturn(row) : isBudgetScenario ? legacyReturn : 0,
       discounts:discounts(row),
       commissions:commissions(row),
       restoun:restoun(row),
