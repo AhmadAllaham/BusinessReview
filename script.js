@@ -28,6 +28,14 @@ function field(row,names){for(const n of names){if(Object.prototype.hasOwnProper
 function fmt(n){return Math.round(Number(n)||0).toLocaleString('en-US');}
 function pct(n,d){if(!d) return n?'>200%':'0%'; const x=n/d; return Math.abs(x)>2?`${x>0?'>':'<'}200%`:`${Math.round(x*100)}%`;}
 function esc(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+function textIdentity(value){
+  return String(value??'')
+    .normalize('NFKC')
+    .trim()
+    .replace(/\s+/g,' ')
+    .toLocaleLowerCase('en-US');
+}
+function sameText(left,right){return textIdentity(left)===textIdentity(right);}
 function normalize(row){
   const bonusRaw=num(field(row,aliases.bonusPct));
   return {...row,
@@ -1002,15 +1010,17 @@ function dimKey(r,dim){
 function aggregate(rows,dim,lySource=filteredLY()){
   const m=new Map();
   for(const r of rows){
-    const k=dimKey(r,dim);
-    if(!m.has(k))m.set(k,{name:k,actual:0,budget:0,ly:0,actualFoc:0,budgetFoc:0,products:new Set()});
-    const x=m.get(k);x.actual+=r.__actual;x.budget+=r.__budget;x.products.add(r.__product);
+    const displayName=dimKey(r,dim);
+    const k=textIdentity(displayName);
+    if(!m.has(k))m.set(k,{name:displayName,actual:0,budget:0,ly:0,actualFoc:0,budgetFoc:0,products:new Set()});
+    const x=m.get(k);x.actual+=r.__actual;x.budget+=r.__budget;x.products.add(textIdentity(r.__product));
     if(String(r.Type).toUpperCase()==='IMS'){x.actualFoc+=r.__actualBonus;x.budgetFoc+=r.__budgetBonus;}
   }
   for(const r of lySource){
-    const k=dimKey(r,dim);
-    if(!m.has(k))m.set(k,{name:k,actual:0,budget:0,ly:0,actualFoc:0,budgetFoc:0,products:new Set()});
-    const x=m.get(k);x.ly+=r.__actual;x.products.add(r.__product);
+    const displayName=dimKey(r,dim);
+    const k=textIdentity(displayName);
+    if(!m.has(k))m.set(k,{name:displayName,actual:0,budget:0,ly:0,actualFoc:0,budgetFoc:0,products:new Set()});
+    const x=m.get(k);x.ly+=r.__actual;x.products.add(textIdentity(r.__product));
   }
   return [...m.values()];
 }
@@ -1425,11 +1435,11 @@ function openFocCountry(country){
 }
 
 function detailBaseRows(){
-  return filtered().filter(r=>String(r.Country||'')===activeCountry);
+  return filtered().filter(r=>sameText(r.Country,activeCountry));
 }
 
 function detailLyRows(){
-  return filteredLY().filter(r=>String(r.Country||'')===activeCountry);
+  return filteredLY().filter(r=>sameText(r.Country,activeCountry));
 }
 
 function focDetailRows(){
@@ -1485,8 +1495,8 @@ function renderBrandProducts(brand){
   $('countryModalSubtitle').textContent='Product detail';
   $('countryDetailHint').textContent='Product level';
 
-  const rows=detailBaseRows().filter(r=>r.__brand===brand);
-  const lyRows=detailLyRows().filter(r=>r.__brand===brand);
+  const rows=detailBaseRows().filter(r=>sameText(r.__brand,brand));
+  const lyRows=detailLyRows().filter(r=>sameText(r.__brand,brand));
   const data=aggregate(rows,'Product Name',lyRows).sort((a,b)=>b.actual-a.actual);
 
   $('countryDetailCount').textContent=`${data.length} products`;
@@ -1544,7 +1554,7 @@ function renderFocGroupProducts(group){
   $('countryDetailHint').textContent='Product level';
 
   const groupRows=focDetailRows().filter(r=>
-    String(r['Product Group']||r.__group||'').trim()===group
+    sameText(r['Product Group']||r.__group,group)
   );
 
   const data=aggregate(groupRows,'Product Name',[]).sort((a,b)=>b.actual-a.actual);
