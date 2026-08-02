@@ -1480,6 +1480,11 @@ body.stock-level-view .sales-header-upload{
   box-shadow:0 10px 28px rgba(15,118,110,.08);
 }
 
+/* Keep the inactive Stock Level / Nearly Expired panels truly hidden. */
+#stockSection [data-stock-report-panel][hidden]{
+  display:none!important;
+}
+
 .stock-title-bar p{
   margin:5px 0 0;
   color:rgba(255,255,255,.78);
