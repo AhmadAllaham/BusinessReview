@@ -3613,16 +3613,23 @@ function nearExpiryNormalize(row){
   };
 }
 
+function nearExpiryHasExposure(row){
+  return Boolean(row&&(
+    Number(row.__withinSixQty)||Number(row.__sixPlusQty)
+  ));
+}
+
 function buildNearExpiryFilters(reset=false,changedId=''){
+  const exposedRows=nearExpiryRows.filter(nearExpiryHasExposure);
   const selections=reset
     ?Object.fromEntries(nearExpiryFilterIds.map(id=>[id,[]]))
     :captureSelections(nearExpiryFilterIds);
   if(changedId==='nearExpiryCountryFilter'){
-    constrainChildrenToParent(nearExpiryRows,selections,'nearExpiryCountryFilter',[
+    constrainChildrenToParent(exposedRows,selections,'nearExpiryCountryFilter',[
       'nearExpiryAgentFilter','nearExpiryItemFilter'
     ]);
   }
-  rebuildDependentFilters(nearExpiryRows,nearExpiryFilterIds,selections,nextChangedId=>{
+  rebuildDependentFilters(exposedRows,nearExpiryFilterIds,selections,nextChangedId=>{
     buildNearExpiryFilters(false,nextChangedId);
     renderNearlyExpired();
   });
@@ -3677,7 +3684,10 @@ function nearExpiryAggregateRows(rows,key,fallback){
       exposure:item.agentStockQty?totalQty/item.agentStockQty:null
     };
   };
-  const data=[...grouped.values()].map(enrich).sort((a,b)=>b.totalValue-a.totalValue);
+  const data=[...grouped.values()]
+    .map(enrich)
+    .filter(item=>item.totalQty!==0)
+    .sort((a,b)=>b.totalValue-a.totalValue);
   const totals=enrich(data.reduce((total,row)=>({
     name:'Total',
     agentStockQty:total.agentStockQty+row.agentStockQty,
@@ -3697,6 +3707,7 @@ function nearExpiryExposureClass(value){
 }
 
 function nearExpiryTableHtml(rows,totals,dimension='Market',clickable=false,showUnitPrice=false){
+  const indexOffset=showUnitPrice?1:0;
   const makeRow=(row,total=false)=>{
     const exposureText=row.exposure===null?'—':`${Math.round(row.exposure*100)}%`;
     return `<tr${total?' class="total-row"':''}>
@@ -3726,15 +3737,15 @@ function nearExpiryTableHtml(rows,totals,dimension='Market',clickable=false,show
     <tr class="near-expiry-group-head">
       <th rowspan="2" data-sort-index="0">${esc(dimension)}</th>
       ${showUnitPrice?`<th rowspan="2" data-sort-index="1">Unit Price (${nearExpiryCurrency})</th>`:''}
-      <th rowspan="2">Agent Stock Qty</th>
-      <th colspan="2" class="near-expiry-within-head">Nearly Expired Goods · Within 6M</th>
-      <th colspan="2" class="near-expiry-plus-head">Nearly Expired · 6M+</th>
-      <th colspan="3">Total Exposure</th>
+      <th rowspan="2" data-sort-index="${1+indexOffset}">Agent Stock Qty</th>
+      <th colspan="2" data-no-sort="true" class="near-expiry-within-head">Nearly Expired Goods · Within 6M</th>
+      <th colspan="2" data-no-sort="true" class="near-expiry-plus-head">Nearly Expired · 6M+</th>
+      <th colspan="3" data-no-sort="true">Total Exposure</th>
     </tr>
     <tr class="near-expiry-sub-head">
-      <th>Quantity</th><th>Value (${nearExpiryCurrency})</th>
-      <th>Quantity</th><th>Value (${nearExpiryCurrency})</th>
-      <th>Total Qty</th><th>Total Value (${nearExpiryCurrency})</th><th>Exposure %</th>
+      <th data-sort-index="${2+indexOffset}">Quantity</th><th data-sort-index="${3+indexOffset}">Value (${nearExpiryCurrency})</th>
+      <th data-sort-index="${4+indexOffset}">Quantity</th><th data-sort-index="${5+indexOffset}">Value (${nearExpiryCurrency})</th>
+      <th data-sort-index="${6+indexOffset}">Total Qty</th><th data-sort-index="${7+indexOffset}">Total Value (${nearExpiryCurrency})</th><th data-sort-index="${8+indexOffset}">Exposure %</th>
     </tr>
   </thead>
   <tbody>${rows.map(row=>makeRow(row)).join('')}${rows.length
@@ -3747,7 +3758,9 @@ function renderNearExpiryKpis(rows){
   const target=$('nearExpiryKpis');
   if(!target) return;
   const {totals}=nearExpiryAggregateRows(rows,'Country','Unassigned Market');
-  const markets=new Set(rows.map(row=>row.Country).filter(Boolean)).size;
+  const markets=new Set(
+    rows.filter(nearExpiryHasExposure).map(row=>row.Country).filter(Boolean)
+  ).size;
   target.innerHTML=`
     <article><span>Markets with Exposure</span><strong>${markets.toLocaleString('en-US')}</strong><small>Filtered markets</small></article>
     <article class="urgent"><span>Within 6M Quantity</span><strong>${nearExpiryQty(totals.withinSixQty)}</strong><small>Units requiring priority</small></article>
@@ -3816,8 +3829,9 @@ function renderNearlyExpired(){
   const table=$('nearExpiryTable');
   if(!table) return;
   const rows=filteredNearExpiryRows();
+  const exposedRows=rows.filter(nearExpiryHasExposure);
   const {data,totals}=nearExpiryAggregateRows(rows,'Country','Unassigned Market');
-  $('nearExpiryCount').textContent=`${data.length.toLocaleString('en-US')} markets · ${rows.length.toLocaleString('en-US')} exposed items`;
+  $('nearExpiryCount').textContent=`${data.length.toLocaleString('en-US')} markets · ${exposedRows.length.toLocaleString('en-US')} exposed items`;
   table.innerHTML=nearExpiryTableHtml(data,totals,'Market',true);
   table.querySelectorAll('[data-near-expiry-drill]').forEach(button=>{
     button.addEventListener('click',()=>openNearExpiryCountry(button.dataset.nearExpiryDrill));
@@ -4006,7 +4020,7 @@ window.loadStockRowsFromDatabase = function(rows){
 
 window.loadNearlyExpiredRowsFromDatabase = function(rows){
   nearExpiryRows=(rows || []).map(nearExpiryNormalize)
-    .filter(row=>row.Country&&row.Item&&(row.__withinSixQty||row.__sixPlusQty));
+    .filter(row=>row.Country&&row.Item);
   buildNearExpiryFilters(true);
   renderNearlyExpired();
 };
