@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Business Review</title>
-  <link rel="stylesheet" href="style.css?v=20260802-8" />
+  <link rel="stylesheet" href="style.css?v=20260802-9" />
 </head>
 <body>
   <header class="app-header">
@@ -356,6 +356,10 @@
       <span id="smSimpleCount">0 rows</span>
       <div class="toolbar-actions">
         <span class="legend"><i class="dot favorable"></i> Favorable <i class="dot unfavorable"></i> Unfavorable</span>
+        <div class="pnl-currency-switch performance-currency-switch" role="group" aria-label="Selling and Marketing currency">
+          <button type="button" data-sm-currency="USD" aria-pressed="false">USD</button>
+          <button class="active" type="button" data-sm-currency="JOD" aria-pressed="true">JOD</button>
+        </div>
         <button id="smSpotlightBtn" class="sm-spotlight-btn" type="button" aria-pressed="false">
           <svg aria-hidden="true" viewBox="0 0 24 24">
             <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path>
@@ -369,19 +373,17 @@
       <table id="smSimpleTable" class="sm-reference-table sales-foc-reference-table">
         <thead>
           <tr class="sm-statement-group-head">
-            <th class="sm-statement-head-spacer" colspan="3" aria-hidden="true"></th>
+            <th rowspan="2" data-sm-sort-index="0">Item</th>
+            <th class="sm-actual-head" rowspan="2" data-sm-sort-index="1">Actual</th>
+            <th rowspan="2" data-sm-sort-index="2">Budget</th>
             <th class="sm-statement-group" colspan="2">Vs. Budget</th>
-            <th class="sm-statement-head-spacer" aria-hidden="true"></th>
+            <th rowspan="2" data-sm-sort-index="5">LY</th>
             <th class="sm-statement-group" colspan="2">Vs. Last Year</th>
           </tr>
           <tr class="sm-statement-column-head">
-            <th data-sm-sort-index="0">Item</th>
-            <th class="sm-actual-head" data-sm-sort-index="1">Actual</th>
-            <th data-sm-sort-index="2">Budget</th>
-            <th data-sm-sort-index="3">JOD</th>
+            <th data-sm-sort-index="3" data-sm-currency-label>JOD</th>
             <th data-sm-sort-index="4">%</th>
-            <th data-sm-sort-index="5">LY</th>
-            <th data-sm-sort-index="6">JOD</th>
+            <th data-sm-sort-index="6" data-sm-currency-label>JOD</th>
             <th data-sm-sort-index="7">%</th>
           </tr>
         </thead>
@@ -628,7 +630,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="firebase-client.js"></script>
-  <script src="script.js?v=20260802-10"></script>
+  <script src="script.js?v=20260802-11"></script>
   <script src="dashboard-firebase.js?v=20260802-3"></script>
 </body>
 </html>
