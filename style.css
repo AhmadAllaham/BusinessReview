@@ -2867,10 +2867,24 @@ body.performance-table-spotlight .performance-spotlight-stage #nearExpiryTable{
 }
 
 /* Stock workspace report switch and Nearly Expired exposure report */
+.stock-report-selector{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin:16px 18px 10px;
+}
+
+.stock-report-selector-label{
+  color:#526a67;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+
 .stock-report-tabs{
   display:inline-flex;
   gap:4px;
-  margin:16px 18px 10px;
   padding:5px;
   border:1px solid #cfe0dd;
   border-radius:14px;
@@ -3055,7 +3069,9 @@ body.performance-table-spotlight .performance-spotlight-stage #nearExpiryTable{
 }
 
 @media(max-width:760px){
-  .stock-report-tabs{display:flex;margin:12px 10px 8px}
+  .stock-report-selector{display:block;margin:12px 10px 8px}
+  .stock-report-selector-label{display:block;margin:0 0 6px 4px}
+  .stock-report-tabs{display:flex}
   .stock-report-tabs button{min-width:0;flex:1}
   .near-expiry-filters-grid{grid-template-columns:1fr}
   .near-expiry-kpis{grid-template-columns:1fr;margin-right:10px;margin-left:10px}
