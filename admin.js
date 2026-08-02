@@ -52,7 +52,8 @@
     const scenarioNames = new Set(["scenario","period","version"]);
     const marketNames = new Set(["market","country","countryname"]);
     const metricNames = new Set([
-      "grosssales","netsales","salesreturns","discounts","commissions",
+      "grosssales","netsales","salesreturns","actualreturn","actualreturns",
+      "expectedreturn","expectedreturns","discounts","commissions",
       "cogs","costofgoodssold","grossprofit","sellingandmarketing",
       "sm","netincome","netprofit"
     ]);
