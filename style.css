@@ -4068,3 +4068,34 @@ body table tbody tr:focus-within > td{
     transition:background-color .14s ease,background-image .14s ease;
   }
 }
+/* Budget profitability: the table shows the requested classification letter only. */
+.gp-toggle-btn{
+  border:1px solid rgba(15,128,116,.42);
+  border-radius:999px;
+  background:transparent;
+  color:#0f7068;
+  padding:.48rem .78rem;
+  font:700 .78rem/1 inherit;
+  cursor:pointer;
+  transition:background .18s ease,color .18s ease,box-shadow .18s ease,opacity .18s ease;
+}
+.gp-toggle-btn:hover:not(:disabled),.gp-toggle-btn.active{
+  background:#0f8074;
+  color:#fff;
+  box-shadow:0 0 0 3px rgba(15,128,116,.12);
+}
+.gp-toggle-btn:disabled{opacity:.42;cursor:not-allowed}
+.gp-class-cell{
+  min-width:72px;
+  text-align:center!important;
+  font-weight:900!important;
+  letter-spacing:.035em;
+  color:#0b3b38;
+}
+.gp-class-cell.gp-h{background:#d7f1e6;color:#05603f}
+.gp-class-cell.gp-m{background:#e0f3ee;color:#087568}
+.gp-class-cell.gp-lh{background:#eef6dc;color:#557013}
+.gp-class-cell.gp-lm{background:#fff2cf;color:#8a6100}
+.gp-class-cell.gp-ll{background:#ffead9;color:#a14f14}
+.gp-class-cell.gp-ls{background:#fde4e4;color:#b42323}
+.gp-class-cell.gp-empty{background:#f4f7f7;color:#8a9997}
