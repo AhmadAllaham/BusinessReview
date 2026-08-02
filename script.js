@@ -1038,13 +1038,15 @@ function renderSalesTable(rows){
   setupResizableColumns($('salesTable'));
 }
 
-function salesStatementValue(value){
+function performanceStatementValue(value,divisor=1){
   const rate=performanceCurrency==='JOD'?PERFORMANCE_USD_TO_JOD:1;
-  const rounded=Math.round((Number(value)||0)*rate);
+  const rounded=Math.round(((Number(value)||0)*rate)/divisor);
   return rounded<0
     ? `(${Math.abs(rounded).toLocaleString('en-US')})`
     : rounded.toLocaleString('en-US');
 }
+function salesStatementValue(value){return performanceStatementValue(value,1000);}
+function focStatementValue(value){return performanceStatementValue(value);}
 
 function salesStatementPercent(value,base){
   if(!base) return '—';
@@ -1087,16 +1089,16 @@ function salesStatementTableHtml(rows,dimension){
   let html=`<thead>
     <tr class="sales-statement-group-head">
       <th rowspan="2" data-sort-index="0">${esc(dimensionLabel)}</th>
-      <th rowspan="2" data-sort-index="1">Actual (${performanceCurrency})</th>
-      <th rowspan="2" data-sort-index="2">Budget (${performanceCurrency})</th>
-      <th rowspan="2" data-sort-index="3">LY (${performanceCurrency})</th>
+      <th rowspan="2" data-sort-index="1">Actual (${performanceCurrency} '000)</th>
+      <th rowspan="2" data-sort-index="2">Budget (${performanceCurrency} '000)</th>
+      <th rowspan="2" data-sort-index="3">LY (${performanceCurrency} '000)</th>
       <th colspan="2" data-no-sort="true">Vs. Budget</th>
       <th colspan="2" data-no-sort="true">Vs. Last Year</th>
     </tr>
     <tr class="sales-statement-sub-head">
-      <th data-sort-index="4">${performanceCurrency}</th>
+      <th data-sort-index="4">${performanceCurrency} '000</th>
       <th data-sort-index="5">%</th>
-      <th data-sort-index="6">${performanceCurrency}</th>
+      <th data-sort-index="6">${performanceCurrency} '000</th>
       <th data-sort-index="7">%</th>
     </tr>
   </thead><tbody>`;
@@ -1175,10 +1177,10 @@ function focTableHtml(rows,totals,dimension='Name'){
     const varianceText=variance<0?`(${Math.abs(variance)}%)`:`${variance}%`;
     return `<tr${total?' class="total-row"':''}>
       <td>${esc(r.name)}</td>
-      <td>${salesStatementValue(r.actual)}</td>
-      <td>${salesStatementValue(r.actualFoc)}</td>
+      <td>${focStatementValue(r.actual)}</td>
+      <td>${focStatementValue(r.actualFoc)}</td>
       <td>${salesStatementPercent(r.actualFoc,r.actual)}</td>
-      <td>${salesStatementValue(r.budgetFoc)}</td>
+      <td>${focStatementValue(r.budgetFoc)}</td>
       <td>${salesStatementPercent(r.budgetFoc,r.actual)}</td>
       <td class="highlight ${cls}">${varianceText}</td>
     </tr>`;
