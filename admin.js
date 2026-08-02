@@ -249,9 +249,6 @@
             payload
           };
         })
-        .filter(row => reportType !== "nearlyExpired" ||
-          numberValue(row.payload["Total Nearly Expired Qty"]) !== 0
-        )
         .filter(row => reportType !== "profitability" || (
           row.payload.Product && (
             numberValue(row.payload["Net Sales USD"]) !== 0 ||
