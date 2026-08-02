@@ -25,12 +25,28 @@ service cloud.firestore {
       return datasetId == active.sales ||
         datasetId == active.pnl ||
         datasetId == active.sm ||
-        datasetId == active.stock;
+        datasetId == active.stock ||
+        datasetId == active.nearlyExpired;
+    }
+
+    function gccCountry(country) {
+      return country in [
+        "GCC",
+        "UAE",
+        "United Arab Emirates",
+        "Qatar",
+        "Bahrain",
+        "Kuwait",
+        "Oman"
+      ];
     }
 
     function allowedCountry(country) {
       return enabledUser() &&
-        country in currentProfile().countries;
+        (
+          country in currentProfile().countries ||
+          ("GCC" in currentProfile().countries && gccCountry(country))
+        );
     }
 
     match /users/{userId} {
