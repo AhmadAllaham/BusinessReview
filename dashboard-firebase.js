@@ -18,6 +18,23 @@
   const profile = session.profile;
   const isAdmin = profile.role === "admin";
   const allowedCountries = [...new Set(profile.countries || [])];
+  const GCC_COUNTRIES = [
+    "GCC",
+    "KSA",
+    "Saudi",
+    "Saudi Arabia",
+    "UAE",
+    "United Arab Emirates",
+    "Qatar",
+    "Bahrain",
+    "Kuwait",
+    "Oman"
+  ];
+  const queryCountries = [...new Set(allowedCountries.flatMap(country =>
+    String(country || "").trim().toUpperCase() === "GCC"
+      ? GCC_COUNTRIES
+      : [String(country || "").trim()]
+  ).filter(Boolean))];
 
   const userName = document.getElementById("currentUserName");
   const userScope = document.getElementById("currentUserScope");
@@ -48,7 +65,7 @@
         .get();
       chunkDocs = snapshot.docs;
     } else {
-      const snapshots = await Promise.all(allowedCountries.map(country =>
+      const snapshots = await Promise.all(queryCountries.map(country =>
         BRPortal.db.collection("reportChunks")
           .where("datasetId","==",datasetId)
           .where("country","==",country)
