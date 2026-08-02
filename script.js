@@ -1641,6 +1641,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 
 let pnlRawData = [];
 let pnlViewMode = 'full';
+let pnlComparisonMode = 'standard';
 let pnlCurrency = 'USD';
 const PNL_USD_TO_JOD = 0.709;
 
@@ -1675,6 +1676,18 @@ document.querySelectorAll('[data-pnl-view]').forEach(button=>{
   button.addEventListener('click',()=>{
     pnlViewMode=button.dataset.pnlView||'full';
     document.querySelectorAll('[data-pnl-view]').forEach(option=>{
+      const active=option===button;
+      option.classList.toggle('active',active);
+      option.setAttribute('aria-pressed',String(active));
+    });
+    renderPnlVertical();
+  });
+});
+
+document.querySelectorAll('[data-pnl-comparison]').forEach(button=>{
+  button.addEventListener('click',()=>{
+    pnlComparisonMode=button.dataset.pnlComparison==='fyBudget'?'fyBudget':'standard';
+    document.querySelectorAll('[data-pnl-comparison]').forEach(option=>{
       const active=option===button;
       option.classList.toggle('active',active);
       option.setAttribute('aria-pressed',String(active));
@@ -1891,6 +1904,7 @@ function renderPnlVertical() {
   const actual = pnlConvertCurrency(pnlScenarioTotals(rows, 'Actual'));
   const budget = pnlConvertCurrency(pnlScenarioTotals(rows, 'Budget'));
   const ly = pnlConvertCurrency(pnlScenarioTotals(rows, 'LY'));
+  const fyBudget = pnlConvertCurrency(pnlScenarioTotals(rows, 'FY Budget'));
 
   const table = $('pnlTable');
   if (!table) return;
@@ -1898,7 +1912,16 @@ function renderPnlVertical() {
   const count = $('pnlCount');
   if (count) count.textContent = `${visibleLines.length} P&L lines`;
 
-  let html = `
+  let html = pnlComparisonMode==='fyBudget' ? `
+    <thead>
+      <tr class="pnl-group-head pnl-fy-budget-head">
+        <th>Consolidated P&amp;L</th>
+        <th>Actual (${pnlCurrency})</th>
+        <th>FY Budget (${pnlCurrency})</th>
+        <th>Remaining (${pnlCurrency})</th>
+      </tr>
+    </thead>
+    <tbody>` : `
     <thead>
       <tr class="pnl-group-head">
         <th rowspan="2">Consolidated P&amp;L</th>
@@ -1921,15 +1944,23 @@ function renderPnlVertical() {
     const a = actual[line.key];
     const b = budget[line.key];
     const l = ly[line.key];
+    const f = fyBudget[line.key];
     const vb = a - b;
     const vl = a - l;
+    const remaining = f - a;
     const rowClasses = [
       `pnl-line-${line.key}`,
       line.subtotal ? 'pnl-subtotal pnl-statement-total' : '',
       line.key==='cogs' ? 'pnl-cost-row' : ''
     ].filter(Boolean).join(' ');
 
-    html += `
+    html += pnlComparisonMode==='fyBudget' ? `
+      <tr class="${rowClasses}">
+        <td>${line.label}</td>
+        <td class="${pnlAmountClass(a)}">${pnlFormat(a)}</td>
+        <td class="${pnlAmountClass(f)}">${pnlFormat(f)}</td>
+        <td class="${pnlVarianceClass(remaining)} ${pnlAmountClass(remaining)}">${pnlFormat(remaining)}</td>
+      </tr>` : `
       <tr class="${rowClasses}">
         <td>${line.label}</td>
         <td class="${pnlAmountClass(a)}">${pnlFormat(a)}</td>
@@ -1948,7 +1979,7 @@ function renderPnlVertical() {
     { label:'S&M', numerator:'sm', absolute:true },
     { label:'Net Income', numerator:'netIncome' }
   ];
-  html += '<tr class="pnl-ratio-spacer"><td colspan="8"></td></tr>';
+  html += `<tr class="pnl-ratio-spacer"><td colspan="${pnlComparisonMode==='fyBudget'?4:8}"></td></tr>`;
   ratioRows.forEach(row=>{
     const ratioValue=(value,netSales)=>{
       const ratio=pnlRatio(value,netSales);
@@ -1958,7 +1989,15 @@ function renderPnlVertical() {
     const actualRatio=ratioValue(actual[row.numerator],actual.netSales);
     const budgetRatio=ratioValue(budget[row.numerator],budget.netSales);
     const lyRatio=ratioValue(ly[row.numerator],ly.netSales);
-    html += `
+    const fyBudgetRatio=ratioValue(fyBudget[row.numerator],fyBudget.netSales);
+    const remainingRatio=fyBudgetRatio-actualRatio;
+    html += pnlComparisonMode==='fyBudget' ? `
+      <tr class="pnl-statement-ratio">
+        <td>${row.label}</td>
+        <td class="${pnlAmountClass(actualRatio)}">${formatRatio(actualRatio)}</td>
+        <td class="${pnlAmountClass(fyBudgetRatio)}">${formatRatio(fyBudgetRatio)}</td>
+        <td class="${pnlVarianceClass(remainingRatio)} ${pnlAmountClass(remainingRatio)}">${(remainingRatio*100).toFixed(1)} pp</td>
+      </tr>` : `
       <tr class="pnl-statement-ratio">
         <td>${row.label}</td>
         <td class="${pnlAmountClass(actualRatio)}">${formatRatio(actualRatio)}</td>
@@ -1973,11 +2012,21 @@ function renderPnlVertical() {
   table.innerHTML = html;
   setupResizableColumns(table);
 
-  const netSalesVar = actual.netSales - budget.netSales;
-  const gpVar = actual.grossProfit - budget.grossProfit;
-  const niVar = actual.netIncome - budget.netIncome;
+  const comparisonTarget=pnlComparisonMode==='fyBudget'?fyBudget:budget;
+  const comparisonLabel=pnlComparisonMode==='fyBudget'?'Remaining':'Vs Budget';
+  const netSalesVar = pnlComparisonMode==='fyBudget'
+    ?comparisonTarget.netSales-actual.netSales
+    :actual.netSales-comparisonTarget.netSales;
+  const gpVar = pnlComparisonMode==='fyBudget'
+    ?comparisonTarget.grossProfit-actual.grossProfit
+    :actual.grossProfit-comparisonTarget.grossProfit;
+  const niVar = pnlComparisonMode==='fyBudget'
+    ?comparisonTarget.netIncome-actual.netIncome
+    :actual.netIncome-comparisonTarget.netIncome;
   const actualGpMargin = actual.netSales ? actual.grossProfit / actual.netSales : 0;
-  const budgetGpMargin = budget.netSales ? budget.grossProfit / budget.netSales : 0;
+  const comparisonGpMargin = comparisonTarget.netSales
+    ?comparisonTarget.grossProfit/comparisonTarget.netSales
+    :0;
 
   const netSalesKpi = $('pnlNetSalesKpi');
   const grossProfitKpi = $('pnlGrossProfitKpi');
@@ -1999,10 +2048,10 @@ function renderPnlVertical() {
   const niEl = $('pnlNetIncomeVar');
   const gmEl = $('pnlGpMarginVar');
 
-  netEl.textContent = `Vs Budget ${pnlFormat(netSalesVar)}`;
-  gpEl.textContent = `Vs Budget ${pnlFormat(gpVar)}`;
-  niEl.textContent = `Vs Budget ${pnlFormat(niVar)}`;
-  gmEl.textContent = `Budget ${(budgetGpMargin*100).toFixed(1)}%`;
+  netEl.textContent = `${comparisonLabel} ${pnlFormat(netSalesVar)}`;
+  gpEl.textContent = `${comparisonLabel} ${pnlFormat(gpVar)}`;
+  niEl.textContent = `${comparisonLabel} ${pnlFormat(niVar)}`;
+  gmEl.textContent = `${pnlComparisonMode==='fyBudget'?'FY Budget':'Budget'} ${(comparisonGpMargin*100).toFixed(1)}%`;
 
   [ [netEl,netSalesVar], [gpEl,gpVar], [niEl,niVar] ].forEach(([el,v]) => {
     el.classList.remove('positive','negative');
@@ -3686,6 +3735,7 @@ window.loadPnlRowsFromDatabase = function(rows){
   const scenarioName = value => {
     const normalized = normalizeKey(value);
     if (normalized.includes('actual')) return 'Actual';
+    if (normalized.includes('fybudget') || normalized.includes('fullyearbudget') || normalized.includes('budgetfy')) return 'FY Budget';
     if (normalized.includes('budget') || normalized === 'bud') return 'Budget';
     if (normalized === 'ly' || normalized.includes('lastyear') || normalized.includes('previousyear')) return 'LY';
     return '';
