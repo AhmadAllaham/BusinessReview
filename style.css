@@ -2208,6 +2208,11 @@ body.stock-level-view .sales-header-upload{
   color:transparent;
 }
 
+#smSimpleTable thead .sm-statement-group-head th{
+  background:#0b3158!important;
+  color:#fff!important;
+}
+
 #smSimpleTable thead .sm-statement-group-head th:first-child{
   width:31%;
   text-align:left;
