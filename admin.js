@@ -16,6 +16,7 @@
   const reportLabels = {
     sales:"Sales · Sales Analysis & IMS FOC",
     stock:"Stock Level",
+    nearlyExpired:"Stock Level · Nearly Expired",
     sm:"Selling & Marketing Expenses",
     pnl:"P&L"
   };
@@ -65,6 +66,17 @@
   function stockHeaderIndex(matrix) {
     const required = [
       "country","agent","brand","sku","stock","historicalsales","forecastsales"
+    ];
+    return matrix.findIndex(row => {
+      const headers = new Set(row.map(normalizeHeader));
+      return required.every(header => headers.has(header));
+    });
+  }
+
+  function nearlyExpiredHeaderIndex(matrix) {
+    const required = [
+      "country","partyname","itemdescription","unitprice",
+      "nearlyexpiredgoods6month","nearlyexpired6m"
     ];
     return matrix.findIndex(row => {
       const headers = new Set(row.map(normalizeHeader));
@@ -125,6 +137,39 @@
     };
   }
 
+  function nearlyExpiredPayload(headers,values) {
+    const entries = headers.map((header,index) => ({
+      raw:String(header || "").trim(),
+      key:normalizeHeader(header),
+      value:normalizeValue(values[index])
+    }));
+    const read = (...names) => {
+      const normalized = names.map(normalizeHeader);
+      return entries.find(entry => normalized.includes(entry.key))?.value ?? "";
+    };
+    const unitPrice = numberValue(read("unit price","price"));
+    const withinSixQty = numberValue(read("nearly expired goods 6 month"));
+    const sixPlusQty = numberValue(read("nearly expired 6m +","nearly expired 6m"));
+    const agentStockQty = numberValue(read(
+      "june agent stock","agent stock","agent stock qty","stock quantity"
+    ));
+    const withinSixValue = withinSixQty * unitPrice;
+    const sixPlusValue = sixPlusQty * unitPrice;
+    return {
+      Country:canonicalCountry(read("country","country name","market")),
+      Agent:String(read("party name","agent","customer","distributor") || "").trim(),
+      Item:String(read("item description","product","product name","sku") || "").trim(),
+      "Unit Price":unitPrice,
+      "Agent Stock Qty":agentStockQty,
+      "Nearly Expired Within 6M Qty":withinSixQty,
+      "Nearly Expired 6M+ Qty":sixPlusQty,
+      "Nearly Expired Within 6M Value":withinSixValue,
+      "Nearly Expired 6M+ Value":sixPlusValue,
+      "Total Nearly Expired Qty":withinSixQty + sixPlusQty,
+      "Total Nearly Expired Value":withinSixValue + sixPlusValue
+    };
+  }
+
   function headerValue(row,names) {
     const key = Object.keys(row).find(item =>
       names.map(normalizeHeader).includes(normalizeHeader(item))
@@ -145,7 +190,9 @@
         ? pnlHeaderIndex(matrix)
         : reportType === "stock"
           ? stockHeaderIndex(matrix)
-          : firstNonEmptyRow(matrix);
+          : reportType === "nearlyExpired"
+            ? nearlyExpiredHeaderIndex(matrix)
+            : firstNonEmptyRow(matrix);
       if (headerIndex < 0) return;
       const headers = matrix[headerIndex].map((value,index) =>
         String(value || `Column ${index + 1}`).trim()
@@ -155,21 +202,28 @@
         .map((values,index) => {
           const payload = reportType === "stock"
             ? stockPayload(headers,values)
-            : Object.fromEntries(headers.map((header,columnIndex) => [
-              header,normalizeValue(values[columnIndex])
-            ]));
+            : reportType === "nearlyExpired"
+              ? nearlyExpiredPayload(headers,values)
+              : Object.fromEntries(headers.map((header,columnIndex) => [
+                header,normalizeValue(values[columnIndex])
+              ]));
           const rawCountry = headerValue(payload,["country","country name","market"]);
           const country = rawCountry && !/^total\b/i.test(rawCountry)
             ? rawCountry
             : "__GLOBAL__";
-          if (country !== "__GLOBAL__") countrySet.add(country);
           return {
             sheetName,
             rowNumber:headerIndex + index + 2,
             country,
             payload
           };
-        });
+        })
+        .filter(row => reportType !== "nearlyExpired" ||
+          numberValue(row.payload["Total Nearly Expired Qty"]) !== 0
+        );
+      rows.forEach(row=>{
+        if (row.country !== "__GLOBAL__") countrySet.add(row.country);
+      });
       parsedSheets.push({name:sheetName,rowCount:rows.length,headers});
       allRows.push(...rows);
     });
@@ -182,6 +236,11 @@
     if (reportType === "stock" && !parsedSheets.length) {
       throw new Error(
         "No valid Stock Level table was found. Required columns: Country, Agent, Brand, SKU, Stock, Historical Sales, and Forecast Sales."
+      );
+    }
+    if (reportType === "nearlyExpired" && !parsedSheets.length) {
+      throw new Error(
+        "No valid Nearly Expired table was found. Required columns: Country, Party Name, Item Description, Unit Price, Nearly Expired Goods 6 Month, and Nearly Expired 6M+."
       );
     }
     return {
