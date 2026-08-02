@@ -2532,6 +2532,15 @@ document.addEventListener('click',event=>{
 /* Universal sortable tables */
 (function () {
   const sortState = new WeakMap();
+  const sortableHeaderSelector = [
+    '#salesTable thead th',
+    '#focTable thead th',
+    '#stockSection table thead th',
+    '#stockDetailModal table thead th',
+    '#nearExpiryDetailModal table thead th',
+    '#countryDetailTable thead th',
+    '#pnlTable thead th'
+  ].join(', ');
 
   function parseSortableValue(cell) {
     const raw = (cell?.textContent || '').trim();
@@ -2626,9 +2635,7 @@ document.addEventListener('click',event=>{
   }
 
   document.addEventListener('click', event => {
-    const header = event.target.closest(
-      '#salesTable thead th, #focTable thead th, #stockTable thead th, #stockDetailTable thead th, #countryDetailTable thead th, #pnlTable thead th'
-    );
+    const header = event.target.closest(sortableHeaderSelector);
 
     if (!header || header.dataset.noSort === 'true') return;
 
@@ -2640,9 +2647,9 @@ document.addEventListener('click',event=>{
   });
 
   document.addEventListener('keydown', event => {
-    const header = event.target instanceof Element ? event.target.closest(
-      '#salesTable thead th, #focTable thead th, #stockTable thead th, #stockDetailTable thead th, #countryDetailTable thead th, #pnlTable thead th'
-    ) : null;
+    const header = event.target instanceof Element
+      ? event.target.closest(sortableHeaderSelector)
+      : null;
 
     if (
       !header ||
@@ -2658,9 +2665,7 @@ document.addEventListener('click',event=>{
 
   function makeHeadersAccessible() {
     document
-      .querySelectorAll(
-        '#salesTable thead th, #focTable thead th, #stockTable thead th, #stockDetailTable thead th, #countryDetailTable thead th, #pnlTable thead th'
-      )
+      .querySelectorAll(sortableHeaderSelector)
       .forEach(th => {
         if (th.dataset.noSort === 'true') {
           th.removeAttribute('tabindex');
