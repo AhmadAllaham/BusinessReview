@@ -15,6 +15,7 @@
   })[char]);
   const reportLabels = {
     sales:"Sales · Sales Analysis & IMS FOC",
+    profitability:"Budget 2026 · Product Profitability",
     stock:"Stock Level",
     nearlyExpired:"Stock Level · Nearly Expired",
     sm:"Selling & Marketing Expenses",
@@ -78,6 +79,14 @@
       "country","partyname","itemdescription","unitprice",
       "nearlyexpiredgoods6month","nearlyexpired6m"
     ];
+    return matrix.findIndex(row => {
+      const headers = new Set(row.map(normalizeHeader));
+      return required.every(header => headers.has(header));
+    });
+  }
+
+  function profitabilityHeaderIndex(matrix) {
+    const required = ["market","brand","sku","netsalesusd","grossprofitusd"];
     return matrix.findIndex(row => {
       const headers = new Set(row.map(normalizeHeader));
       return required.every(header => headers.has(header));
@@ -170,6 +179,24 @@
     };
   }
 
+  function profitabilityPayload(headers,values) {
+    const source = Object.fromEntries(headers.map((header,index) => [
+      normalizeHeader(header),normalizeValue(values[index])
+    ]));
+    const read = (...names) => {
+      const key = names.map(normalizeHeader).find(name => Object.hasOwn(source,name));
+      return key ? source[key] : "";
+    };
+    return {
+      Country:canonicalCountry(read("market","country","country name")),
+      Agent:String(read("sub market","agent","customer","distributor") || "").trim(),
+      Brand:String(read("brand","product group") || "Unassigned").trim(),
+      Product:String(read("sku","product","product name") || "").trim(),
+      "Net Sales USD":numberValue(read("net sales usd","net sales")),
+      "Gross Profit USD":numberValue(read("gross profit usd","gross profit"))
+    };
+  }
+
   function headerValue(row,names) {
     const key = Object.keys(row).find(item =>
       names.map(normalizeHeader).includes(normalizeHeader(item))
@@ -188,6 +215,8 @@
       });
       const headerIndex = reportType === "pnl"
         ? pnlHeaderIndex(matrix)
+        : reportType === "profitability"
+          ? profitabilityHeaderIndex(matrix)
         : reportType === "stock"
           ? stockHeaderIndex(matrix)
           : reportType === "nearlyExpired"
@@ -204,6 +233,8 @@
             ? stockPayload(headers,values)
             : reportType === "nearlyExpired"
               ? nearlyExpiredPayload(headers,values)
+              : reportType === "profitability"
+                ? profitabilityPayload(headers,values)
               : Object.fromEntries(headers.map((header,columnIndex) => [
                 header,normalizeValue(values[columnIndex])
               ]));
@@ -220,7 +251,13 @@
         })
         .filter(row => reportType !== "nearlyExpired" ||
           numberValue(row.payload["Total Nearly Expired Qty"]) !== 0
-        );
+        )
+        .filter(row => reportType !== "profitability" || (
+          row.payload.Product && (
+            numberValue(row.payload["Net Sales USD"]) !== 0 ||
+            numberValue(row.payload["Gross Profit USD"]) !== 0
+          )
+        ));
       rows.forEach(row=>{
         if (row.country !== "__GLOBAL__") countrySet.add(row.country);
       });
@@ -241,6 +278,11 @@
     if (reportType === "nearlyExpired" && !parsedSheets.length) {
       throw new Error(
         "No valid Nearly Expired table was found. Required columns: Country, Party Name, Item Description, Unit Price, Nearly Expired Goods 6 Month, and Nearly Expired 6M+."
+      );
+    }
+    if (reportType === "profitability" && !parsedSheets.length) {
+      throw new Error(
+        "No valid profitability table was found. Required columns: Market, Brand, SKU, Net Sales USD, and Gross Profit USD."
       );
     }
     return {
