@@ -1046,7 +1046,7 @@ function performanceStatementValue(value,divisor=1){
     : rounded.toLocaleString('en-US');
 }
 function salesStatementValue(value){return performanceStatementValue(value,1000);}
-function focStatementValue(value){return performanceStatementValue(value);}
+function focStatementValue(value){return performanceStatementValue(value,1000);}
 
 function salesStatementPercent(value,base){
   if(!base) return '—';
