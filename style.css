@@ -4042,3 +4042,15 @@ body.management-view-open{
 @media(prefers-reduced-motion:reduce){
   .management-view-btn{transition:none}
 }
+
+/* Soft row tracking across every main table and drill-down table. */
+body table tbody tr:hover > td,
+body table tbody tr:focus-within > td{
+  background-image:linear-gradient(rgba(28,170,142,.11),rgba(28,170,142,.11))!important;
+}
+
+@media(prefers-reduced-motion:no-preference){
+  body table tbody td{
+    transition:background-color .14s ease,background-image .14s ease;
+  }
+}
