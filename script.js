@@ -1222,6 +1222,48 @@ document.querySelectorAll('[data-performance-currency]').forEach(button=>{
 
 let performanceSpotlightState=null;
 
+function renderSpotlightFlags(flag,countries){
+  const header=flag?.parentElement;
+  if(!flag || !header) return;
+  header.querySelectorAll('.spotlight-extra-flag').forEach(image=>image.remove());
+
+  const seenCodes=new Set();
+  const entries=(countries || []).map(country=>({
+    country:String(country || '').trim(),
+    code:countryFlagCode(country)
+  })).filter(entry=>{
+    if(!entry.code || seenCodes.has(entry.code)) return false;
+    seenCodes.add(entry.code);
+    return true;
+  });
+
+  const setImage=(image,entry)=>{
+    image.src=countryFlagDataUri(entry.code);
+    image.alt=`${entry.country} flag`;
+    image.title=entry.country;
+    image.hidden=false;
+    image.onerror=()=>{ image.hidden=true; };
+  };
+
+  if(!entries.length){
+    flag.hidden=true;
+    flag.removeAttribute('src');
+    flag.alt='';
+    flag.title='';
+    return;
+  }
+
+  setImage(flag,entries[0]);
+  const textBlock=[...header.children].find(element=>element.tagName==='DIV') || null;
+  entries.slice(1).forEach((entry,index)=>{
+    const image=document.createElement('img');
+    image.className='spotlight-extra-flag';
+    image.style.zIndex=String(entries.length-index);
+    setImage(image,entry);
+    header.insertBefore(image,textBlock);
+  });
+}
+
 function updatePerformanceSpotlightHeader(type){
   const header=$(`${type}SpotlightCountryHeader`);
   const flag=$(`${type}SpotlightCountryFlag`);
@@ -1239,16 +1281,11 @@ function updatePerformanceSpotlightHeader(type){
   )].sort((a,b)=>a.localeCompare(b));
   const countries=selected.length?selected:available;
   const singleCountry=countries.length===1?countries[0]:'';
-  const code=singleCountry?countryFlagCode(singleCountry):'';
 
   name.textContent=singleCountry || (
     selected.length>1 ? selected.join(' · ') : 'All Markets'
   );
-  flag.hidden=!code;
-  flag.src=code?countryFlagDataUri(code):'';
-  flag.alt=code?`${singleCountry} flag`:'';
-  flag.title=singleCountry;
-  flag.onerror=()=>{ flag.hidden=true; };
+  renderSpotlightFlags(flag,selected.length?countries:(countries.length===1?countries:[]));
 }
 
 function setPerformanceTableSpotlight(type,active){
@@ -1669,16 +1706,11 @@ function updatePnlSpotlightCountry(){
   )].sort((a,b)=>a.localeCompare(b));
   const markets=selected.length?selected:available;
   const singleMarket=markets.length===1?markets[0]:'';
-  const code=singleMarket?countryFlagCode(singleMarket):'';
 
   name.textContent=singleMarket || (
     markets.length ? markets.join(' · ') : 'All Markets'
   );
-  flag.hidden=!code;
-  flag.src=code?countryFlagDataUri(code):'';
-  flag.alt=code?`${singleMarket} flag`:'';
-  flag.title=singleMarket;
-  flag.onerror=()=>{ flag.hidden=true; };
+  renderSpotlightFlags(flag,selected.length?markets:(markets.length===1?markets:[]));
 }
 
 let pnlSpotlightOriginalParent=null;
@@ -2701,16 +2733,11 @@ function updateSmSpotlightCountry(){
     .sort((a,b)=>a.localeCompare(b));
   const countries=selected.length?selected:available;
   const singleCountry=countries.length===1?countries[0]:'';
-  const code=singleCountry?countryFlagCode(singleCountry):'';
 
   name.textContent=singleCountry || (
     countries.length ? countries.join(' · ') : 'All Countries'
   );
-  flag.hidden=!code;
-  flag.src=code?countryFlagDataUri(code):'';
-  flag.alt=code?`${singleCountry} flag`:'';
-  flag.title=singleCountry;
-  flag.onerror=()=>{ flag.hidden=true; };
+  renderSpotlightFlags(flag,selected.length?countries:(countries.length===1?countries:[]));
 }
 
 function setSmTableSpotlight(active){
