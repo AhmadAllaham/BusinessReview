@@ -2198,6 +2198,16 @@ body.stock-level-view .sales-header-upload{
   border-right:0;
 }
 
+#smSimpleTable thead .sm-statement-group-head th.sm-statement-group{
+  background:#0b3158;
+  color:#fff;
+}
+
+#smSimpleTable thead .sm-statement-group-head th.sm-statement-head-spacer{
+  background:#fff;
+  color:transparent;
+}
+
 #smSimpleTable thead .sm-statement-column-head th:first-child{
   width:31%;
   text-align:left;
