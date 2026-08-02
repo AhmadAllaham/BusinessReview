@@ -2831,7 +2831,8 @@ function stockCoverageFormat(value){
 
 function stockCurrencyValue(value){
   const amount=Number(value)||0;
-  return stockCurrency==='JOD'?amount*STOCK_USD_TO_JOD:amount;
+  const converted=stockCurrency==='JOD'?amount*STOCK_USD_TO_JOD:amount;
+  return converted/1000;
 }
 
 function stockDashboardAmount(value){
