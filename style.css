@@ -2208,24 +2208,16 @@ body.stock-level-view .sales-header-upload{
   color:transparent;
 }
 
-#smSimpleTable thead .sm-statement-column-head th:first-child{
+#smSimpleTable thead .sm-statement-group-head th:first-child{
   width:31%;
   text-align:left;
 }
 
-#smSimpleTable thead .sm-statement-column-head .sm-actual-head{
+#smSimpleTable thead .sm-statement-group-head .sm-actual-head{
   background:#0b3158;
 }
 
-#smSimpleTable thead .sm-statement-column-head th:nth-child(6){
-  background:#0b3158;
-  color:#fff;
-}
-
-#smSimpleTable thead .sm-statement-column-head th:nth-child(4),
-#smSimpleTable thead .sm-statement-column-head th:nth-child(5),
-#smSimpleTable thead .sm-statement-column-head th:nth-child(7),
-#smSimpleTable thead .sm-statement-column-head th:nth-child(8){
+#smSimpleTable thead .sm-statement-column-head th{
   background:#fff;
   color:#0b3158;
 }
@@ -3255,10 +3247,7 @@ body.performance-table-spotlight .performance-spotlight-stage #nearExpiryTable{
 .sales-statement-sub-head .column-resize-handle::after,
 .foc-statement-sub-head .column-resize-handle::after,
 .pnl-sub-head .column-resize-handle::after,
-.sm-statement-column-head th:nth-child(4) .column-resize-handle::after,
-.sm-statement-column-head th:nth-child(5) .column-resize-handle::after,
-.sm-statement-column-head th:nth-child(7) .column-resize-handle::after,
-.sm-statement-column-head th:nth-child(8) .column-resize-handle::after{
+#smSimpleTable .sm-statement-column-head .column-resize-handle::after{
   background:#9baeb4;
 }
 
