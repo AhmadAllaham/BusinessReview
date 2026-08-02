@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Business Review</title>
-  <link rel="stylesheet" href="style.css?v=20260801-12" />
+  <link rel="stylesheet" href="style.css?v=20260802-1" />
 </head>
 <body>
   <header class="app-header">
@@ -199,7 +199,12 @@
 
     <section id="stockSection" class="report-section stock-level-theme sm-format-theme" hidden>
       <article class="sm-report-shell stock-report-shell">
-        <section class="filter-card stock-filter-card">
+        <div class="stock-report-tabs" role="group" aria-label="Stock report">
+          <button class="active" type="button" data-stock-report-mode="stock" aria-pressed="true">Stock Level</button>
+          <button type="button" data-stock-report-mode="nearlyExpired" aria-pressed="false">Nearly Expired</button>
+        </div>
+
+        <section id="stockLevelFilterCard" class="filter-card stock-filter-card" data-stock-report-panel="stock">
           <div class="filter-card-head">
             <div>
               <span class="eyebrow">Report Filters</span>
@@ -228,7 +233,7 @@
           <div id="stockStatus" class="sm-simple-status">Source: Firestore</div>
         </section>
 
-        <div class="table-toolbar">
+        <div id="stockLevelToolbar" class="table-toolbar" data-stock-report-panel="stock">
           <div class="stock-toolbar-left">
             <div class="pnl-view-switch stock-view-switch" role="group" aria-label="Stock Level view">
               <button class="active" type="button" data-stock-view="table" aria-pressed="true">Table</button>
@@ -254,18 +259,78 @@
             <button class="excel-export-btn" type="button" data-export-report="stock">Export Excel</button>
           </div>
         </div>
-        <section id="stockDashboard" class="stock-dashboard" aria-label="Stock Level dashboard" hidden></section>
-        <div class="sm-table-scroll stock-table-scroll">
+        <section id="stockDashboard" class="stock-dashboard" data-stock-report-panel="stock" aria-label="Stock Level dashboard" hidden></section>
+        <div class="sm-table-scroll stock-table-scroll" data-stock-report-panel="stock">
           <table id="stockTable" class="stock-statement-table stock-level-table" aria-label="Stock Level by market"></table>
         </div>
-        <div id="stockSpotlightCountryHeader" class="sm-spotlight-country" hidden>
+        <div id="stockSpotlightCountryHeader" class="sm-spotlight-country" data-stock-report-panel="stock" hidden>
           <img id="stockSpotlightCountryFlag" alt="" hidden>
           <div>
             <span>Selected market</span>
             <strong id="stockSpotlightCountryName">All Markets</strong>
           </div>
         </div>
-        <button id="stockSpotlightExitBtn" class="sm-spotlight-exit" type="button" hidden>
+        <button id="stockSpotlightExitBtn" class="sm-spotlight-exit" data-stock-report-panel="stock" type="button" hidden>
+          <span aria-hidden="true">×</span>
+          Exit spotlight
+        </button>
+
+        <section id="nearExpiryFilterCard" class="filter-card stock-filter-card near-expiry-filter-card" data-stock-report-panel="nearlyExpired" hidden>
+          <div class="filter-card-head">
+            <div>
+              <span class="eyebrow">Nearly Expired Filters</span>
+              <h2>Choose the exposure reporting scope</h2>
+            </div>
+            <button id="nearExpiryResetBtn" class="reset-btn" type="button">Reset all</button>
+          </div>
+          <div class="filters-grid near-expiry-filters-grid">
+            <div class="filter">
+              <label>Country</label>
+              <div id="nearExpiryCountryFilter" class="multi-filter" data-column="Country" data-filter-scope="near-expiry"></div>
+            </div>
+            <div class="filter">
+              <label>Party / Agent</label>
+              <div id="nearExpiryAgentFilter" class="multi-filter" data-column="Agent" data-filter-scope="near-expiry"></div>
+            </div>
+            <div class="filter">
+              <label>Item</label>
+              <div id="nearExpiryItemFilter" class="multi-filter" data-column="Item" data-filter-scope="near-expiry"></div>
+            </div>
+          </div>
+          <div id="nearExpiryStatus" class="sm-simple-status">Source: Firestore · Value = Quantity × Unit Price</div>
+        </section>
+
+        <div id="nearExpiryToolbar" class="table-toolbar near-expiry-toolbar" data-stock-report-panel="nearlyExpired" hidden>
+          <div class="stock-toolbar-left">
+            <span id="nearExpiryCount">0 markets</span>
+            <span class="near-expiry-formula">Exposure % = Total Nearly Expired Qty ÷ Agent Stock Qty</span>
+          </div>
+          <div class="toolbar-actions">
+            <div class="pnl-currency-switch performance-currency-switch" role="group" aria-label="Nearly Expired currency">
+              <button class="active" type="button" data-near-expiry-currency="USD" aria-pressed="true">USD</button>
+              <button type="button" data-near-expiry-currency="JOD" aria-pressed="false">JOD</button>
+            </div>
+            <button id="nearExpirySpotlightBtn" class="sm-spotlight-btn" type="button" aria-pressed="false">
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path>
+              </svg>
+              <span>Spotlight</span>
+            </button>
+            <button class="excel-export-btn" type="button" data-export-report="nearlyExpired">Export Excel</button>
+          </div>
+        </div>
+        <section id="nearExpiryKpis" class="near-expiry-kpis" data-stock-report-panel="nearlyExpired" hidden></section>
+        <div class="sm-table-scroll near-expiry-table-scroll" data-stock-report-panel="nearlyExpired" hidden>
+          <table id="nearExpiryTable" class="near-expiry-table" aria-label="Nearly Expired exposure by market"></table>
+        </div>
+        <div id="nearExpirySpotlightCountryHeader" class="sm-spotlight-country" data-stock-report-panel="nearlyExpired" hidden>
+          <img id="nearExpirySpotlightCountryFlag" alt="" hidden>
+          <div>
+            <span>Selected market</span>
+            <strong id="nearExpirySpotlightCountryName">All Markets</strong>
+          </div>
+        </div>
+        <button id="nearExpirySpotlightExitBtn" class="sm-spotlight-exit" data-stock-report-panel="nearlyExpired" type="button" hidden>
           <span aria-hidden="true">×</span>
           Exit spotlight
         </button>
@@ -509,6 +574,39 @@
     </section>
   </div>
 
+  <div id="nearExpiryDetailModal" class="modal stock-detail-modal near-expiry-detail-modal" aria-hidden="true">
+    <div class="modal-backdrop" data-close-near-expiry-modal></div>
+    <section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="nearExpiryDetailModalTitle">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">Nearly Expired Drill-down</span>
+          <div class="country-modal-title-row">
+            <img id="nearExpiryDetailCountryFlag" class="country-modal-flag" alt="" hidden>
+            <h2 id="nearExpiryDetailModalTitle">Market exposure</h2>
+          </div>
+          <p id="nearExpiryDetailModalSubtitle">Party totals within the currently selected filters.</p>
+        </div>
+        <button id="closeNearExpiryDetailModal" class="modal-close" type="button" aria-label="Close">×</button>
+      </div>
+      <div class="modal-toolbar">
+        <div class="modal-toolbar-left">
+          <button id="nearExpiryDetailBackButton" class="back-btn" type="button" hidden>← Back to Parties</button>
+          <span id="nearExpiryDetailCount">0 parties</span>
+        </div>
+        <div class="toolbar-actions">
+          <div class="pnl-currency-switch performance-currency-switch" role="group" aria-label="Nearly Expired detail currency">
+            <button class="active" type="button" data-near-expiry-currency="USD" aria-pressed="true">USD</button>
+            <button type="button" data-near-expiry-currency="JOD" aria-pressed="false">JOD</button>
+          </div>
+          <span>Click a party to view its items · Drag column edges to resize</span>
+        </div>
+      </div>
+      <div class="table-wrap modal-table-wrap stock-detail-table-wrap">
+        <table id="nearExpiryDetailTable" class="near-expiry-table" aria-label="Nearly Expired item details"></table>
+      </div>
+    </section>
+  </div>
+
   <section id="managementView" class="management-view" aria-hidden="true" hidden>
     <header class="management-header">
       <div class="management-heading">
@@ -544,7 +642,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="firebase-client.js"></script>
-  <script src="script.js?v=20260801-13"></script>
-  <script src="dashboard-firebase.js"></script>
+  <script src="script.js?v=20260802-1"></script>
+  <script src="dashboard-firebase.js?v=20260802-1"></script>
 </body>
 </html>
