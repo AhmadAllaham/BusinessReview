@@ -3239,9 +3239,6 @@ $('stockResetBtn')?.addEventListener('click',()=>{
 });
 $('closeStockDetailModal')?.addEventListener('click',closeStockDetailModal);
 $('stockDetailBackButton')?.addEventListener('click',renderStockCountryBrands);
-document.querySelectorAll('[data-stock-view]').forEach(button=>{
-  button.addEventListener('click',()=>setStockViewMode(button.dataset.stockView));
-});
 document.querySelectorAll('[data-stock-currency]').forEach(button=>{
   button.addEventListener('click',()=>{
     stockCurrency=button.dataset.stockCurrency==='JOD'?'JOD':'USD';
@@ -3515,8 +3512,10 @@ function renderNearlyExpired(){
   renderNearExpiryKpis(rows);
 }
 
-function setStockReportMode(mode){
-  stockReportMode=mode==='nearlyExpired'?'nearlyExpired':'stock';
+function setStockDisplayMode(mode){
+  const displayMode=['stock','nearlyExpired','dashboard'].includes(mode)?mode:'stock';
+  stockReportMode=displayMode==='nearlyExpired'?'nearlyExpired':'stock';
+  stockViewMode=displayMode==='dashboard'?'dashboard':'table';
   if(performanceSpotlightState){
     setPerformanceTableSpotlight(performanceSpotlightState.type,false);
   }
@@ -3527,8 +3526,8 @@ function setStockReportMode(mode){
   $('nearExpiryToolbar').hidden=stockActive;
   $('nearExpiryKpis').hidden=stockActive;
   $('stockSection')?.querySelector('.near-expiry-table-scroll')?.toggleAttribute('hidden',stockActive);
-  document.querySelectorAll('[data-stock-report-mode]').forEach(button=>{
-    const active=button.dataset.stockReportMode===stockReportMode;
+  document.querySelectorAll('[data-stock-display]').forEach(button=>{
+    const active=button.dataset.stockDisplay===displayMode;
     button.classList.toggle('active',active);
     button.setAttribute('aria-pressed',String(active));
   });
@@ -3540,8 +3539,8 @@ $('nearExpiryResetBtn')?.addEventListener('click',()=>{
   buildNearExpiryFilters(true);
   renderNearlyExpired();
 });
-document.querySelectorAll('[data-stock-report-mode]').forEach(button=>{
-  button.addEventListener('click',()=>setStockReportMode(button.dataset.stockReportMode));
+document.querySelectorAll('[data-stock-display]').forEach(button=>{
+  button.addEventListener('click',()=>setStockDisplayMode(button.dataset.stockDisplay));
 });
 document.querySelectorAll('[data-near-expiry-currency]').forEach(button=>{
   button.addEventListener('click',()=>{
@@ -3568,7 +3567,7 @@ document.addEventListener('keydown',event=>{
 });
 buildNearExpiryFilters(true);
 renderNearlyExpired();
-setStockReportMode(stockReportMode);
+setStockDisplayMode('stock');
 
 // Database loaders. The authenticated Firestore layer calls these after it has
 // already enforced the user's country access.
