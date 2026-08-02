@@ -85,12 +85,13 @@
     }
 
     const active = activeSnap.data();
-    const [sales,pnl,sm,stock,nearlyExpired] = await Promise.all([
+    const [sales,pnl,sm,stock,nearlyExpired,profitability] = await Promise.all([
       loadDataset(active.sales),
       loadDataset(active.pnl),
       loadDataset(active.sm),
       loadDataset(active.stock),
-      loadDataset(active.nearlyExpired)
+      loadDataset(active.nearlyExpired),
+      loadDataset(active.profitability)
     ]);
 
     window.loadSalesRowsFromDatabase?.(sales);
@@ -98,15 +99,17 @@
     window.loadSmRowsFromDatabase?.(sm);
     window.loadStockRowsFromDatabase?.(stock);
     window.loadNearlyExpiredRowsFromDatabase?.(nearlyExpired);
+    window.loadProfitabilityRowsFromDatabase?.(profitability);
 
     const loadedReports = [
       sales.length ? "Sales" : "",
       stock.length ? "Stock" : "",
       nearlyExpired.length ? "Nearly Expired" : "",
       sm.length ? "S&M" : "",
-      pnl.length ? "P&L" : ""
+      pnl.length ? "P&L" : "",
+      profitability.length ? "Profitability" : ""
     ].filter(Boolean);
-    const totalRows = sales.length + stock.length + nearlyExpired.length + sm.length + pnl.length;
+    const totalRows = sales.length + stock.length + nearlyExpired.length + sm.length + pnl.length + profitability.length;
     showStatus(
       loadedReports.length
         ? `Loaded ${totalRows.toLocaleString("en-US")} authorized rows · ${loadedReports.join(" · ")}.`
