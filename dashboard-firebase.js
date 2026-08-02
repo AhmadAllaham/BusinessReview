@@ -20,9 +20,6 @@
   const allowedCountries = [...new Set(profile.countries || [])];
   const GCC_COUNTRIES = [
     "GCC",
-    "KSA",
-    "Saudi",
-    "Saudi Arabia",
     "UAE",
     "United Arab Emirates",
     "Qatar",
