@@ -2446,6 +2446,8 @@ document.addEventListener('DOMContentLoaded',()=>{
 // and LY = Actual for the prior year.
 // ============================================================
 let smSimpleRows = [];
+let smSimpleCurrency = 'JOD';
+const SM_JOD_PER_USD = 0.709;
 
 function smSimpleDate(value){
   if(value instanceof Date && !Number.isNaN(value.getTime())) return value;
@@ -2512,7 +2514,9 @@ function smSimpleMonthLabel(key){
 }
 
 function smSimpleFormat(value){
-  const rounded = Math.round(Number(value)||0);
+  const amount=Number(value)||0;
+  const converted=smSimpleCurrency==='USD'?amount/SM_JOD_PER_USD:amount;
+  const rounded = Math.round(converted);
   return rounded < 0 ? `(${Math.abs(rounded).toLocaleString('en-US')})` : rounded.toLocaleString('en-US');
 }
 
@@ -2664,6 +2668,9 @@ function renderSmExpenses(){
   const rows = smSimpleAggregate();
   const count=$('smSimpleCount');
   if(count) count.textContent=`${rows.length.toLocaleString('en-US')} rows`;
+  document.querySelectorAll('[data-sm-currency-label]').forEach(label=>{
+    label.textContent=smSimpleCurrency;
+  });
 
   if(!rows.length){
     tbody.innerHTML = '<tr><td colspan="8" class="sm-no-data">No matching data for the selected month and country.</td></tr>';
@@ -2723,6 +2730,18 @@ function initSmSimpleReport(){
 }
 
 initSmSimpleReport();
+
+document.querySelectorAll('[data-sm-currency]').forEach(button=>{
+  button.addEventListener('click',()=>{
+    smSimpleCurrency=button.dataset.smCurrency==='USD'?'USD':'JOD';
+    document.querySelectorAll('[data-sm-currency]').forEach(option=>{
+      const active=option.dataset.smCurrency===smSimpleCurrency;
+      option.classList.toggle('active',active);
+      option.setAttribute('aria-pressed',String(active));
+    });
+    renderSmExpenses();
+  });
+});
 
 function updateSmSpotlightCountry(){
   const header=$('smSpotlightCountryHeader');
