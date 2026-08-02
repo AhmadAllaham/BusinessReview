@@ -1069,37 +1069,37 @@ function salesStatementTableHtml(rows,dimension){
       row.name,
       salesStatementValue(row.actual),
       salesStatementValue(row.budget),
-      salesStatementValue(row.ly),
       salesStatementValue(vsBudget),
       salesStatementPercent(vsBudget,row.budget),
+      salesStatementValue(row.ly),
       salesStatementValue(vsLy),
       salesStatementPercent(vsLy,row.ly)
     ];
     const rawValues=[
-      row.name,row.actual,row.budget,row.ly,
+      row.name,row.actual,row.budget,
       vsBudget,row.budget?vsBudget/Math.abs(row.budget):0,
+      row.ly,
       vsLy,row.ly?vsLy/Math.abs(row.ly):0
     ];
     return `<tr${total?' class="total-row"':''}>${values.map((value,index)=>{
       const negative=index>0 && rawValues[index]<0?' sales-statement-negative':'';
-      return `<td class="${negative.trim()}">${index===0?esc(value):value}</td>`;
+      const comparison=[3,4,6,7].includes(index)?' comparison-cell':'';
+      const positive=comparison && rawValues[index]>0?' sales-statement-positive':'';
+      const zero=comparison && rawValues[index]===0?' sales-statement-zero':'';
+      return `<td class="${`${negative}${positive}${zero}${comparison}`.trim()}">${index===0?esc(value):value}</td>`;
     }).join('')}</tr>`;
   };
 
   let html=`<thead>
-    <tr class="sales-statement-group-head">
-      <th rowspan="2" data-sort-index="0">${esc(dimensionLabel)}</th>
-      <th rowspan="2" data-sort-index="1">Actual (${performanceCurrency})</th>
-      <th rowspan="2" data-sort-index="2">Budget (${performanceCurrency})</th>
-      <th rowspan="2" data-sort-index="3">LY (${performanceCurrency})</th>
-      <th colspan="2" data-no-sort="true">Vs. Budget</th>
-      <th colspan="2" data-no-sort="true">Vs. Last Year</th>
-    </tr>
-    <tr class="sales-statement-sub-head">
-      <th data-sort-index="4">${performanceCurrency}</th>
-      <th data-sort-index="5">%</th>
-      <th data-sort-index="6">${performanceCurrency}</th>
-      <th data-sort-index="7">%</th>
+    <tr class="sales-statement-column-head comparison-table-head">
+      <th data-sort-index="0">${esc(dimensionLabel)}</th>
+      <th data-sort-index="1">Actual</th>
+      <th data-sort-index="2">Budget</th>
+      <th data-sort-index="3">Vs Budget</th>
+      <th data-sort-index="4">Vs Budget %</th>
+      <th data-sort-index="5">LY</th>
+      <th data-sort-index="6">Vs LY</th>
+      <th data-sort-index="7">Vs LY %</th>
     </tr>
   </thead><tbody>`;
 
@@ -1874,7 +1874,7 @@ function pnlConvertCurrency(totals) {
 }
 
 function pnlVarianceClass(value) {
-  return value > 0 ? 'pnl-positive' : value < 0 ? 'pnl-negative' : '';
+  return value > 0 ? 'pnl-positive' : value < 0 ? 'pnl-negative' : 'pnl-zero';
 }
 
 function pnlAmountClass(value) {
@@ -1899,19 +1899,15 @@ function renderPnlVertical() {
 
   let html = `
     <thead>
-      <tr class="pnl-group-head">
-        <th rowspan="2">Consolidated P&amp;L</th>
-        <th rowspan="2">Actual (${pnlCurrency})</th>
-        <th rowspan="2">Budget (${pnlCurrency})</th>
-        <th rowspan="2">LY (${pnlCurrency})</th>
-        <th colspan="2">Vs Budget</th>
-        <th colspan="2">Vs Last Year</th>
-      </tr>
-      <tr class="pnl-sub-head">
-        <th>Value</th>
-        <th>%</th>
-        <th>Value</th>
-        <th>%</th>
+      <tr class="pnl-group-head comparison-table-head">
+        <th>Consolidated P&amp;L</th>
+        <th>Actual</th>
+        <th>Budget</th>
+        <th>Vs Budget</th>
+        <th>Vs Budget %</th>
+        <th>LY</th>
+        <th>Vs LY</th>
+        <th>Vs LY %</th>
       </tr>
     </thead>
     <tbody>`;
@@ -1933,9 +1929,9 @@ function renderPnlVertical() {
         <td>${line.label}</td>
         <td class="${pnlAmountClass(a)}">${pnlFormat(a)}</td>
         <td class="${pnlAmountClass(b)}">${pnlFormat(b)}</td>
-        <td class="${pnlAmountClass(l)}">${pnlFormat(l)}</td>
         <td class="${pnlVarianceClass(vb)} ${pnlAmountClass(vb)}">${pnlFormat(vb)}</td>
         <td class="pnl-percent ${pnlVarianceClass(vb)} ${pnlAmountClass(vb)}">${pnlPercent(vb,b)}</td>
+        <td class="${pnlAmountClass(l)}">${pnlFormat(l)}</td>
         <td class="${pnlVarianceClass(vl)} ${pnlAmountClass(vl)}">${pnlFormat(vl)}</td>
         <td class="pnl-percent ${pnlVarianceClass(vl)} ${pnlAmountClass(vl)}">${pnlPercent(vl,l)}</td>
       </tr>`;
@@ -1962,8 +1958,9 @@ function renderPnlVertical() {
         <td>${row.label}</td>
         <td class="${pnlAmountClass(actualRatio)}">${formatRatio(actualRatio)}</td>
         <td class="${pnlAmountClass(budgetRatio)}">${formatRatio(budgetRatio)}</td>
+        <td colspan="2"></td>
         <td class="${pnlAmountClass(lyRatio)}">${formatRatio(lyRatio)}</td>
-        <td colspan="4"></td>
+        <td colspan="2"></td>
       </tr>`;
   });
 
@@ -2682,9 +2679,9 @@ function renderSmExpenses(){
       <td>${esc(row.expense)}</td>
       <td>${smSimpleFormat(row.actual)}</td>
       <td>${smSimpleFormat(row.budget)}</td>
-      <td>${smSimpleFormat(row.ly)}</td>
       <td class="${smSimpleCellClass(vsBudget,true)}">${smSimpleFormat(vsBudget)}</td>
       <td class="${smSimpleCellClass(vsBudgetPct,false)}">${smSimplePercent(vsBudgetPct)}</td>
+      <td>${smSimpleFormat(row.ly)}</td>
       <td class="${smSimpleCellClass(vsLy,true)}">${smSimpleFormat(vsLy)}</td>
       <td class="${smSimpleCellClass(vsLyPct,false)}">${smSimplePercent(vsLyPct)}</td>
     </tr>`;
@@ -2699,9 +2696,9 @@ function renderSmExpenses(){
     <td>Total</td>
     <td>${smSimpleFormat(totals.actual)}</td>
     <td>${smSimpleFormat(totals.budget)}</td>
-    <td>${smSimpleFormat(totals.ly)}</td>
     <td class="${smSimpleCellClass(totalVsBudget,true)}">${smSimpleFormat(totalVsBudget)}</td>
     <td class="${smSimpleCellClass(totalVsBudgetPct,false)}">${smSimplePercent(totalVsBudgetPct)}</td>
+    <td>${smSimpleFormat(totals.ly)}</td>
     <td class="${smSimpleCellClass(totalVsLy,true)}">${smSimpleFormat(totalVsLy)}</td>
     <td class="${smSimpleCellClass(totalVsLyPct,false)}">${smSimplePercent(totalVsLyPct)}</td>
   </tr>`);
