@@ -3,66 +3,66 @@
 
   // Keep stock calculation support for compatibility with the uploaded data,
   // but remove Agent Stock Qty and Exposure % from all Nearly Expired tables.
-  if (typeof nearExpiryAggregateRows !== 'function') return;
+  if (typeof nearExpiryAggregateRows === 'function') {
+    nearExpiryAggregateRows = function (rows, key, fallback) {
+      const grouped = new Map();
 
-  nearExpiryAggregateRows = function (rows, key, fallback) {
-    const grouped = new Map();
+      (rows || []).forEach(row => {
+        const name = String(row[key] || fallback).trim() || fallback;
+        if (!grouped.has(name)) {
+          grouped.set(name, {
+            name,
+            agentStockQty: 0,
+            withinSixQty: 0,
+            sixPlusQty: 0,
+            withinSixValue: 0,
+            sixPlusValue: 0
+          });
+        }
 
-    (rows || []).forEach(row => {
-      const name = String(row[key] || fallback).trim() || fallback;
-      if (!grouped.has(name)) {
-        grouped.set(name, {
-          name,
-          agentStockQty: 0,
-          withinSixQty: 0,
-          sixPlusQty: 0,
-          withinSixValue: 0,
-          sixPlusValue: 0
-        });
-      }
+        const item = grouped.get(name);
+        item.agentStockQty += Number(row.__agentStockQty) || 0;
+        item.withinSixQty += Number(row.__withinSixQty) || 0;
+        item.sixPlusQty += Number(row.__sixPlusQty) || 0;
+        item.withinSixValue += Number(row.__withinSixValue) || 0;
+        item.sixPlusValue += Number(row.__sixPlusValue) || 0;
+      });
 
-      const item = grouped.get(name);
-      item.agentStockQty += Number(row.__agentStockQty) || 0;
-      item.withinSixQty += Number(row.__withinSixQty) || 0;
-      item.sixPlusQty += Number(row.__sixPlusQty) || 0;
-      item.withinSixValue += Number(row.__withinSixValue) || 0;
-      item.sixPlusValue += Number(row.__sixPlusValue) || 0;
-    });
-
-    const enrich = item => {
-      const totalQty = item.withinSixQty + item.sixPlusQty;
-      const totalValue = item.withinSixValue + item.sixPlusValue;
-      return {
-        ...item,
-        totalQty,
-        totalValue,
-        unitPrice: totalQty ? totalValue / totalQty : 0,
-        exposure: item.agentStockQty ? totalQty / item.agentStockQty : null
+      const enrich = item => {
+        const totalQty = item.withinSixQty + item.sixPlusQty;
+        const totalValue = item.withinSixValue + item.sixPlusValue;
+        return {
+          ...item,
+          totalQty,
+          totalValue,
+          unitPrice: totalQty ? totalValue / totalQty : 0,
+          exposure: item.agentStockQty ? totalQty / item.agentStockQty : null
+        };
       };
+
+      const allRows = [...grouped.values()].map(enrich);
+      const data = allRows
+        .filter(item => item.totalQty !== 0)
+        .sort((a, b) => b.totalValue - a.totalValue);
+
+      const totals = enrich(allRows.reduce((total, row) => ({
+        name: 'Total',
+        agentStockQty: total.agentStockQty + row.agentStockQty,
+        withinSixQty: total.withinSixQty + row.withinSixQty,
+        sixPlusQty: total.sixPlusQty + row.sixPlusQty,
+        withinSixValue: total.withinSixValue + row.withinSixValue,
+        sixPlusValue: total.sixPlusValue + row.sixPlusValue
+      }), {
+        agentStockQty: 0,
+        withinSixQty: 0,
+        sixPlusQty: 0,
+        withinSixValue: 0,
+        sixPlusValue: 0
+      }));
+
+      return { data, totals };
     };
-
-    const allRows = [...grouped.values()].map(enrich);
-    const data = allRows
-      .filter(item => item.totalQty !== 0)
-      .sort((a, b) => b.totalValue - a.totalValue);
-
-    const totals = enrich(allRows.reduce((total, row) => ({
-      name: 'Total',
-      agentStockQty: total.agentStockQty + row.agentStockQty,
-      withinSixQty: total.withinSixQty + row.withinSixQty,
-      sixPlusQty: total.sixPlusQty + row.sixPlusQty,
-      withinSixValue: total.withinSixValue + row.withinSixValue,
-      sixPlusValue: total.sixPlusValue + row.sixPlusValue
-    }), {
-      agentStockQty: 0,
-      withinSixQty: 0,
-      sixPlusQty: 0,
-      withinSixValue: 0,
-      sixPlusValue: 0
-    }));
-
-    return { data, totals };
-  };
+  }
 
   if (typeof nearExpiryTableHtml === 'function') {
     nearExpiryTableHtml = function (
@@ -121,4 +121,105 @@
   }
 
   document.querySelectorAll('.near-expiry-formula').forEach(element => element.remove());
+
+  // S&M dates were previously stored with toISOString(). In Jordan, a date
+  // such as 1 June at local midnight became 31 May 21:00 UTC. Read timestamps
+  // as local calendar dates so the reporting month remains June.
+  const padDatePart = value => String(value).padStart(2, '0');
+
+  function smCalendarParts(value) {
+    if (value === null || value === undefined || value === '') return null;
+
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      return {
+        year: value.getFullYear(),
+        month: value.getMonth() + 1,
+        day: value.getDate()
+      };
+    }
+
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      const decoded = window.XLSX?.SSF?.parse_date_code?.(value);
+      if (decoded?.y && decoded?.m && decoded?.d) {
+        return { year: decoded.y, month: decoded.m, day: decoded.d };
+      }
+      const date = new Date(Date.UTC(1899, 11, 30) + value * 86400000);
+      return {
+        year: date.getUTCFullYear(),
+        month: date.getUTCMonth() + 1,
+        day: date.getUTCDate()
+      };
+    }
+
+    const text = String(value).trim();
+    const dateOnly = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (dateOnly) {
+      return {
+        year: Number(dateOnly[1]),
+        month: Number(dateOnly[2]),
+        day: Number(dateOnly[3])
+      };
+    }
+
+    const regional = text.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2}|\d{4})$/);
+    if (regional) {
+      const year = Number(regional[3]) < 100
+        ? 2000 + Number(regional[3])
+        : Number(regional[3]);
+      return {
+        year,
+        month: Number(regional[2]),
+        day: Number(regional[1])
+      };
+    }
+
+    const parsed = new Date(text);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return {
+      year: parsed.getFullYear(),
+      month: parsed.getMonth() + 1,
+      day: parsed.getDate()
+    };
+  }
+
+  function smCalendarDate(value) {
+    const parts = smCalendarParts(value);
+    return parts
+      ? new Date(Date.UTC(parts.year, parts.month - 1, parts.day, 12))
+      : null;
+  }
+
+  if (typeof smSimpleDate === 'function') {
+    smSimpleDate = smCalendarDate;
+  }
+
+  if (typeof smSimpleNormalize === 'function') {
+    smSimpleNormalize = function (raw) {
+      const get = name => {
+        const key = Object.keys(raw || {}).find(item =>
+          String(item).trim().toLowerCase() === name.toLowerCase()
+        );
+        return key === undefined ? '' : raw[key];
+      };
+      const parts = smCalendarParts(get('Date'));
+      return {
+        Expense: String(get('Expense') || '').trim(),
+        Country: String(get('Country') || '').trim(),
+        Period: String(get('Period') || '').trim(),
+        Date: parts
+          ? `${parts.year}-${padDatePart(parts.month)}-${padDatePart(parts.day)}`
+          : '',
+        Amount: smSimpleAmount(get('Amount'))
+      };
+    };
+  }
+
+  if (typeof smSimpleMonthKey === 'function') {
+    smSimpleMonthKey = function (row) {
+      const parts = smCalendarParts(row?.Date);
+      return parts
+        ? `${parts.year}-${padDatePart(parts.month)}`
+        : '';
+    };
+  }
 })();
