@@ -72,7 +72,7 @@
       return;
     }
     const script = document.createElement("script");
-    script.src = "sales-ims-canonical.js?v=20260803-1";
+    script.src = "sales-ims-canonical.js?v=20260803-3";
     script.dataset.salesCanonicalizer = "true";
     script.onload = () => {
       script.dataset.loaded = "true";
