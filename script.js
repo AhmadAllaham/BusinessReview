@@ -2196,7 +2196,11 @@ function renderPnlVertical() {
   });
 
   const ratioRows = [
-    { label:'COGS / Gross Sales', numerator:'cogs', denominator:'grossSales', absolute:true },
+    { label:'COGS / Gross Sales', numerator:'cogs', denominator:'grossSales', absolute:true, cogsToggle:true },
+    ...(pnlCogsExpanded?[
+      { label:'Goods COGS / Gross Sales', numerator:'actualCogs', denominator:'grossSales', absolute:true, cogsDetail:true },
+      { label:'FOC COGS / Net Sales', numerator:'focCogs', denominator:'netSales', absolute:true, cogsDetail:true }
+    ]:[]),
     { label:'Gross Profit', numerator:'grossProfit' },
     { label:'S&M', numerator:'sm', absolute:true },
     { label:'Net Income', numerator:'netIncome' }
@@ -2217,15 +2221,20 @@ function renderPnlVertical() {
     const lyRatio=ratioValue(ratioNumerator(ly),ratioDenominator(ly));
     const fyBudgetRatio=ratioValue(ratioNumerator(fyBudget),ratioDenominator(fyBudget));
     const remainingRatio=fyBudgetRatio-actualRatio;
+    const ratioLabel=row.cogsToggle
+      ?`<button class="pnl-cogs-toggle" type="button" data-pnl-cogs-toggle aria-expanded="${pnlCogsExpanded}"><span aria-hidden="true">${pnlCogsExpanded?'⌄':'›'}</span> ${row.label}</button>`
+      :row.label;
+    const ratioRowClasses=['pnl-statement-ratio',row.cogsDetail?'pnl-cogs-detail-row':'']
+      .filter(Boolean).join(' ');
     html += pnlComparisonMode==='fyBudget' ? `
-      <tr class="pnl-statement-ratio">
-        <td>${row.label}</td>
+      <tr class="${ratioRowClasses}">
+        <td>${ratioLabel}</td>
         <td class="${pnlAmountClass(actualRatio)}">${formatRatio(actualRatio)}</td>
         <td class="${pnlAmountClass(fyBudgetRatio)}">${formatRatio(fyBudgetRatio)}</td>
         <td class="${pnlVarianceClass(remainingRatio)} ${pnlAmountClass(remainingRatio)}">${(remainingRatio*100).toFixed(1)} pp</td>
       </tr>` : `
-      <tr class="pnl-statement-ratio">
-        <td>${row.label}</td>
+      <tr class="${ratioRowClasses}">
+        <td>${ratioLabel}</td>
         <td class="${pnlAmountClass(actualRatio)}">${formatRatio(actualRatio)}</td>
         <td class="${pnlAmountClass(budgetRatio)}">${formatRatio(budgetRatio)}</td>
         <td colspan="2"></td>
@@ -2236,9 +2245,11 @@ function renderPnlVertical() {
 
   html += '</tbody>';
   table.innerHTML = html;
-  table.querySelector('[data-pnl-cogs-toggle]')?.addEventListener('click',()=>{
-    pnlCogsExpanded=!pnlCogsExpanded;
-    renderPnlVertical();
+  table.querySelectorAll('[data-pnl-cogs-toggle]').forEach(button=>{
+    button.addEventListener('click',()=>{
+      pnlCogsExpanded=!pnlCogsExpanded;
+      renderPnlVertical();
+    });
   });
   table.querySelector('[data-pnl-return-toggle]')?.addEventListener('click',()=>{
     pnlReturnExpanded=!pnlReturnExpanded;
