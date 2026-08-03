@@ -1815,6 +1815,7 @@ let pnlViewMode = 'full';
 let pnlComparisonMode = 'standard';
 let pnlCurrency = 'USD';
 let pnlCogsExpanded = false;
+let pnlReturnExpanded = false;
 const PNL_USD_TO_JOD = 0.709;
 
 const pnlLineConfig = [
@@ -1835,6 +1836,17 @@ const pnlLineConfig = [
 function pnlPresentationLines(){
   const lines=[];
   pnlLineConfig.forEach(line=>{
+    if(line.key==='actualReturn'){
+      lines.push({key:'return',label:'Return',returnToggle:true});
+      if(pnlReturnExpanded){
+        lines.push({...line,returnDetail:true});
+      }
+      return;
+    }
+    if(line.key==='expectedReturn'){
+      if(pnlReturnExpanded) lines.push({...line,returnDetail:true});
+      return;
+    }
     if(line.key==='actualCogs'){
       lines.push({key:'cogs',label:'COGS',cogsToggle:true});
       if(pnlCogsExpanded){
@@ -2094,6 +2106,9 @@ function pnlRatio(value, netSales) {
 }
 
 function pnlLineValue(totals,line){
+  if(line.key==='return'){
+    return pnlNumber(totals.actualReturn)+pnlNumber(totals.expectedReturn);
+  }
   return line.key==='cogs'
     ?pnlNumber(totals.actualCogs)+pnlNumber(totals.focCogs)
     :pnlNumber(totals[line.key]);
@@ -2152,11 +2167,14 @@ function renderPnlVertical() {
       `pnl-line-${line.key}`,
       line.subtotal ? 'pnl-subtotal pnl-statement-total' : '',
       ['cogs','actualCogs','focCogs'].includes(line.key) ? 'pnl-cost-row' : '',
-      line.cogsDetail ? 'pnl-cogs-detail-row' : ''
+      line.cogsDetail ? 'pnl-cogs-detail-row' : '',
+      line.returnDetail ? 'pnl-return-detail-row' : ''
     ].filter(Boolean).join(' ');
     const lineLabel=line.cogsToggle
       ?`<button class="pnl-cogs-toggle" type="button" data-pnl-cogs-toggle aria-expanded="${pnlCogsExpanded}"><span aria-hidden="true">${pnlCogsExpanded?'⌄':'›'}</span> COGS</button>`
-      :line.label;
+      :line.returnToggle
+        ?`<button class="pnl-return-toggle" type="button" data-pnl-return-toggle aria-expanded="${pnlReturnExpanded}"><span aria-hidden="true">${pnlReturnExpanded?'⌄':'›'}</span> Return</button>`
+        :line.label;
 
     html += pnlComparisonMode==='fyBudget' ? `
       <tr class="${rowClasses}">
@@ -2220,6 +2238,10 @@ function renderPnlVertical() {
   table.innerHTML = html;
   table.querySelector('[data-pnl-cogs-toggle]')?.addEventListener('click',()=>{
     pnlCogsExpanded=!pnlCogsExpanded;
+    renderPnlVertical();
+  });
+  table.querySelector('[data-pnl-return-toggle]')?.addEventListener('click',()=>{
+    pnlReturnExpanded=!pnlReturnExpanded;
     renderPnlVertical();
   });
   setupResizableColumns(table);
