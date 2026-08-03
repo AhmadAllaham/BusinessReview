@@ -23,6 +23,25 @@
     document.head.appendChild(script);
   });
 
+  const loadNearExpiryStockFix = () => new Promise((resolve,reject) => {
+    const existing = document.querySelector('script[data-near-expiry-stock-fix]');
+    if (existing) {
+      if (existing.dataset.loaded === "true") return resolve();
+      existing.addEventListener("load",resolve,{once:true});
+      existing.addEventListener("error",reject,{once:true});
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "near-expiry-agent-stock-fix.js?v=20260803-1";
+    script.dataset.nearExpiryStockFix = "true";
+    script.onload = () => {
+      script.dataset.loaded = "true";
+      resolve();
+    };
+    script.onerror = () => reject(new Error("Unable to load the Nearly Expired stock calculation fix."));
+    document.head.appendChild(script);
+  });
+
   if (!window.BRPortal?.configured) {
     showStatus(window.BRPortal?.error || "Firebase is not configured.",false,true);
     return;
@@ -94,6 +113,7 @@
 
   try {
     showStatus("Loading your authorized dashboard data…");
+    const nearExpiryFixPromise = loadNearExpiryStockFix();
     const activeSnap = await BRPortal.db.collection("system").doc("activeDatasets").get();
     if (!activeSnap.exists) {
       showStatus("No active reports. Ask an administrator to upload the Excel files in admin.html.",false,true);
@@ -109,6 +129,12 @@
       loadDataset(active.nearlyExpired),
       loadDataset(active.profitability)
     ]);
+
+    try {
+      await nearExpiryFixPromise;
+    } catch (fixError) {
+      console.error(fixError);
+    }
 
     window.loadSalesRowsFromDatabase?.(sales);
     window.loadPnlRowsFromDatabase?.(pnl);
