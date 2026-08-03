@@ -6,6 +6,20 @@
   let countries = [];
   let users = [];
 
+  const reportCatalog = [
+    {key:"salesAnalysis",label:"Sales Analysis"},
+    {key:"actualGp",label:"Actual GP vs Budget GP"},
+    {key:"focAnalysis",label:"IMS FOC Analysis"},
+    {key:"stockLevel",label:"Stock Level"},
+    {key:"nearlyExpired",label:"Nearly Expired"},
+    {key:"stockDashboard",label:"Stock Dashboard"},
+    {key:"smExpenses",label:"Selling & Marketing Expenses"},
+    {key:"pnl",label:"P&L"},
+    {key:"mda",label:"MD&A"}
+  ];
+  const allReportKeys = reportCatalog.map(report => report.key);
+  const reportLabelByKey = new Map(reportCatalog.map(report => [report.key,report.label]));
+
   const escapeHtml = value => String(value ?? "").replace(/[&<>'"]/g,char => ({
     "&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"
   })[char]);
@@ -30,8 +44,43 @@
       </label>`).join("");
   }
 
-  function selectedCountries(targetId) {
+  function reportCheckboxes(targetId,selected=allReportKeys,disabled=false) {
+    const target = document.getElementById(targetId);
+    const selectedSet = new Set(selected);
+    target.innerHTML = reportCatalog.map(report => `
+      <label class="country-option">
+        <input type="checkbox" value="${escapeHtml(report.key)}" ${selectedSet.has(report.key)?"checked":""} ${disabled?"disabled":""}>
+        <span>${escapeHtml(report.label)}</span>
+      </label>`).join("");
+  }
+
+  function selectedValues(targetId) {
     return [...document.querySelectorAll(`#${targetId} input:checked`)].map(input => input.value);
+  }
+
+  function selectedCountries(targetId) {
+    return selectedValues(targetId);
+  }
+
+  function selectedReports(targetId) {
+    return selectedValues(targetId).filter(key => allReportKeys.includes(key));
+  }
+
+  function userReports(user) {
+    if (user?.role === "admin") return [...allReportKeys];
+    if (!Object.prototype.hasOwnProperty.call(user || {},"reportPermissions")) {
+      return [...allReportKeys];
+    }
+    return Array.isArray(user.reportPermissions)
+      ? user.reportPermissions.filter(key => allReportKeys.includes(key))
+      : [];
+  }
+
+  function reportSummary(user) {
+    const permissions = userReports(user);
+    if (user?.role === "admin" || permissions.length === allReportKeys.length) return "All windows";
+    if (!permissions.length) return "No window access";
+    return permissions.map(key => reportLabelByKey.get(key) || key).join(", ");
   }
 
   function syncUserActivationButton(user) {
@@ -53,9 +102,11 @@
     const snap = await db.collection("system").doc("countries").get();
     countries = snap.exists ? [...new Set(snap.data().values || [])].sort((a,b)=>a.localeCompare(b)) : [];
     countryCheckboxes("newCountryList");
+    reportCheckboxes("newReportList",allReportKeys);
   }
 
   async function loadUsers() {
+    const previouslySelected = document.getElementById("editUserSelect")?.value || "";
     const snap = await db.collection("users").orderBy("email").get();
     users = snap.docs.map(doc => ({id:doc.id,...doc.data()}));
 
@@ -63,6 +114,7 @@
     select.innerHTML = '<option value="">Select a user</option>' + users.map(user =>
       `<option value="${user.id}">${escapeHtml(user.displayName || user.email)} · ${escapeHtml(user.email || "")}</option>`
     ).join("");
+    if (users.some(user => user.id === previouslySelected)) select.value = previouslySelected;
 
     const table = document.getElementById("usersTable");
     if (!users.length) {
@@ -72,13 +124,14 @@
     }
     table.className = "portal-table-wrap";
     table.innerHTML = `<table class="portal-table">
-      <thead><tr><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Countries</th></tr></thead>
+      <thead><tr><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Countries</th><th>Report windows</th></tr></thead>
       <tbody>${users.map(user => `<tr>
         <td>${escapeHtml(user.displayName || "—")}</td>
         <td>${escapeHtml(user.email || "—")}</td>
         <td><span class="portal-badge">${escapeHtml(user.role || "user")}</span></td>
         <td>${user.active === false ? "Inactive" : "Active"}</td>
         <td>${escapeHtml((user.countries || []).join(", ") || "No access")}</td>
+        <td>${escapeHtml(reportSummary(user))}</td>
       </tr>`).join("")}</tbody>
     </table>`;
   }
@@ -104,6 +157,7 @@
         displayName:document.getElementById("displayName").value.trim(),
         role:document.getElementById("newRole").value,
         countries:selectedCountries("newCountryList"),
+        reportPermissions:selectedReports("newReportList"),
         active:true,
         createdBy:session.user.uid,
         createdAt:BRPortal.serverTimestamp(),
@@ -112,6 +166,7 @@
       await db.collection("users").doc(credential.user.uid).set(profile);
       event.target.reset();
       countryCheckboxes("newCountryList");
+      reportCheckboxes("newReportList",allReportKeys);
       show("createUserStatus","User created successfully.","success");
       await loadUsers();
     } catch (error) {
@@ -134,12 +189,14 @@
       document.getElementById("editDisplayName").value = "";
       document.getElementById("editActive").checked = false;
       countryCheckboxes("editCountryList",[],true);
+      reportCheckboxes("editReportList",[],true);
       return;
     }
     document.getElementById("editDisplayName").value = user.displayName || "";
     document.getElementById("editRole").value = user.role || "user";
     document.getElementById("editActive").checked = user.active !== false;
     countryCheckboxes("editCountryList",user.countries || []);
+    reportCheckboxes("editReportList",userReports(user));
   });
 
   document.getElementById("toggleUserActiveButton").addEventListener("click",async () => {
@@ -187,10 +244,11 @@
         role:document.getElementById("editRole").value,
         active:document.getElementById("editActive").checked,
         countries:selectedCountries("editCountryList"),
+        reportPermissions:selectedReports("editReportList"),
         updatedBy:session.user.uid,
         updatedAt:BRPortal.serverTimestamp()
       });
-      show("editUserStatus","Permissions updated.","success");
+      show("editUserStatus","Country and report-window permissions updated.","success");
       await loadUsers();
     } catch (error) {
       show("editUserStatus",error.message || "Could not update permissions.","error");
