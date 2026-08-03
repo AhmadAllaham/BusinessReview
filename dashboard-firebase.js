@@ -52,7 +52,7 @@
       return;
     }
     const script = document.createElement("script");
-    script.src = "pnl-remaining-ratio-fix.js?v=20260803-1";
+    script.src = "pnl-remaining-ratio-fix.js?v=20260803-2";
     script.dataset.pnlRemainingRatioFix = "true";
     script.onload = () => {
       script.dataset.loaded = "true";
