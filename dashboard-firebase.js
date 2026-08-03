@@ -32,13 +32,13 @@
       return;
     }
     const script = document.createElement("script");
-    script.src = "near-expiry-agent-stock-fix.js?v=20260803-2";
+    script.src = "near-expiry-agent-stock-fix.js?v=20260803-3";
     script.dataset.nearExpiryStockFix = "true";
     script.onload = () => {
       script.dataset.loaded = "true";
       resolve();
     };
-    script.onerror = () => reject(new Error("Unable to load the Nearly Expired display update."));
+    script.onerror = () => reject(new Error("Unable to load the Nearly Expired and S&M display updates."));
     document.head.appendChild(script);
   });
 
