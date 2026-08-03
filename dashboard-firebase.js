@@ -92,7 +92,7 @@
       return;
     }
     const script = document.createElement("script");
-    script.src = "report-access.js?v=20260803-1";
+    script.src = "report-access.js?v=20260803-2";
     script.dataset.reportAccess = "true";
     script.onload = () => {
       script.dataset.loaded = "true";
@@ -168,6 +168,14 @@
     return;
   }
 
+  function countryBatches(values,size=10) {
+    const batches = [];
+    for (let index=0; index<values.length; index+=size) {
+      batches.push(values.slice(index,index+size));
+    }
+    return batches;
+  }
+
   async function loadDataset(datasetId) {
     if (!datasetId) return [];
     let chunkDocs = [];
@@ -177,27 +185,28 @@
         .get();
       chunkDocs = snapshot.docs;
     } else {
-      const snapshots = await Promise.all(queryCountries.map(country =>
+      const batches = countryBatches(queryCountries);
+      const snapshots = await Promise.all(batches.map(countries =>
         BRPortal.db.collection("reportChunks")
           .where("datasetId","==",datasetId)
-          .where("country","==",country)
+          .where("country","in",countries)
           .get()
       ));
       chunkDocs = snapshots.flatMap(snapshot => snapshot.docs);
     }
     return chunkDocs
-      .sort((a,b)=>(a.data().chunkIndex || 0) - (b.data().chunkIndex || 0))
+      .sort((a,b)=>{
+        const left = a.data();
+        const right = b.data();
+        return String(left.country || "").localeCompare(String(right.country || "")) ||
+          (left.chunkIndex || 0) - (right.chunkIndex || 0);
+      })
       .flatMap(doc => doc.data().rows || [])
       .map(row => row.payload || {});
   }
 
   try {
     showStatus("Loading your authorized dashboard data…");
-    const displayFixPromises = [
-      loadNearExpiryStockFix(),
-      loadPnlRemainingRatioFix(),
-      loadSalesCanonicalizer()
-    ];
     const activeSnap = await BRPortal.db.collection("system").doc("activeDatasets").get();
     if (!activeSnap.exists) {
       showStatus("No active reports. Ask an administrator to upload the Excel files in admin.html.",false,true);
@@ -213,6 +222,11 @@
     const needsProfitability = hasAnyReport([
       "salesAnalysis","focAnalysis","stockLevel","actualGp"
     ]);
+
+    const displayFixPromises = [];
+    if (needsNearlyExpired || needsSm) displayFixPromises.push(loadNearExpiryStockFix());
+    if (hasReport("pnl")) displayFixPromises.push(loadPnlRemainingRatioFix());
+    if (needsSales) displayFixPromises.push(loadSalesCanonicalizer());
 
     const [sales,pnl,sm,stock,nearlyExpired,profitability] = await Promise.all([
       needsSales ? loadDataset(active.sales) : Promise.resolve([]),
@@ -278,11 +292,15 @@
     );
   } catch (error) {
     console.error(error);
-    const missingIndex = String(error.message || "").toLowerCase().includes("index");
+    const message = String(error.message || "");
+    const missingIndex = message.toLowerCase().includes("index");
+    const permissions = message.toLowerCase().includes("permission");
     showStatus(
       missingIndex
         ? "Firestore needs the reportChunks datasetId + country index. Deploy firestore.indexes.json."
-        : (error.message || "Unable to load dashboard data."),
+        : permissions
+          ? "Your account cannot read one or more assigned datasets. Check the published Firestore rules and country permissions."
+          : (message || "Unable to load dashboard data."),
       false,
       true
     );
