@@ -19,6 +19,7 @@
   let allowed = new Set(allKeys);
   let observer = null;
   let stockPatched = false;
+  let stockTabBridgeInstalled = false;
   let activating = false;
 
   const staticTabs = {
@@ -66,8 +67,18 @@
     }
   }
 
+  function permittedStockModes() {
+    return Object.entries(stockModes)
+      .filter(([key]) => has(key))
+      .map(([, mode]) => mode);
+  }
+
   function firstAllowedStockMode() {
-    return Object.entries(stockModes).find(([key]) => has(key))?.[1] || '';
+    return permittedStockModes()[0] || '';
+  }
+
+  function activeStockMode() {
+    return document.querySelector('[data-stock-display].active')?.dataset.stockDisplay || '';
   }
 
   function stockTabLabel() {
@@ -85,7 +96,12 @@
     const stockTab = document.querySelector('[data-tab="stockSection"]');
     const stockSection = document.getElementById('stockSection');
     setVisible(stockTab, stockAllowed);
-    if (stockTab && stockAllowed) stockTab.textContent = stockTabLabel();
+
+    if (stockTab && stockAllowed) {
+      const nextLabel = stockTabLabel();
+      if (stockTab.textContent.trim() !== nextLabel) stockTab.textContent = nextLabel;
+    }
+
     if (!stockAllowed) setVisible(stockSection, false);
 
     Object.entries(stockModes).forEach(([key, mode]) => {
@@ -99,16 +115,40 @@
     stockPatched = true;
     const original = window.setStockDisplayMode;
     window.setStockDisplayMode = function (requestedMode) {
-      const permittedModes = Object.entries(stockModes)
-        .filter(([key]) => has(key))
-        .map(([, mode]) => mode);
-      const safeMode = permittedModes.includes(requestedMode)
+      const modes = permittedStockModes();
+      const safeMode = modes.includes(requestedMode)
         ? requestedMode
-        : permittedModes[0];
+        : modes[0];
       if (!safeMode) return;
       original.call(this, safeMode);
       enforceStockAccess();
     };
+  }
+
+  function openAuthorizedStockMode(forceFirst = false) {
+    patchStockMode();
+    const modes = permittedStockModes();
+    if (!modes.length) return;
+    const current = activeStockMode();
+    const target = !forceFirst && modes.includes(current) ? current : modes[0];
+    window.setStockDisplayMode?.(target);
+    enforceStockAccess();
+  }
+
+  function installStockTabBridge() {
+    if (stockTabBridgeInstalled) return;
+    stockTabBridgeInstalled = true;
+
+    document.addEventListener('click', event => {
+      const tab = event.target instanceof Element
+        ? event.target.closest('[data-tab="stockSection"]')
+        : null;
+      if (!tab || !any(Object.keys(stockModes))) return;
+
+      // Let the normal report-tab handler reveal stockSection first, then force
+      // the first mode that the signed-in user is actually allowed to access.
+      setTimeout(() => openAuthorizedStockMode(false), 0);
+    });
   }
 
   function installActualGpSalesBridge() {
@@ -177,11 +217,7 @@
     try {
       const activeTab = document.querySelector('.side-submenu .tab-btn.active');
       if (activeTab && activeTab.style.display !== 'none') {
-        if (activeTab.dataset.tab === 'stockSection') {
-          patchStockMode();
-          const mode = firstAllowedStockMode();
-          if (mode) window.setStockDisplayMode?.(mode);
-        }
+        if (activeTab.dataset.tab === 'stockSection') openAuthorizedStockMode(false);
         return;
       }
 
@@ -200,14 +236,13 @@
       );
 
       if (target) {
-        const [, sectionId] = target;
+        const [reportKey, sectionId] = target;
         const businessButton = document.querySelector('[data-workspace="businessWorkspace"]');
         if (businessButton && !businessButton.classList.contains('active')) businessButton.click();
         document.querySelector(`[data-tab="${sectionId}"]`)?.click();
         if (sectionId === 'stockSection') {
-          patchStockMode();
-          const mode = firstAllowedStockMode();
-          if (mode) window.setStockDisplayMode?.(mode);
+          const requestedMode = stockModes[reportKey] || firstAllowedStockMode();
+          setTimeout(() => window.setStockDisplayMode?.(requestedMode), 0);
         }
         return;
       }
@@ -224,6 +259,7 @@
     allowed = new Set(resolve(profile));
     window.BR_ALLOWED_REPORTS = [...allowed];
     installActualGpSalesBridge();
+    installStockTabBridge();
     patchStockMode();
     enforceStaticAccess();
     activateFirstAllowed();
