@@ -62,6 +62,26 @@
     document.head.appendChild(script);
   });
 
+  const loadSalesCanonicalizer = () => new Promise((resolve,reject) => {
+    if (typeof window.canonicalizeSalesRows === "function") return resolve();
+    const existing = document.querySelector('script[data-sales-canonicalizer]');
+    if (existing) {
+      if (existing.dataset.loaded === "true") return resolve();
+      existing.addEventListener("load",resolve,{once:true});
+      existing.addEventListener("error",reject,{once:true});
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "sales-ims-canonical.js?v=20260803-1";
+    script.dataset.salesCanonicalizer = "true";
+    script.onload = () => {
+      script.dataset.loaded = "true";
+      resolve();
+    };
+    script.onerror = () => reject(new Error("Unable to load the Sales IMS naming standardizer."));
+    document.head.appendChild(script);
+  });
+
   if (!window.BRPortal?.configured) {
     showStatus(window.BRPortal?.error || "Firebase is not configured.",false,true);
     return;
@@ -135,7 +155,8 @@
     showStatus("Loading your authorized dashboard data…");
     const displayFixPromises = [
       loadNearExpiryStockFix(),
-      loadPnlRemainingRatioFix()
+      loadPnlRemainingRatioFix(),
+      loadSalesCanonicalizer()
     ];
     const activeSnap = await BRPortal.db.collection("system").doc("activeDatasets").get();
     if (!activeSnap.exists) {
@@ -158,7 +179,11 @@
       if (result.status === "rejected") console.error(result.reason);
     });
 
-    window.loadSalesRowsFromDatabase?.(sales);
+    const canonicalSales = typeof window.canonicalizeSalesRows === "function"
+      ? window.canonicalizeSalesRows(sales)
+      : sales;
+
+    window.loadSalesRowsFromDatabase?.(canonicalSales);
     window.loadPnlRowsFromDatabase?.(pnl);
     window.loadSmRowsFromDatabase?.(sm);
     window.loadStockRowsFromDatabase?.(stock);
@@ -167,7 +192,7 @@
 
     try {
       await loadActualGpModule();
-      window.loadActualGpRows?.(sales,pnl,profitability);
+      window.loadActualGpRows?.(canonicalSales,pnl,profitability);
     } catch (moduleError) {
       console.error(moduleError);
     }
