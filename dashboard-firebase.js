@@ -42,6 +42,26 @@
     document.head.appendChild(script);
   });
 
+  const loadPnlRemainingRatioFix = () => new Promise((resolve,reject) => {
+    if (window.__pnlRemainingRatioFixInstalled) return resolve();
+    const existing = document.querySelector('script[data-pnl-remaining-ratio-fix]');
+    if (existing) {
+      if (existing.dataset.loaded === "true") return resolve();
+      existing.addEventListener("load",resolve,{once:true});
+      existing.addEventListener("error",reject,{once:true});
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "pnl-remaining-ratio-fix.js?v=20260803-1";
+    script.dataset.pnlRemainingRatioFix = "true";
+    script.onload = () => {
+      script.dataset.loaded = "true";
+      resolve();
+    };
+    script.onerror = () => reject(new Error("Unable to load the P&L Remaining ratio update."));
+    document.head.appendChild(script);
+  });
+
   if (!window.BRPortal?.configured) {
     showStatus(window.BRPortal?.error || "Firebase is not configured.",false,true);
     return;
@@ -113,7 +133,10 @@
 
   try {
     showStatus("Loading your authorized dashboard data…");
-    const nearExpiryFixPromise = loadNearExpiryStockFix();
+    const displayFixPromises = [
+      loadNearExpiryStockFix(),
+      loadPnlRemainingRatioFix()
+    ];
     const activeSnap = await BRPortal.db.collection("system").doc("activeDatasets").get();
     if (!activeSnap.exists) {
       showStatus("No active reports. Ask an administrator to upload the Excel files in admin.html.",false,true);
@@ -130,11 +153,10 @@
       loadDataset(active.profitability)
     ]);
 
-    try {
-      await nearExpiryFixPromise;
-    } catch (fixError) {
-      console.error(fixError);
-    }
+    const displayFixResults = await Promise.allSettled(displayFixPromises);
+    displayFixResults.forEach(result => {
+      if (result.status === "rejected") console.error(result.reason);
+    });
 
     window.loadSalesRowsFromDatabase?.(sales);
     window.loadPnlRowsFromDatabase?.(pnl);
