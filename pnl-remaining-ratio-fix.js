@@ -89,10 +89,11 @@
     style.id = 'pnlRemainingRatioStyles';
     style.textContent = `
       .pnl-remaining-ratio-control{position:relative;display:inline-flex;align-items:center}
-      .pnl-remaining-ratio-trigger{min-height:36px;border:1px solid rgba(148,163,184,.42);border-radius:10px;background:rgba(15,23,42,.72);color:#e2e8f0;padding:0 12px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+      .pnl-remaining-ratio-trigger{width:38px;height:36px;display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(148,163,184,.42);border-radius:10px;background:rgba(15,23,42,.72);color:#e2e8f0;padding:0;font:inherit;font-size:18px;font-weight:800;line-height:1;cursor:pointer}
       .pnl-remaining-ratio-trigger:hover,.pnl-remaining-ratio-trigger[aria-expanded="true"]{border-color:rgba(96,165,250,.75);background:rgba(30,41,59,.94)}
-      .pnl-remaining-ratio-menu{position:absolute;z-index:80;top:calc(100% + 8px);left:0;min-width:190px;padding:8px;border:1px solid rgba(148,163,184,.35);border-radius:12px;background:#111827;box-shadow:0 18px 45px rgba(0,0,0,.38)}
+      .pnl-remaining-ratio-menu{position:absolute;z-index:80;top:calc(100% + 8px);left:0;min-width:215px;padding:8px;border:1px solid rgba(148,163,184,.35);border-radius:12px;background:#111827;box-shadow:0 18px 45px rgba(0,0,0,.38)}
       .pnl-remaining-ratio-menu[hidden]{display:none}
+      .pnl-remaining-ratio-menu-title{padding:5px 10px 8px;color:#f8fafc;font-size:12px;font-weight:800;letter-spacing:.02em;border-bottom:1px solid rgba(148,163,184,.2);margin-bottom:5px}
       .pnl-remaining-ratio-menu button{display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px;border:0;border-radius:8px;background:transparent;color:#cbd5e1;padding:9px 10px;font:inherit;font-size:12px;font-weight:700;text-align:left;cursor:pointer}
       .pnl-remaining-ratio-menu button:hover{background:rgba(51,65,85,.78);color:#fff}
       .pnl-remaining-ratio-menu button.active{background:rgba(37,99,235,.2);color:#bfdbfe}
@@ -104,9 +105,9 @@
   function updateControlLabel() {
     const trigger = document.querySelector('[data-pnl-remaining-ratio-trigger]');
     if (trigger) {
-      trigger.textContent = remainingRatioMode === 'pp'
-        ? 'Remaining Ratio: PP ▾'
-        : 'Remaining Ratio: % ▾';
+      const modeLabel = remainingRatioMode === 'pp' ? 'PP' : 'Ratio %';
+      trigger.setAttribute('aria-label', `Remaining Ratio options. Current: ${modeLabel}`);
+      trigger.title = `Remaining Ratio: ${modeLabel}`;
     }
     document.querySelectorAll('[data-pnl-remaining-ratio-mode]').forEach(button => {
       const active = button.dataset.pnlRemainingRatioMode === remainingRatioMode;
@@ -136,10 +137,12 @@
     control.hidden = true;
     control.innerHTML = `
       <button class="pnl-remaining-ratio-trigger" type="button"
-        data-pnl-remaining-ratio-trigger aria-expanded="false">
-        Remaining Ratio: % ▾
+        data-pnl-remaining-ratio-trigger aria-expanded="false"
+        aria-label="Remaining Ratio options">
+        ⋯
       </button>
       <div class="pnl-remaining-ratio-menu" data-pnl-remaining-ratio-menu hidden>
+        <div class="pnl-remaining-ratio-menu-title">Remaining Ratio</div>
         <button type="button" data-pnl-remaining-ratio-mode="ratio" aria-pressed="true">
           <span>Ratio %</span><small>From Remaining values</small>
         </button>
