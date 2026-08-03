@@ -100,6 +100,7 @@
     window.loadStockRowsFromDatabase?.(stock);
     window.loadNearlyExpiredRowsFromDatabase?.(nearlyExpired);
     window.loadProfitabilityRowsFromDatabase?.(profitability);
+    window.loadActualGpRows?.(sales,pnl,profitability);
 
     const loadedReports = [
       sales.length ? "Sales" : "",
