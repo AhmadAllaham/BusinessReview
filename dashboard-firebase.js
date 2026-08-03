@@ -7,6 +7,22 @@
     statusBox.className = `status-box${ok?" ok":""}${error?" error":""}`;
   };
 
+  const loadActualGpModule = () => new Promise((resolve,reject) => {
+    if (typeof window.loadActualGpRows === "function") return resolve();
+    const existing = document.querySelector('script[data-actual-gp-module]');
+    if (existing) {
+      existing.addEventListener("load",resolve,{once:true});
+      existing.addEventListener("error",reject,{once:true});
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "actual-gp.js?v=20260803-1";
+    script.dataset.actualGpModule = "true";
+    script.onload = resolve;
+    script.onerror = () => reject(new Error("Unable to load the Actual GP report module."));
+    document.head.appendChild(script);
+  });
+
   if (!window.BRPortal?.configured) {
     showStatus(window.BRPortal?.error || "Firebase is not configured.",false,true);
     return;
@@ -100,7 +116,13 @@
     window.loadStockRowsFromDatabase?.(stock);
     window.loadNearlyExpiredRowsFromDatabase?.(nearlyExpired);
     window.loadProfitabilityRowsFromDatabase?.(profitability);
-    window.loadActualGpRows?.(sales,pnl,profitability);
+
+    try {
+      await loadActualGpModule();
+      window.loadActualGpRows?.(sales,pnl,profitability);
+    } catch (moduleError) {
+      console.error(moduleError);
+    }
 
     const loadedReports = [
       sales.length ? "Sales" : "",
