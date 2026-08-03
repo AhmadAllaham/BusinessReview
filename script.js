@@ -1814,6 +1814,7 @@ let pnlRawData = [];
 let pnlViewMode = 'full';
 let pnlComparisonMode = 'standard';
 let pnlCurrency = 'USD';
+let pnlCogsExpanded = false;
 const PNL_USD_TO_JOD = 0.709;
 
 const pnlLineConfig = [
@@ -1824,25 +1825,45 @@ const pnlLineConfig = [
   { key: 'commissions', label: 'Commissions' },
   { key: 'restoun', label: 'Restoun' },
   { key: 'netSales', label: 'Net Sales', subtotal: true },
-  { key: 'actualCogs', label: 'Actual COGS' },
+  { key: 'actualCogs', label: 'Goods COGS' },
   { key: 'focCogs', label: 'FOC COGS' },
   { key: 'grossProfit', label: 'Gross Profit', subtotal: true },
   { key: 'sm', label: 'S&M' },
   { key: 'netIncome', label: 'Net Income', subtotal: true }
 ];
 
+function pnlPresentationLines(){
+  const lines=[];
+  pnlLineConfig.forEach(line=>{
+    if(line.key==='actualCogs'){
+      lines.push({key:'cogs',label:'COGS',cogsToggle:true});
+      if(pnlCogsExpanded){
+        lines.push({...line,cogsDetail:true});
+      }
+      return;
+    }
+    if(line.key==='focCogs'){
+      if(pnlCogsExpanded) lines.push({...line,cogsDetail:true});
+      return;
+    }
+    lines.push(line);
+  });
+  return lines;
+}
+
 function pnlVisibleLines(){
+  const presentationLines=pnlPresentationLines();
   if(pnlViewMode==='netSales'){
-    const start=pnlLineConfig.findIndex(line=>line.key==='netSales');
-    return pnlLineConfig.slice(start);
+    const start=presentationLines.findIndex(line=>line.key==='netSales');
+    return presentationLines.slice(start);
   }
   if(pnlViewMode==='summary'){
     const summaryKeys=new Set([
-      'grossSales','netSales','actualCogs','focCogs','grossProfit','sm','netIncome'
+      'grossSales','netSales','cogs','actualCogs','focCogs','grossProfit','sm','netIncome'
     ]);
-    return pnlLineConfig.filter(line=>summaryKeys.has(line.key));
+    return presentationLines.filter(line=>summaryKeys.has(line.key));
   }
-  return pnlLineConfig;
+  return presentationLines;
 }
 
 document.querySelectorAll('[data-pnl-view]').forEach(button=>{
@@ -2072,6 +2093,12 @@ function pnlRatio(value, netSales) {
   return netSales ? value / netSales : 0;
 }
 
+function pnlLineValue(totals,line){
+  return line.key==='cogs'
+    ?pnlNumber(totals.actualCogs)+pnlNumber(totals.focCogs)
+    :pnlNumber(totals[line.key]);
+}
+
 function renderPnlVertical() {
   const rows = pnlFilteredRows();
   const actual = pnlConvertCurrency(pnlScenarioTotals(rows, 'Actual'));
@@ -2114,28 +2141,32 @@ function renderPnlVertical() {
     <tbody>`;
 
   visibleLines.forEach(line => {
-    const a = actual[line.key];
-    const b = budget[line.key];
-    const l = ly[line.key];
-    const f = fyBudget[line.key];
+    const a = pnlLineValue(actual,line);
+    const b = pnlLineValue(budget,line);
+    const l = pnlLineValue(ly,line);
+    const f = pnlLineValue(fyBudget,line);
     const vb = a - b;
     const vl = a - l;
     const remaining = f - a;
     const rowClasses = [
       `pnl-line-${line.key}`,
       line.subtotal ? 'pnl-subtotal pnl-statement-total' : '',
-      ['actualCogs','focCogs'].includes(line.key) ? 'pnl-cost-row' : ''
+      ['cogs','actualCogs','focCogs'].includes(line.key) ? 'pnl-cost-row' : '',
+      line.cogsDetail ? 'pnl-cogs-detail-row' : ''
     ].filter(Boolean).join(' ');
+    const lineLabel=line.cogsToggle
+      ?`<button class="pnl-cogs-toggle" type="button" data-pnl-cogs-toggle aria-expanded="${pnlCogsExpanded}"><span aria-hidden="true">${pnlCogsExpanded?'⌄':'›'}</span> COGS</button>`
+      :line.label;
 
     html += pnlComparisonMode==='fyBudget' ? `
       <tr class="${rowClasses}">
-        <td>${line.label}</td>
+        <td>${lineLabel}</td>
         <td class="${pnlAmountClass(a)}">${pnlFormat(a)}</td>
         <td class="${pnlAmountClass(f)}">${pnlFormat(f)}</td>
         <td class="${pnlVarianceClass(remaining)} ${pnlAmountClass(remaining)}">${pnlFormat(remaining)}</td>
       </tr>` : `
       <tr class="${rowClasses}">
-        <td>${line.label}</td>
+        <td>${lineLabel}</td>
         <td class="${pnlAmountClass(a)}">${pnlFormat(a)}</td>
         <td class="${pnlAmountClass(b)}">${pnlFormat(b)}</td>
         <td class="${pnlVarianceClass(vb)} ${pnlAmountClass(vb)}">${pnlFormat(vb)}</td>
@@ -2147,8 +2178,7 @@ function renderPnlVertical() {
   });
 
   const ratioRows = [
-    { label:'Actual COGS', numerator:'actualCogs', absolute:true },
-    { label:'FOC COGS', numerator:'focCogs', absolute:true },
+    { label:'COGS', numerator:'cogs', absolute:true },
     { label:'Gross Profit', numerator:'grossProfit' },
     { label:'S&M', numerator:'sm', absolute:true },
     { label:'Net Income', numerator:'netIncome' }
@@ -2160,10 +2190,13 @@ function renderPnlVertical() {
       return row.absolute?Math.abs(ratio):ratio;
     };
     const formatRatio=value=>`${(value*100).toFixed(1)}%`;
-    const actualRatio=ratioValue(actual[row.numerator],actual.netSales);
-    const budgetRatio=ratioValue(budget[row.numerator],budget.netSales);
-    const lyRatio=ratioValue(ly[row.numerator],ly.netSales);
-    const fyBudgetRatio=ratioValue(fyBudget[row.numerator],fyBudget.netSales);
+    const ratioNumerator=totals=>row.numerator==='cogs'
+      ?pnlNumber(totals.actualCogs)+pnlNumber(totals.focCogs)
+      :pnlNumber(totals[row.numerator]);
+    const actualRatio=ratioValue(ratioNumerator(actual),actual.netSales);
+    const budgetRatio=ratioValue(ratioNumerator(budget),budget.netSales);
+    const lyRatio=ratioValue(ratioNumerator(ly),ly.netSales);
+    const fyBudgetRatio=ratioValue(ratioNumerator(fyBudget),fyBudget.netSales);
     const remainingRatio=fyBudgetRatio-actualRatio;
     html += pnlComparisonMode==='fyBudget' ? `
       <tr class="pnl-statement-ratio">
@@ -2184,6 +2217,10 @@ function renderPnlVertical() {
 
   html += '</tbody>';
   table.innerHTML = html;
+  table.querySelector('[data-pnl-cogs-toggle]')?.addEventListener('click',()=>{
+    pnlCogsExpanded=!pnlCogsExpanded;
+    renderPnlVertical();
+  });
   setupResizableColumns(table);
 
   const comparisonTarget=pnlComparisonMode==='fyBudget'?fyBudget:budget;
