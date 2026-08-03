@@ -11,7 +11,7 @@
     <header class="portal-topbar">
       <div class="portal-brand">
         <img class="portal-company-logo" src="dar-aldawa-logo.svg" alt="Dar Al Dawa">
-        <div><h1>User Settings</h1><p>Create users and assign country access</p></div>
+        <div><h1>User Settings</h1><p>Create users and assign country and report-window access</p></div>
       </div>
       <nav class="portal-nav">
         <a class="portal-link secondary" href="index.html">Dashboard</a>
@@ -54,6 +54,10 @@
             <label>Allowed countries</label>
             <div id="newCountryList" class="country-list"><div class="portal-empty">No countries uploaded yet.</div></div>
           </div>
+          <div class="portal-field">
+            <label>Allowed report windows</label>
+            <div id="newReportList" class="country-list"><div class="portal-empty">Loading report windows…</div></div>
+          </div>
           <div class="portal-actions">
             <button id="createUserButton" class="portal-button" type="submit">Create user</button>
           </div>
@@ -91,11 +95,15 @@
             <label>Allowed countries</label>
             <div id="editCountryList" class="country-list"><div class="portal-empty">Select a user.</div></div>
           </div>
+          <div class="portal-field">
+            <label>Allowed report windows</label>
+            <div id="editReportList" class="country-list"><div class="portal-empty">Select a user.</div></div>
+          </div>
           <div class="portal-actions">
             <button id="saveUserButton" class="portal-button" type="submit" disabled>Save permissions</button>
             <button id="toggleUserActiveButton" class="portal-button danger" type="button" disabled>Deactivate user</button>
           </div>
-          <p class="portal-note">Deactivation immediately removes dashboard access without permanently deleting the Firebase Authentication account.</p>
+          <p class="portal-note">Window permissions control which reports are visible and loaded for the user. Existing users keep access to all report windows until you save a specific selection.</p>
           <div id="editUserStatus" class="portal-status"></div>
         </form>
       </section>
@@ -118,6 +126,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="firebase-client.js"></script>
-  <script src="setting.js?v=20260730-1"></script>
+  <script src="setting.js?v=20260803-2"></script>
 </body>
 </html>
