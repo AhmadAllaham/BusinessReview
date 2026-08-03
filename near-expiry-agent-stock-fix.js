@@ -234,7 +234,7 @@
     let moduleReady = false;
     let pendingRows = null;
     const moduleScript = document.createElement('script');
-    moduleScript.src = 'sm-fy-budget.js?v=20260803-1';
+    moduleScript.src = 'sm-fy-budget.js?v=20260803-2';
     moduleScript.dataset.smFyBudgetModule = 'true';
 
     const releaseRows = () => {
