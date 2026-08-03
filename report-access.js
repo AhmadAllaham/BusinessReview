@@ -36,6 +36,72 @@
     stockDashboard: 'dashboard'
   };
 
+  const monthNameMap = {
+    jan: 1, january: 1,
+    feb: 2, february: 2,
+    mar: 3, march: 3,
+    apr: 4, april: 4,
+    may: 5,
+    jun: 6, june: 6,
+    jul: 7, july: 7,
+    aug: 8, august: 8,
+    sep: 9, sept: 9, september: 9,
+    oct: 10, october: 10,
+    nov: 11, november: 11,
+    dec: 12, december: 12
+  };
+
+  function monthNumber(value) {
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      return value.getMonth() + 1;
+    }
+
+    const text = String(value ?? '').trim().toLowerCase();
+    if (!text) return 0;
+    if (/^(?:0?[1-9]|1[0-2])$/.test(text)) return Number(text);
+
+    const compact = text.replace(/[^a-z0-9]+/g, '');
+    if (monthNameMap[compact]) return monthNameMap[compact];
+
+    for (const [name, number] of Object.entries(monthNameMap)) {
+      if (compact.startsWith(name)) return number;
+    }
+
+    const yearFirst = text.match(/(?:19|20|21)\d{2}[-/.](0?[1-9]|1[0-2])(?:[-/.]|$)/);
+    if (yearFirst) return Number(yearFirst[1]);
+
+    const monthYear = text.match(/^(0?[1-9]|1[0-2])[-/.](?:19|20|21)\d{2}$/);
+    if (monthYear) return Number(monthYear[1]);
+
+    const dayFirst = text.match(/^(?:0?[1-9]|[12]\d|3[01])[-/.](0?[1-9]|1[0-2])[-/.](?:19|20|21)\d{2}$/);
+    return dayFirst ? Number(dayFirst[1]) : 0;
+  }
+
+  function installMonthFilterSort() {
+    if (window.__monthFilterSortInstalled || typeof window.uniqueValues !== 'function') return;
+    window.__monthFilterSortInstalled = true;
+    const original = window.uniqueValues;
+
+    window.uniqueValues = function (data, column) {
+      const values = original(data, column);
+      const normalizedColumn = String(column || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '');
+      const isMonthColumn = normalizedColumn.includes('month');
+      if (!isMonthColumn) return values;
+
+      return [...values].sort((left, right) => {
+        const leftMonth = monthNumber(left);
+        const rightMonth = monthNumber(right);
+        if (leftMonth && rightMonth && leftMonth !== rightMonth) return leftMonth - rightMonth;
+        if (leftMonth && !rightMonth) return -1;
+        if (!leftMonth && rightMonth) return 1;
+        return String(left).localeCompare(String(right), undefined, { numeric: true });
+      });
+    };
+  }
+
   function resolve(profile) {
     if (profile?.role === 'admin') return [...allKeys];
     const hasSavedPermissions = Object.prototype.hasOwnProperty.call(
@@ -260,6 +326,7 @@
     refreshScheduled = true;
     requestAnimationFrame(() => {
       refreshScheduled = false;
+      installMonthFilterSort();
       patchStockMode();
       enforceStaticAccess();
       activateFirstAllowed();
@@ -269,6 +336,7 @@
   function apply(profile) {
     allowed = new Set(resolve(profile));
     window.BR_ALLOWED_REPORTS = [...allowed];
+    installMonthFilterSort();
     installActualGpSalesBridge();
     installStockTabBridge();
     patchStockMode();
