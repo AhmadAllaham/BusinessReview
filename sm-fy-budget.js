@@ -1,4 +1,29 @@
 (() => {
+  'use strict';
+
+  // S&M workbook amounts are uploaded in USD. Keep USD as the base value and
+  // convert to JOD only when the user selects JOD.
+  smSimpleCurrency = 'USD';
+  smSimpleFormat = function (value) {
+    const amount = Number(value) || 0;
+    const converted = smSimpleCurrency === 'JOD'
+      ? amount * SM_JOD_PER_USD
+      : amount;
+    const rounded = Math.round(converted);
+    return rounded < 0
+      ? `(${Math.abs(rounded).toLocaleString('en-US')})`
+      : rounded.toLocaleString('en-US');
+  };
+
+  const syncSmCurrencyButtons = () => {
+    document.querySelectorAll('[data-sm-currency]').forEach(button => {
+      const active = button.dataset.smCurrency === smSimpleCurrency;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+  };
+  syncSmCurrencyButtons();
+
   // Selling & Marketing Expenses: add a second comparison view using
   // Actual, FY Budget and Remaining without changing the existing report.
   let smComparisonMode = 'standard';
@@ -31,14 +56,14 @@
     return normalized;
   };
 
-  // Reporting Month should be driven by Actual rows only. FY Budget may
-  // contain all twelve months and must not create future month filter values.
+  // Reporting Month is driven by Actual rows only. FY Budget may contain all
+  // twelve months and must not create future month filter values.
   smSimpleFilterData = function () {
     return smSimpleRows
       .filter(row => smSimplePeriod(row.Period) === 'actual')
       .map(row => ({
         'Reporting Month': smSimpleMonthLabel(smSimpleMonthKey(row)),
-        'Country': row.Country
+        Country: row.Country
       }))
       .filter(row => row['Reporting Month'] && row.Country);
   };
@@ -100,8 +125,6 @@
       const item = getItem(row.Expense || 'Unassigned');
       const amount = Math.abs(Number(row.Amount) || 0);
 
-      // FY Budget is annual: include every FY Budget row in the selected year,
-      // regardless of the currently selected reporting month.
       if (period === 'fyBudget' && selectedYears.has(rowYear)) {
         item.fyBudget += amount;
       }
@@ -326,5 +349,6 @@
   }
 
   installComparisonControls();
+  syncSmCurrencyButtons();
   renderSmExpenses();
 })();
