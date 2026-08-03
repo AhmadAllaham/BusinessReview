@@ -4,22 +4,10 @@
   if (window.canonicalizeSalesRows) return;
 
   const dimensions = [
-    {
-      name: 'type',
-      aliases: ['Type', 'Sales Type', 'SalesType']
-    },
-    {
-      name: 'country',
-      aliases: ['Country', 'Market', 'Country Name', 'CountryName']
-    },
-    {
-      name: 'sector',
-      aliases: ['Sector']
-    },
-    {
-      name: 'agent',
-      aliases: ['Agent', 'Distributor', 'Customer']
-    },
+    { name: 'type', aliases: ['Type', 'Sales Type', 'SalesType'] },
+    { name: 'country', aliases: ['Country', 'Market', 'Country Name', 'CountryName'] },
+    { name: 'sector', aliases: ['Sector'] },
+    { name: 'agent', aliases: ['Agent', 'Distributor', 'Customer'] },
     {
       name: 'productGroup',
       aliases: ['Product Group', 'ProductGroup', 'Brand', 'Family', 'Product Family', 'Group']
@@ -84,6 +72,24 @@
   const yearAliasSet = new Set(yearAliases.map(normalizeHeader));
   const monthAliasSet = new Set(monthAliases.map(normalizeHeader));
 
+  const genericActualAliases = new Set([
+    'actual', 'actualvalue', 'actualsales', 'actualsalesvalue',
+    'actualsalesytd', 'actualytd', 'salesactual', 'salesactualvalue'
+  ]);
+  const genericBudgetAliases = new Set([
+    'budget', 'budgetvalue', 'budgetsales', 'budgetsalesvalue',
+    'budgetsalesytd', 'budgetytd', 'salesbudget', 'salesbudgetvalue'
+  ]);
+  const genericLyAliases = new Set([
+    'ly', 'lyvalue', 'lastyear', 'lastyearvalue', 'actually',
+    'previousyear', 'previousyearvalue', 'previousyearactual',
+    'lastyearactual', 'lastyearsales', 'actualsalesly'
+  ]);
+  const excludedMetricTokens = [
+    'bonus', 'foc', 'qty', 'quantity', 'unit', 'units', 'price',
+    'gp', 'grossprofit', 'margin', 'percent', 'percentage', 'pct'
+  ];
+
   function matchingKeys(row, dimensionName) {
     const aliases = aliasSets[dimensionName];
     return Object.keys(row || {}).filter(key => aliases.has(normalizeHeader(key)));
@@ -96,6 +102,10 @@
   function firstMatchingValue(row, aliases) {
     const key = matchingAliasKeys(row, aliases)[0];
     return key === undefined ? '' : row[key];
+  }
+
+  function hasValue(value) {
+    return value !== null && value !== undefined && String(value).trim() !== '';
   }
 
   function yearNumber(value) {
@@ -211,6 +221,101 @@
     return canonical;
   }
 
+  function metricHeaderIsSafe(normalizedHeader) {
+    return !excludedMetricTokens.some(token => normalizedHeader.includes(token));
+  }
+
+  function metricYearFromHeader(normalizedHeader) {
+    const match = normalizedHeader.match(/(?:19|20|21)\d{2}/);
+    return match ? Number(match[0]) : 0;
+  }
+
+  function findMetricValue(row, kind, targetYear = 0, options = {}) {
+    const genericSet = kind === 'actual'
+      ? genericActualAliases
+      : kind === 'budget'
+        ? genericBudgetAliases
+        : genericLyAliases;
+    const candidates = [];
+
+    Object.keys(row || {}).forEach((key, index) => {
+      const normalized = normalizeHeader(key);
+      const value = row[key];
+      if (!hasValue(value) || !metricHeaderIsSafe(normalized)) return;
+
+      const headerYear = metricYearFromHeader(normalized);
+      const hasActual = normalized.includes('actual');
+      const hasBudget = normalized.includes('budget');
+      const hasSales = normalized.includes('sales') || normalized.includes('value') || normalized === 'actual' || normalized === 'budget';
+      const isLy = genericLyAliases.has(normalized) || normalized.includes('lastyear') || normalized.includes('previousyear');
+
+      let matches = false;
+      if (kind === 'actual') {
+        matches = genericSet.has(normalized) || (hasActual && hasSales && !isLy);
+      } else if (kind === 'budget') {
+        matches = genericSet.has(normalized) || (hasBudget && hasSales);
+      } else {
+        matches = isLy;
+      }
+      if (!matches) return;
+
+      if (targetYear && headerYear && headerYear !== targetYear) return;
+      if (options.requireYear && !headerYear) return;
+      if (options.excludeYear && headerYear === options.excludeYear) return;
+
+      let score = 0;
+      if (genericSet.has(normalized)) score += 100;
+      if (targetYear && headerYear === targetYear) score += 80;
+      if (normalized.includes('sales')) score += 20;
+      if (normalized.includes('ytd')) score += 10;
+      if (!headerYear) score += 5;
+      candidates.push({ value, score, index });
+    });
+
+    candidates.sort((left, right) => right.score - left.score || left.index - right.index);
+    return candidates.length ? candidates[0].value : '';
+  }
+
+  function detectedDatasetYear(rows) {
+    const years = [];
+    (rows || []).forEach(row => {
+      const rowYear = yearNumber(firstMatchingValue(row, yearAliasSet));
+      if (rowYear) years.push(rowYear);
+      Object.keys(row || {}).forEach(key => {
+        const normalized = normalizeHeader(key);
+        if (!metricHeaderIsSafe(normalized)) return;
+        if (!(normalized.includes('actual') || normalized.includes('budget'))) return;
+        const headerYear = metricYearFromHeader(normalized);
+        if (headerYear) years.push(headerYear);
+      });
+    });
+    return years.length ? Math.max(...years) : 0;
+  }
+
+  function standardizeSalesMetrics(row, datasetYear) {
+    const normalizedRow = row;
+    const rowYear = yearNumber(normalizedRow.Year) || datasetYear;
+    const previousYear = rowYear ? rowYear - 1 : 0;
+
+    const currentActual =
+      findMetricValue(normalizedRow, 'actual', rowYear) ||
+      findMetricValue(normalizedRow, 'actual', 0, { excludeYear: previousYear });
+    const currentBudget =
+      findMetricValue(normalizedRow, 'budget', rowYear) ||
+      findMetricValue(normalizedRow, 'budget');
+    const explicitLy = findMetricValue(normalizedRow, 'ly');
+    const previousYearActual = previousYear
+      ? findMetricValue(normalizedRow, 'actual', previousYear, { requireYear: true })
+      : '';
+
+    if (hasValue(currentActual)) normalizedRow['Actual Value'] = currentActual;
+    if (hasValue(currentBudget)) normalizedRow['Budget Value'] = currentBudget;
+    if (hasValue(explicitLy)) normalizedRow.LY = explicitLy;
+    else if (hasValue(previousYearActual)) normalizedRow.LY = previousYearActual;
+
+    if (!yearNumber(normalizedRow.Year) && datasetYear) normalizedRow.Year = String(datasetYear);
+  }
+
   function installSalesLyRuntimeFix() {
     if (window.__salesLyRuntimeFixInstalled) return;
     if (
@@ -221,7 +326,8 @@
 
     window.__salesLyRuntimeFixInstalled = true;
     const actualAliasSet = new Set([
-      'actual','actualvalue','actualsales','actualsalesvalue'
+      'actual','actualvalue','actualsales','actualsalesvalue',
+      'actualsalesytd','actualytd'
     ]);
 
     function filterIdentity(column, value) {
@@ -245,8 +351,7 @@
 
     function historicalAmount(row) {
       const hasExplicitActual = Object.keys(row || {}).some(key =>
-        actualAliasSet.has(normalizeHeader(key)) &&
-        row[key] !== null && row[key] !== undefined && String(row[key]).trim() !== ''
+        actualAliasSet.has(normalizeHeader(key)) && hasValue(row[key])
       );
       return hasExplicitActual
         ? Number(row.__actual) || 0
@@ -259,7 +364,8 @@
         .map(row => yearNumber(row.Year))
         .filter(Number.isFinite)
         .filter(Boolean);
-      const baseYears = (selectedYears.length ? selectedYears : [Math.max(...availableYears)])
+      const latestAvailableYear = availableYears.length ? Math.max(...availableYears) : 0;
+      const baseYears = (selectedYears.length ? selectedYears : [latestAvailableYear])
         .map(yearNumber)
         .filter(Boolean);
       const lyYears = new Set(baseYears.map(year => year - 1));
@@ -328,6 +434,7 @@
 
   window.canonicalizeSalesRows = function canonicalizeSalesRows(rows) {
     const sourceRows = Array.isArray(rows) ? rows : [];
+    const datasetYear = detectedDatasetYear(sourceRows);
     const maps = Object.fromEntries(dimensions.map(dimension => [
       dimension.name,
       buildCanonicalMap(sourceRows, dimension.name)
@@ -367,8 +474,17 @@
         normalizedRow.Month = canonicalMonth(monthValue);
       }
 
+      standardizeSalesMetrics(normalizedRow, datasetYear);
       return normalizedRow;
     });
+
+    window.BR_SALES_LY_DIAGNOSTICS = {
+      datasetYear,
+      rows: normalizedRows.length,
+      tmsRows: normalizedRows.filter(row => identity(row.Type) === 'tms').length,
+      rowsWithLy: normalizedRows.filter(row => hasValue(row.LY)).length,
+      priorYearRows: normalizedRows.filter(row => yearNumber(row.Year) === datasetYear - 1).length
+    };
 
     installSalesLyRuntimeFix();
     return normalizedRows;
