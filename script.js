@@ -2178,7 +2178,7 @@ function renderPnlVertical() {
   });
 
   const ratioRows = [
-    { label:'COGS', numerator:'cogs', absolute:true },
+    { label:'COGS / Gross Sales', numerator:'cogs', denominator:'grossSales', absolute:true },
     { label:'Gross Profit', numerator:'grossProfit' },
     { label:'S&M', numerator:'sm', absolute:true },
     { label:'Net Income', numerator:'netIncome' }
@@ -2193,10 +2193,11 @@ function renderPnlVertical() {
     const ratioNumerator=totals=>row.numerator==='cogs'
       ?pnlNumber(totals.actualCogs)+pnlNumber(totals.focCogs)
       :pnlNumber(totals[row.numerator]);
-    const actualRatio=ratioValue(ratioNumerator(actual),actual.netSales);
-    const budgetRatio=ratioValue(ratioNumerator(budget),budget.netSales);
-    const lyRatio=ratioValue(ratioNumerator(ly),ly.netSales);
-    const fyBudgetRatio=ratioValue(ratioNumerator(fyBudget),fyBudget.netSales);
+    const ratioDenominator=totals=>pnlNumber(totals[row.denominator||'netSales']);
+    const actualRatio=ratioValue(ratioNumerator(actual),ratioDenominator(actual));
+    const budgetRatio=ratioValue(ratioNumerator(budget),ratioDenominator(budget));
+    const lyRatio=ratioValue(ratioNumerator(ly),ratioDenominator(ly));
+    const fyBudgetRatio=ratioValue(ratioNumerator(fyBudget),ratioDenominator(fyBudget));
     const remainingRatio=fyBudgetRatio-actualRatio;
     html += pnlComparisonMode==='fyBudget' ? `
       <tr class="pnl-statement-ratio">
