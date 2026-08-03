@@ -222,4 +222,41 @@
         : '';
     };
   }
+
+  // Load the FY Budget extension while Firestore data is being fetched. Hold
+  // S&M rows briefly if needed so the first render already includes the new view.
+  if (
+    typeof window.loadSmRowsFromDatabase === 'function' &&
+    !window.__smFyBudgetLoaderInstalled
+  ) {
+    window.__smFyBudgetLoaderInstalled = true;
+    const originalSmLoader = window.loadSmRowsFromDatabase;
+    let moduleReady = false;
+    let pendingRows = null;
+    const moduleScript = document.createElement('script');
+    moduleScript.src = 'sm-fy-budget.js?v=20260803-1';
+    moduleScript.dataset.smFyBudgetModule = 'true';
+
+    const releaseRows = () => {
+      moduleReady = true;
+      if (pendingRows) {
+        const rows = pendingRows;
+        pendingRows = null;
+        originalSmLoader(rows);
+      }
+    };
+
+    moduleScript.onload = releaseRows;
+    moduleScript.onerror = error => {
+      console.error('Unable to load the S&M FY Budget view.', error);
+      releaseRows();
+    };
+
+    window.loadSmRowsFromDatabase = rows => {
+      if (moduleReady) originalSmLoader(rows);
+      else pendingRows = rows;
+    };
+
+    document.head.appendChild(moduleScript);
+  }
 })();
