@@ -2390,7 +2390,8 @@ body.stock-level-view .sales-header-upload{
   font-weight:750;
 }
 
-#pnlTable .pnl-cogs-toggle{
+#pnlTable .pnl-cogs-toggle,
+#pnlTable .pnl-return-toggle{
   display:inline-flex;
   align-items:center;
   gap:7px;
@@ -2403,7 +2404,8 @@ body.stock-level-view .sales-header-upload{
   cursor:pointer;
 }
 
-#pnlTable .pnl-cogs-toggle span{
+#pnlTable .pnl-cogs-toggle span,
+#pnlTable .pnl-return-toggle span{
   display:inline-grid;
   width:18px;
   height:18px;
@@ -2414,7 +2416,8 @@ body.stock-level-view .sales-header-upload{
   line-height:1;
 }
 
-#pnlTable tr.pnl-cogs-detail-row td:first-child{
+#pnlTable tr.pnl-cogs-detail-row td:first-child,
+#pnlTable tr.pnl-return-detail-row td:first-child{
   padding-left:40px;
   color:#52606d;
   font-weight:750;
