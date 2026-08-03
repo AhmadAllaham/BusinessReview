@@ -1824,7 +1824,8 @@ const pnlLineConfig = [
   { key: 'commissions', label: 'Commissions' },
   { key: 'restoun', label: 'Restoun' },
   { key: 'netSales', label: 'Net Sales', subtotal: true },
-  { key: 'cogs', label: 'COGS' },
+  { key: 'actualCogs', label: 'Actual COGS' },
+  { key: 'focCogs', label: 'FOC COGS' },
   { key: 'grossProfit', label: 'Gross Profit', subtotal: true },
   { key: 'sm', label: 'S&M' },
   { key: 'netIncome', label: 'Net Income', subtotal: true }
@@ -1837,7 +1838,7 @@ function pnlVisibleLines(){
   }
   if(pnlViewMode==='summary'){
     const summaryKeys=new Set([
-      'grossSales','netSales','cogs','grossProfit','sm','netIncome'
+      'grossSales','netSales','actualCogs','focCogs','grossProfit','sm','netIncome'
     ]);
     return pnlLineConfig.filter(line=>summaryKeys.has(line.key));
   }
@@ -2123,7 +2124,7 @@ function renderPnlVertical() {
     const rowClasses = [
       `pnl-line-${line.key}`,
       line.subtotal ? 'pnl-subtotal pnl-statement-total' : '',
-      line.key==='cogs' ? 'pnl-cost-row' : ''
+      ['actualCogs','focCogs'].includes(line.key) ? 'pnl-cost-row' : ''
     ].filter(Boolean).join(' ');
 
     html += pnlComparisonMode==='fyBudget' ? `
@@ -2146,7 +2147,8 @@ function renderPnlVertical() {
   });
 
   const ratioRows = [
-    { label:'COGS', numerator:'cogs', absolute:true },
+    { label:'Actual COGS', numerator:'actualCogs', absolute:true },
+    { label:'FOC COGS', numerator:'focCogs', absolute:true },
     { label:'Gross Profit', numerator:'grossProfit' },
     { label:'S&M', numerator:'sm', absolute:true },
     { label:'Net Income', numerator:'netIncome' }
@@ -2293,7 +2295,6 @@ function pnlMapWorkbookRows(rows, headerIndex) {
     commissions: 'Commissions',
     restoun: 'Restoun',
     netSales: 'Net Sales',
-    cogs: 'COGS',
     grossProfit: 'Gross Profit',
     sm: 'S&M',
     netIncome: 'Net Income'
@@ -2314,13 +2315,24 @@ function pnlMapWorkbookRows(rows, headerIndex) {
         record[key] = index >= 0 ? pnlReadNumber(row[index]) : 0;
       });
 
+      const actualCogsIndex = colAny([
+        'Actual COGS','Goods COGS','COGS','Cost of Goods Sold'
+      ]);
+      const focCogsIndex = colAny(['FOC COGS','Free of Charge COGS']);
+      record.actualCogs = actualCogsIndex >= 0
+        ? pnlReadNumber(row[actualCogsIndex])
+        : 0;
+      record.focCogs = focCogsIndex >= 0
+        ? pnlReadNumber(row[focCogsIndex])
+        : 0;
+
       const actualReturnIndex = colAny([
         'Actual Return','Actual Returns','Actual Sales Return','Actual Sales Returns'
       ]);
       const expectedReturnIndex = colAny([
         'Expected Return','Expected Returns','Expected Sales Return','Expected Sales Returns'
       ]);
-      const legacyReturnIndex = colAny(['Sales Returns','Sales Return']);
+      const legacyReturnIndex = colAny(['Return','Sales Returns','Sales Return']);
       const hasSplitReturns = actualReturnIndex >= 0 || expectedReturnIndex >= 0;
       const isBudgetScenario = pnlNormalizeHeader(record.scenario).includes('budget');
       const legacyReturn = legacyReturnIndex >= 0
@@ -3136,6 +3148,14 @@ function stockCoverage(stock,sales){
   return sales?stock/sales:0;
 }
 
+function stockHistoricalAverage(stock,historicalSales){
+  return stockCoverage(stock,historicalSales)*12;
+}
+
+function stockForecastAverage(stock,forecastSales){
+  return stockCoverage(stock,forecastSales)*6;
+}
+
 function stockCoverageFormat(value){
   return Number(value || 0).toLocaleString('en-US',{
     minimumFractionDigits:1,
@@ -3298,8 +3318,8 @@ function stockStatementTableHtml(rows,totals,dimension='Brand',clickable=false,p
     <td>${fmt(stockCurrencyValue(row.stock))}</td>
     <td>${fmt(stockCurrencyValue(row.historical))}</td>
     <td>${fmt(stockCurrencyValue(row.forecast))}</td>
-    <td>${stockCoverageFormat(stockCoverage(row.stock,row.historical))}</td>
-    <td>${stockCoverageFormat(stockCoverage(row.stock,row.forecast))}</td>
+    <td>${stockCoverageFormat(stockHistoricalAverage(row.stock,row.historical))}</td>
+    <td>${stockCoverageFormat(stockForecastAverage(row.stock,row.forecast))}</td>
     ${profitabilityVisible?profitabilityCell(gpClass):''}
   </tr>`;
   };
@@ -3958,9 +3978,10 @@ window.loadPnlRowsFromDatabase = function(rows){
     const scenarioNames = new Set(['scenario','period','version']);
     const marketNames = new Set(['market','country','countryname']);
     const metricNames = new Set([
-      'grosssales','netsales','salesreturns','actualreturn','actualreturns',
+      'grosssales','netsales','return','salesreturns','actualreturn','actualreturns',
       'expectedreturn','expectedreturns','discounts','commissions',
-      'cogs','costofgoodssold','grossprofit','sellingandmarketing',
+      'cogs','actualcogs','goodscogs','foccogs','costofgoodssold',
+      'grossprofit','sellingandmarketing',
       'sm','netincome','netprofit'
     ]);
     const headerIndex = sourceRows.findIndex(row => {
@@ -4012,14 +4033,15 @@ window.loadPnlRowsFromDatabase = function(rows){
   const expectedReturnAliases = [
     'expected return','expected returns','expected sales return','expected sales returns'
   ];
-  const legacySalesReturns = numeric(['sales returns','salesreturns','sales return']);
+  const legacySalesReturns = numeric(['return','sales returns','salesreturns','sales return']);
   const actualReturn = numeric(actualReturnAliases);
   const expectedReturn = numeric(expectedReturnAliases);
   const discounts = numeric(['discounts','discount']);
   const commissions = numeric(['commissions','commission']);
   const restoun = numeric(['restoun']);
   const netSales = numeric(['net sales','netsales']);
-  const cogs = numeric(['cogs','cost of goods sold']);
+  const actualCogs = numeric(['actual cogs','goods cogs','cogs','cost of goods sold']);
+  const focCogs = numeric(['foc cogs','free of charge cogs']);
   const grossProfit = numeric(['gross profit','grossprofit','gross margin']);
   const sm = numeric(['s&m','sm','selling & marketing','selling and marketing','selling & marketing expenses']);
   const netIncome = numeric(['net income','netincome','net profit','netprofit']);
@@ -4042,7 +4064,8 @@ window.loadPnlRowsFromDatabase = function(rows){
       commissions:commissions(row),
       restoun:restoun(row),
       netSales:netSales(row),
-      cogs:cogs(row),
+      actualCogs:actualCogs(row),
+      focCogs:focCogs(row),
       grossProfit:grossProfit(row),
       sm:sm(row),
       netIncome:netIncome(row)
