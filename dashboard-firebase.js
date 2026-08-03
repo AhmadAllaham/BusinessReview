@@ -82,6 +82,26 @@
     document.head.appendChild(script);
   });
 
+  const loadReportAccess = () => new Promise((resolve,reject) => {
+    if (window.BRReportAccess) return resolve();
+    const existing = document.querySelector('script[data-report-access]');
+    if (existing) {
+      if (existing.dataset.loaded === "true") return resolve();
+      existing.addEventListener("load",resolve,{once:true});
+      existing.addEventListener("error",reject,{once:true});
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "report-access.js?v=20260803-1";
+    script.dataset.reportAccess = "true";
+    script.onload = () => {
+      script.dataset.loaded = "true";
+      resolve();
+    };
+    script.onerror = () => reject(new Error("Unable to load report-window permissions."));
+    document.head.appendChild(script);
+  });
+
   if (!window.BRPortal?.configured) {
     showStatus(window.BRPortal?.error || "Firebase is not configured.",false,true);
     return;
@@ -108,14 +128,29 @@
       : [String(country || "").trim()]
   ).filter(Boolean))];
 
+  let allowedReports = [];
+  try {
+    await loadReportAccess();
+    allowedReports = window.BRReportAccess?.apply(profile) || [];
+  } catch (accessError) {
+    console.error(accessError);
+    allowedReports = [
+      "salesAnalysis","actualGp","focAnalysis","stockLevel",
+      "nearlyExpired","stockDashboard","smExpenses","pnl","mda"
+    ];
+  }
+  const allowedReportSet = new Set(allowedReports);
+  const hasReport = key => isAdmin || allowedReportSet.has(key);
+  const hasAnyReport = keys => keys.some(hasReport);
+
   const userName = document.getElementById("currentUserName");
   const userScope = document.getElementById("currentUserScope");
   if (userName) userName.textContent = profile.displayName || session.user.email || "User";
   if (userScope) {
     userScope.textContent = isAdmin
-      ? "Administrator · All countries"
+      ? "Administrator · All countries · All windows"
       : allowedCountries.length
-        ? allowedCountries.join(", ")
+        ? `${allowedCountries.join(", ")} · ${allowedReports.length} windows`
         : "No countries assigned";
   }
   document.querySelectorAll("[data-admin-only]").forEach(element => {
@@ -125,6 +160,11 @@
 
   if (!isAdmin && !allowedCountries.length) {
     showStatus("No countries are assigned to your account. Contact the administrator.",false,true);
+    return;
+  }
+
+  if (!allowedReports.length) {
+    showStatus("No report windows are assigned to your account. Contact the administrator.",false,true);
     return;
   }
 
@@ -165,13 +205,22 @@
     }
 
     const active = activeSnap.data();
+    const needsSales = hasAnyReport(["salesAnalysis","focAnalysis","actualGp"]);
+    const needsPnl = hasAnyReport(["pnl","actualGp"]);
+    const needsSm = hasReport("smExpenses");
+    const needsStock = hasAnyReport(["stockLevel","stockDashboard"]);
+    const needsNearlyExpired = hasReport("nearlyExpired");
+    const needsProfitability = hasAnyReport([
+      "salesAnalysis","focAnalysis","stockLevel","actualGp"
+    ]);
+
     const [sales,pnl,sm,stock,nearlyExpired,profitability] = await Promise.all([
-      loadDataset(active.sales),
-      loadDataset(active.pnl),
-      loadDataset(active.sm),
-      loadDataset(active.stock),
-      loadDataset(active.nearlyExpired),
-      loadDataset(active.profitability)
+      needsSales ? loadDataset(active.sales) : Promise.resolve([]),
+      needsPnl ? loadDataset(active.pnl) : Promise.resolve([]),
+      needsSm ? loadDataset(active.sm) : Promise.resolve([]),
+      needsStock ? loadDataset(active.stock) : Promise.resolve([]),
+      needsNearlyExpired ? loadDataset(active.nearlyExpired) : Promise.resolve([]),
+      needsProfitability ? loadDataset(active.profitability) : Promise.resolve([])
     ]);
 
     const displayFixResults = await Promise.allSettled(displayFixPromises);
@@ -183,34 +232,48 @@
       ? window.canonicalizeSalesRows(sales)
       : sales;
 
-    window.loadSalesRowsFromDatabase?.(canonicalSales);
-    window.loadPnlRowsFromDatabase?.(pnl);
-    window.loadSmRowsFromDatabase?.(sm);
-    window.loadStockRowsFromDatabase?.(stock);
-    window.loadNearlyExpiredRowsFromDatabase?.(nearlyExpired);
-    window.loadProfitabilityRowsFromDatabase?.(profitability);
-
-    try {
-      await loadActualGpModule();
-      window.loadActualGpRows?.(canonicalSales,pnl,profitability);
-    } catch (moduleError) {
-      console.error(moduleError);
+    if (hasAnyReport(["salesAnalysis","focAnalysis"])) {
+      window.loadSalesRowsFromDatabase?.(canonicalSales);
+    }
+    if (hasReport("pnl")) window.loadPnlRowsFromDatabase?.(pnl);
+    if (hasReport("smExpenses")) window.loadSmRowsFromDatabase?.(sm);
+    if (hasAnyReport(["stockLevel","stockDashboard"])) {
+      window.loadStockRowsFromDatabase?.(stock);
+    }
+    if (hasReport("nearlyExpired")) {
+      window.loadNearlyExpiredRowsFromDatabase?.(nearlyExpired);
+    }
+    if (hasAnyReport(["salesAnalysis","focAnalysis","stockLevel"])) {
+      window.loadProfitabilityRowsFromDatabase?.(profitability);
     }
 
+    if (hasReport("actualGp")) {
+      try {
+        await loadActualGpModule();
+        window.loadActualGpRows?.(canonicalSales,pnl,profitability);
+      } catch (moduleError) {
+        console.error(moduleError);
+      }
+    }
+
+    window.BRReportAccess?.apply(profile);
+
     const loadedReports = [
-      sales.length ? "Sales" : "",
-      stock.length ? "Stock" : "",
-      nearlyExpired.length ? "Nearly Expired" : "",
-      sm.length ? "S&M" : "",
-      pnl.length ? "P&L" : "",
-      profitability.length ? "Profitability" : ""
+      needsSales && sales.length ? "Sales" : "",
+      needsStock && stock.length ? "Stock" : "",
+      needsNearlyExpired && nearlyExpired.length ? "Nearly Expired" : "",
+      needsSm && sm.length ? "S&M" : "",
+      needsPnl && pnl.length ? "P&L" : "",
+      needsProfitability && profitability.length ? "Profitability" : ""
     ].filter(Boolean);
     const totalRows = sales.length + stock.length + nearlyExpired.length + sm.length + pnl.length + profitability.length;
     showStatus(
       loadedReports.length
         ? `Loaded ${totalRows.toLocaleString("en-US")} authorized rows · ${loadedReports.join(" · ")}.`
-        : "No report files have been uploaded yet.",
-      Boolean(loadedReports.length),
+        : hasReport("mda")
+          ? "Your authorized report windows are ready."
+          : "No data is available for your authorized report windows.",
+      Boolean(loadedReports.length || hasReport("mda")),
       false
     );
   } catch (error) {
