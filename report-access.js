@@ -70,11 +70,22 @@
     return Object.entries(stockModes).find(([key]) => has(key))?.[1] || '';
   }
 
+  function stockTabLabel() {
+    const permitted = Object.entries(stockModes).filter(([key]) => has(key));
+    if (permitted.length !== 1) return 'Stock Level';
+    return {
+      stock: 'Stock Level',
+      nearlyExpired: 'Nearly Expired',
+      dashboard: 'Stock Dashboard'
+    }[permitted[0][1]] || 'Stock Level';
+  }
+
   function enforceStockAccess() {
     const stockAllowed = any(Object.keys(stockModes));
     const stockTab = document.querySelector('[data-tab="stockSection"]');
     const stockSection = document.getElementById('stockSection');
     setVisible(stockTab, stockAllowed);
+    if (stockTab && stockAllowed) stockTab.textContent = stockTabLabel();
     if (!stockAllowed) setVisible(stockSection, false);
 
     Object.entries(stockModes).forEach(([key, mode]) => {
@@ -98,6 +109,44 @@
       original.call(this, safeMode);
       enforceStockAccess();
     };
+  }
+
+  function installActualGpSalesBridge() {
+    if (window.__actualGpPermissionBridgeInstalled) return;
+    window.__actualGpPermissionBridgeInstalled = true;
+
+    let assignedLoader = window.loadActualGpRows;
+    try {
+      Object.defineProperty(window, 'loadActualGpRows', {
+        configurable: true,
+        enumerable: true,
+        get() {
+          return assignedLoader;
+        },
+        set(loader) {
+          if (typeof loader !== 'function') {
+            assignedLoader = loader;
+            return;
+          }
+          assignedLoader = function (salesRows, pnlRows, profitabilityRows) {
+            if (
+              has('actualGp') &&
+              !any(['salesAnalysis', 'focAnalysis']) &&
+              typeof window.loadSalesRowsFromDatabase === 'function'
+            ) {
+              window.loadSalesRowsFromDatabase(salesRows || []);
+            }
+            return loader.call(this, salesRows, pnlRows, profitabilityRows);
+          };
+        }
+      });
+      if (typeof assignedLoader === 'function') {
+        const current = assignedLoader;
+        window.loadActualGpRows = current;
+      }
+    } catch (error) {
+      console.error('Could not install the Actual GP filter bridge.', error);
+    }
   }
 
   function enforceStaticAccess() {
@@ -174,6 +223,7 @@
   function apply(profile) {
     allowed = new Set(resolve(profile));
     window.BR_ALLOWED_REPORTS = [...allowed];
+    installActualGpSalesBridge();
     patchStockMode();
     enforceStaticAccess();
     activateFirstAllowed();
