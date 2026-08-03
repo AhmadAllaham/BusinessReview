@@ -17,10 +17,10 @@
   const allKeys = catalog.map(item => item.key);
   const businessKeys = allKeys.filter(key => key !== 'mda');
   let allowed = new Set(allKeys);
-  let observer = null;
   let stockPatched = false;
   let stockTabBridgeInstalled = false;
   let activating = false;
+  let refreshScheduled = false;
 
   const staticTabs = {
     salesAnalysis: 'salesSection',
@@ -58,11 +58,14 @@
   function setVisible(element, visible) {
     if (!element) return;
     element.dataset.reportAccessManaged = 'true';
-    element.style.display = visible ? '' : 'none';
+    const nextDisplay = visible ? '' : 'none';
+    if (element.style.display !== nextDisplay) element.style.display = nextDisplay;
     if (!visible) {
       element.classList.remove('active');
-      element.setAttribute('aria-hidden', 'true');
-    } else {
+      if (element.getAttribute('aria-hidden') !== 'true') {
+        element.setAttribute('aria-hidden', 'true');
+      }
+    } else if (element.hasAttribute('aria-hidden')) {
       element.removeAttribute('aria-hidden');
     }
   }
@@ -144,9 +147,6 @@
         ? event.target.closest('[data-tab="stockSection"]')
         : null;
       if (!tab || !any(Object.keys(stockModes))) return;
-
-      // Let the normal report-tab handler reveal stockSection first, then force
-      // the first mode that the signed-in user is actually allowed to access.
       setTimeout(() => openAuthorizedStockMode(false), 0);
     });
   }
@@ -255,6 +255,17 @@
     }
   }
 
+  function refreshOnce() {
+    if (refreshScheduled) return;
+    refreshScheduled = true;
+    requestAnimationFrame(() => {
+      refreshScheduled = false;
+      patchStockMode();
+      enforceStaticAccess();
+      activateFirstAllowed();
+    });
+  }
+
   function apply(profile) {
     allowed = new Set(resolve(profile));
     window.BR_ALLOWED_REPORTS = [...allowed];
@@ -264,14 +275,10 @@
     enforceStaticAccess();
     activateFirstAllowed();
 
-    if (!observer) {
-      observer = new MutationObserver(() => {
-        enforceStaticAccess();
-        patchStockMode();
-        activateFirstAllowed();
-      });
-      observer.observe(document.body, { childList: true, subtree: true });
-    }
+    // Dynamic reports call apply() again after they are inserted. Avoid a
+    // document-wide MutationObserver because table rendering can add thousands
+    // of nodes and would rerun all permission logic for every DOM mutation.
+    refreshOnce();
 
     return [...allowed];
   }
@@ -282,6 +289,7 @@
     resolve,
     apply,
     has,
-    any
+    any,
+    refresh: refreshOnce
   };
 })();
