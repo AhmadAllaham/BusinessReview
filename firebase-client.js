@@ -91,9 +91,6 @@
     serverTimestamp:firebase.firestore.FieldValue.serverTimestamp
   };
 
-  // index.html contains a legacy, version-pinned dashboard script. Skip that
-  // static copy once, then load the latest dashboard runtime after script.js is
-  // ready. Date.now() prevents stale cached dashboard/child-loader versions.
   const pageName = location.pathname.split('/').pop() || 'index.html';
   const isDashboardPage = pageName.toLowerCase() === 'index.html' || pageName === '';
   if (isDashboardPage && !window.__BR_LATEST_DASHBOARD_BOOTSTRAP__) {
@@ -109,19 +106,55 @@
       return realRequireSession(options);
     };
 
-    window.addEventListener('DOMContentLoaded', () => {
+    function loadFreshScript(src,attribute) {
+      return new Promise((resolve,reject) => {
+        const existing = document.querySelector(`script[${attribute}]`);
+        if (existing) {
+          if (existing.dataset.loaded === 'true') return resolve();
+          existing.addEventListener('load',resolve,{once:true});
+          existing.addEventListener('error',reject,{once:true});
+          return;
+        }
+        const script = document.createElement('script');
+        script.src = `${src}${src.includes('?') ? '&' : '?'}v=${Date.now()}`;
+        script.setAttribute(attribute,'true');
+        script.onload = () => {
+          script.dataset.loaded = 'true';
+          resolve();
+        };
+        script.onerror = () => reject(new Error(`Unable to load ${src}`));
+        document.body.appendChild(script);
+      });
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
       if (document.querySelector('script[data-latest-dashboard-runtime]')) return;
-      const script = document.createElement('script');
-      script.src = `dashboard-firebase.js?v=${Date.now()}`;
-      script.dataset.latestDashboardRuntime = 'true';
-      script.onerror = () => {
-        const status = document.getElementById('statusBox');
+      const status = document.getElementById('statusBox');
+      try {
+        // Load these first so the dashboard cannot resolve to a cached child
+        // module. Sales v4 fixes TMS 2025/LY matching and zero fallbacks.
+        await Promise.all([
+          loadFreshScript('sales-ims-canonical.js','data-latest-sales-canonical'),
+          loadFreshScript('report-access.js','data-latest-report-access')
+        ]);
+
+        const script = document.createElement('script');
+        script.src = `dashboard-firebase.js?v=${Date.now()}`;
+        script.dataset.latestDashboardRuntime = 'true';
+        script.onerror = () => {
+          if (status) {
+            status.textContent = 'Unable to load the latest dashboard version. Refresh the page.';
+            status.className = 'status-box error';
+          }
+        };
+        document.body.appendChild(script);
+      } catch (error) {
+        console.error(error);
         if (status) {
-          status.textContent = 'Unable to load the latest dashboard version. Refresh the page.';
+          status.textContent = error.message || 'Unable to load the latest dashboard fixes.';
           status.className = 'status-box error';
         }
-      };
-      document.body.appendChild(script);
+      }
     }, { once:true });
   }
 })();
