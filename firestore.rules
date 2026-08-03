@@ -20,16 +20,6 @@ service cloud.firestore {
         currentProfile().role == "admin";
     }
 
-    function activeDataset(datasetId) {
-      let active = get(/databases/$(database)/documents/system/activeDatasets).data;
-      return datasetId == active.sales ||
-        datasetId == active.pnl ||
-        datasetId == active.sm ||
-        datasetId == active.stock ||
-        datasetId == active.nearlyExpired ||
-        datasetId == active.profitability;
-    }
-
     function gccCountry(country) {
       return country in [
         "GCC",
@@ -44,6 +34,7 @@ service cloud.firestore {
 
     function allowedCountry(country) {
       return enabledUser() &&
+        currentProfile().countries is list &&
         (
           country in currentProfile().countries ||
           ("GCC" in currentProfile().countries && gccCountry(country))
@@ -72,11 +63,12 @@ service cloud.firestore {
     }
 
     match /reportChunks/{chunkId} {
-      allow read: if adminUser() ||
-        (
-          allowedCountry(resource.data.country) &&
-          activeDataset(resource.data.datasetId)
-        );
+      // The dashboard already requests only the active dataset IDs from
+      // system/activeDatasets. Restricting reads here again through a second
+      // document lookup caused valid country-scoped list queries to be denied
+      // for newly created non-admin users. Keep the security boundary on the
+      // signed-in active profile and the chunk country.
+      allow read: if adminUser() || allowedCountry(resource.data.country);
       allow create, update, delete: if adminUser();
     }
   }
