@@ -90,4 +90,38 @@
     signOut,
     serverTimestamp:firebase.firestore.FieldValue.serverTimestamp
   };
+
+  // index.html contains a legacy, version-pinned dashboard script. Skip that
+  // static copy once, then load the latest dashboard runtime after script.js is
+  // ready. Date.now() prevents stale cached dashboard/child-loader versions.
+  const pageName = location.pathname.split('/').pop() || 'index.html';
+  const isDashboardPage = pageName.toLowerCase() === 'index.html' || pageName === '';
+  if (isDashboardPage && !window.__BR_LATEST_DASHBOARD_BOOTSTRAP__) {
+    window.__BR_LATEST_DASHBOARD_BOOTSTRAP__ = true;
+    const realRequireSession = window.BRPortal.requireSession;
+    let skipLegacyDashboardSession = true;
+
+    window.BRPortal.requireSession = function (options={}) {
+      if (skipLegacyDashboardSession && options.next === 'index.html') {
+        skipLegacyDashboardSession = false;
+        return Promise.resolve(null);
+      }
+      return realRequireSession(options);
+    };
+
+    window.addEventListener('DOMContentLoaded', () => {
+      if (document.querySelector('script[data-latest-dashboard-runtime]')) return;
+      const script = document.createElement('script');
+      script.src = `dashboard-firebase.js?v=${Date.now()}`;
+      script.dataset.latestDashboardRuntime = 'true';
+      script.onerror = () => {
+        const status = document.getElementById('statusBox');
+        if (status) {
+          status.textContent = 'Unable to load the latest dashboard version. Refresh the page.';
+          status.className = 'status-box error';
+        }
+      };
+      document.body.appendChild(script);
+    }, { once:true });
+  }
 })();
