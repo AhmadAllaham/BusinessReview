@@ -1,10 +1,12 @@
 (() => {
   'use strict';
 
-  if (window.canonicalizeSalesRows) return;
+  const FIX_VERSION = 4;
+  if ((window.__BR_SALES_CANONICAL_VERSION__ || 0) >= FIX_VERSION) return;
+  window.__BR_SALES_CANONICAL_VERSION__ = FIX_VERSION;
 
   const dimensions = [
-    { name: 'type', aliases: ['Type', 'Sales Type', 'SalesType'] },
+    { name: 'type', aliases: ['Type', 'Sales Type', 'SalesType', 'Channel'] },
     { name: 'country', aliases: ['Country', 'Market', 'Country Name', 'CountryName'] },
     { name: 'sector', aliases: ['Sector'] },
     { name: 'agent', aliases: ['Agent', 'Distributor', 'Customer'] },
@@ -74,7 +76,8 @@
 
   const genericActualAliases = new Set([
     'actual', 'actualvalue', 'actualsales', 'actualsalesvalue',
-    'actualsalesytd', 'actualytd', 'salesactual', 'salesactualvalue'
+    'actualsalesytd', 'actualytd', 'salesactual', 'salesactualvalue',
+    'tmssales', 'tmsvalue', 'salesvalue'
   ]);
   const genericBudgetAliases = new Set([
     'budget', 'budgetvalue', 'budgetsales', 'budgetsalesvalue',
@@ -106,6 +109,18 @@
 
   function hasValue(value) {
     return value !== null && value !== undefined && String(value).trim() !== '';
+  }
+
+  function numericValue(value) {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+    const text = String(value ?? '').trim();
+    if (!text) return 0;
+    const normalized = text
+      .replace(/,/g, '')
+      .replace(/^\((.*)\)$/, '-$1')
+      .replace(/[^0-9.-]/g, '');
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
   }
 
   function yearNumber(value) {
@@ -157,6 +172,14 @@
     return month ? monthNames[month - 1] : cleanDisplay(value);
   }
 
+  function canonicalType(value) {
+    const compact = normalizeHeader(value);
+    if (!compact) return '';
+    if (compact.includes('tms')) return 'TMS';
+    if (compact.includes('ims')) return 'IMS';
+    return cleanDisplay(value);
+  }
+
   function typeValue(row) {
     for (const key of matchingKeys(row, 'type')) {
       const value = cleanDisplay(row[key]);
@@ -166,8 +189,7 @@
   }
 
   function isImsRow(row) {
-    const normalized = identity(typeValue(row)).replace(/[^a-z0-9]+/g, '');
-    return normalized === 'ims' || normalized.includes('imssales');
+    return canonicalType(typeValue(row)) === 'IMS';
   }
 
   function addVariant(store, value, order) {
@@ -213,11 +235,6 @@
       if (preferred) canonical.set(key, preferred);
     });
 
-    if (dimensionName === 'type') {
-      canonical.set('ims', 'IMS');
-      canonical.set('tms', 'TMS');
-    }
-
     return canonical;
   }
 
@@ -246,12 +263,20 @@
       const headerYear = metricYearFromHeader(normalized);
       const hasActual = normalized.includes('actual');
       const hasBudget = normalized.includes('budget');
-      const hasSales = normalized.includes('sales') || normalized.includes('value') || normalized === 'actual' || normalized === 'budget';
-      const isLy = genericLyAliases.has(normalized) || normalized.includes('lastyear') || normalized.includes('previousyear');
+      const hasSales = normalized.includes('sales') ||
+        normalized.includes('value') ||
+        normalized.includes('tms') ||
+        normalized === 'actual' ||
+        normalized === 'budget';
+      const isLy = genericLyAliases.has(normalized) ||
+        normalized.includes('lastyear') ||
+        normalized.includes('previousyear');
 
       let matches = false;
       if (kind === 'actual') {
-        matches = genericSet.has(normalized) || (hasActual && hasSales && !isLy);
+        matches = genericSet.has(normalized) ||
+          (hasActual && hasSales && !isLy) ||
+          Boolean(targetYear && headerYear === targetYear && hasSales && !hasBudget && !isLy);
       } else if (kind === 'budget') {
         matches = genericSet.has(normalized) || (hasBudget && hasSales);
       } else {
@@ -265,8 +290,9 @@
 
       let score = 0;
       if (genericSet.has(normalized)) score += 100;
-      if (targetYear && headerYear === targetYear) score += 80;
-      if (normalized.includes('sales')) score += 20;
+      if (targetYear && headerYear === targetYear) score += 120;
+      if (hasActual && kind === 'actual') score += 30;
+      if (normalized.includes('sales') || normalized.includes('tms')) score += 20;
       if (normalized.includes('ytd')) score += 10;
       if (!headerYear) score += 5;
       candidates.push({ value, score, index });
@@ -284,7 +310,7 @@
       Object.keys(row || {}).forEach(key => {
         const normalized = normalizeHeader(key);
         if (!metricHeaderIsSafe(normalized)) return;
-        if (!(normalized.includes('actual') || normalized.includes('budget'))) return;
+        if (!(normalized.includes('actual') || normalized.includes('budget') || normalized.includes('sales'))) return;
         const headerYear = metricYearFromHeader(normalized);
         if (headerYear) years.push(headerYear);
       });
@@ -317,18 +343,14 @@
   }
 
   function installSalesLyRuntimeFix() {
-    if (window.__salesLyRuntimeFixInstalled) return;
+    if ((window.__salesLyRuntimeFixInstalled || 0) >= FIX_VERSION) return;
     if (
       typeof filteredLY !== 'function' ||
       typeof aggregate !== 'function' ||
       typeof getSelected !== 'function'
     ) return;
 
-    window.__salesLyRuntimeFixInstalled = true;
-    const actualAliasSet = new Set([
-      'actual','actualvalue','actualsales','actualsalesvalue',
-      'actualsalesytd','actualytd'
-    ]);
+    window.__salesLyRuntimeFixInstalled = FIX_VERSION;
 
     function filterIdentity(column, value) {
       const normalizedColumn = normalizeHeader(column);
@@ -340,6 +362,9 @@
         const year = yearNumber(value);
         return year ? `year:${year}` : `year:${identity(value)}`;
       }
+      if (normalizedColumn === 'type' || normalizedColumn === 'salestype') {
+        return canonicalType(value).toLocaleLowerCase('en-US');
+      }
       return identity(value);
     }
 
@@ -350,12 +375,9 @@
     }
 
     function historicalAmount(row) {
-      const hasExplicitActual = Object.keys(row || {}).some(key =>
-        actualAliasSet.has(normalizeHeader(key)) && hasValue(row[key])
-      );
-      return hasExplicitActual
-        ? Number(row.__actual) || 0
-        : Number(row.__ly) || Number(row.__actual) || 0;
+      const actual = numericValue(row.__actual);
+      const ly = numericValue(row.__ly);
+      return Math.abs(actual) > 1e-9 ? actual : ly;
     }
 
     filteredLY = function () {
@@ -384,7 +406,6 @@
 
     aggregate = function (rows, dimension, lySource = filteredLY()) {
       const grouped = new Map();
-      const historicalGroups = new Set();
 
       const ensureGroup = row => {
         const displayName = dimKey(row, dimension);
@@ -396,36 +417,44 @@
             budget: 0,
             ly: 0,
             lyFallback: 0,
+            lyRows: 0,
+            lyNonZero: false,
             actualFoc: 0,
             budgetFoc: 0,
             products: new Set()
           });
         }
-        return { key, value: grouped.get(key) };
+        return grouped.get(key);
       };
 
       for (const row of rows || []) {
-        const group = ensureGroup(row).value;
-        group.actual += Number(row.__actual) || 0;
-        group.budget += Number(row.__budget) || 0;
-        group.lyFallback += Number(row.__ly) || 0;
+        const group = ensureGroup(row);
+        group.actual += numericValue(row.__actual);
+        group.budget += numericValue(row.__budget);
+        group.lyFallback += numericValue(row.__ly);
         group.products.add(identity(row.__product));
-        if (identity(row.Type) === 'ims') {
-          group.actualFoc += Number(row.__actualBonus) || 0;
-          group.budgetFoc += Number(row.__budgetBonus) || 0;
+        if (canonicalType(row.Type) === 'IMS') {
+          group.actualFoc += numericValue(row.__actualBonus);
+          group.budgetFoc += numericValue(row.__budgetBonus);
         }
       }
 
       for (const row of lySource || []) {
-        const { key, value: group } = ensureGroup(row);
-        historicalGroups.add(key);
-        group.ly += historicalAmount(row);
+        const group = ensureGroup(row);
+        const amount = historicalAmount(row);
+        group.lyRows += 1;
+        group.ly += amount;
+        if (Math.abs(amount) > 1e-9) group.lyNonZero = true;
         group.products.add(identity(row.__product));
       }
 
-      grouped.forEach((group, key) => {
-        if (!historicalGroups.has(key)) group.ly = group.lyFallback;
+      grouped.forEach(group => {
+        if (!group.lyRows || (!group.lyNonZero && Math.abs(group.lyFallback) > 1e-9)) {
+          group.ly = group.lyFallback;
+        }
         delete group.lyFallback;
+        delete group.lyRows;
+        delete group.lyNonZero;
       });
 
       return [...grouped.values()];
@@ -448,15 +477,23 @@
         keys.forEach(key => {
           const current = cleanDisplay(normalizedRow[key]);
           if (!current) return;
-          normalizedRow[key] = maps[dimension.name].get(identity(current)) || current;
+          normalizedRow[key] = dimension.name === 'type'
+            ? canonicalType(current)
+            : maps[dimension.name].get(identity(current)) || current;
         });
 
         const standardKey = standardKeys[dimension.name];
         if (standardKey && (normalizedRow[standardKey] === undefined || normalizedRow[standardKey] === '')) {
           const value = keys.length ? normalizedRow[keys[0]] : '';
-          if (value !== '') normalizedRow[standardKey] = value;
+          if (value !== '') {
+            normalizedRow[standardKey] = dimension.name === 'type'
+              ? canonicalType(value)
+              : value;
+          }
         }
       });
+
+      if (normalizedRow.Type !== undefined) normalizedRow.Type = canonicalType(normalizedRow.Type);
 
       const yearValue = firstMatchingValue(normalizedRow, yearAliasSet);
       if (yearValue !== '') {
@@ -478,12 +515,19 @@
       return normalizedRow;
     });
 
+    const priorYear = datasetYear ? datasetYear - 1 : 0;
+    const tmsRows = normalizedRows.filter(row => canonicalType(row.Type) === 'TMS');
+    const tmsPriorRows = tmsRows.filter(row => yearNumber(row.Year) === priorYear);
     window.BR_SALES_LY_DIAGNOSTICS = {
+      version: FIX_VERSION,
       datasetYear,
       rows: normalizedRows.length,
-      tmsRows: normalizedRows.filter(row => identity(row.Type) === 'tms').length,
-      rowsWithLy: normalizedRows.filter(row => hasValue(row.LY)).length,
-      priorYearRows: normalizedRows.filter(row => yearNumber(row.Year) === datasetYear - 1).length
+      tmsRows: tmsRows.length,
+      rowsWithLy: normalizedRows.filter(row => Math.abs(numericValue(row.LY)) > 1e-9).length,
+      priorYearRows: normalizedRows.filter(row => yearNumber(row.Year) === priorYear).length,
+      tmsPriorYearRows: tmsPriorRows.length,
+      tmsPriorYearValue: tmsPriorRows.reduce((total, row) => total + numericValue(row['Actual Value']), 0),
+      tmsEmbeddedLyValue: tmsRows.reduce((total, row) => total + numericValue(row.LY), 0)
     };
 
     installSalesLyRuntimeFix();
