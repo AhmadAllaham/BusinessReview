@@ -52,9 +52,10 @@
     const scenarioNames = new Set(["scenario","period","version"]);
     const marketNames = new Set(["market","country","countryname"]);
     const metricNames = new Set([
-      "grosssales","netsales","salesreturns","actualreturn","actualreturns",
+      "grosssales","netsales","return","salesreturns","actualreturn","actualreturns",
       "expectedreturn","expectedreturns","discounts","commissions",
-      "cogs","costofgoodssold","grossprofit","sellingandmarketing",
+      "cogs","actualcogs","goodscogs","foccogs","costofgoodssold",
+      "grossprofit","sellingandmarketing",
       "sm","netincome","netprofit"
     ]);
     return matrix.findIndex(row => {
