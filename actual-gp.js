@@ -215,6 +215,151 @@
     access.any = keys => (keys || []).some(key => access.has(key));
   }
 
+  // KSA Historical Sales is based on:
+  // (Goods Qty 2025 + Goods Qty 2026 + Bonus Qty 2025 + Bonus Qty 2026)
+  // × weighted average 2026 selling price for each product.
+  //
+  // This override is intentionally limited to the main Stock Level market table.
+  // It does not change Firestore rows, the Stock Dashboard, drilldowns, exports,
+  // Nearly Expired, or any market other than KSA.
+  const KSA_HISTORICAL_SALES_TOTAL_USD = 38954560.270270966;
+  const ksaHistoricalSalesByGroup = Object.freeze({
+    'Ambolar': 723448.794978320017,
+    'Amlodar - Amolar': 54537.407020800005,
+    'Amoxydar - Moxidad': 135501.053455980000,
+    'Amuretic': 1610.621271400000,
+    'Anxetin': 598662.313373800018,
+    'Aphrodil': 0.000000000000,
+    'Azord - Xevaneer': 541150.739071337623,
+    'Capocard': 560147.980154398479,
+    'Carbatol': 1647352.004237499787,
+    'Cephadar': 211346.188184360508,
+    'Ciprodar - Qurex': 849877.869952380075,
+    'Claridar': 684938.635671080556,
+    'Clavodar': 8288767.741969339550,
+    'Cloracef': 338549.784780886956,
+    'Daroxime': 846997.566013055388,
+    'Diclogesic': 583542.896990849986,
+    'Doxydar': 864901.634919309989,
+    'Erythrodar': 40606.149599600001,
+    'Esperal-Espedar-Tiaqueen': 24485.625542010002,
+    'Famodar': 404429.937250519986,
+    'Gamcet': 1519566.250814499799,
+    'Gizlan': 9409.882347350002,
+    'Gizlan Duo - Gizamlo': 15994.040058000002,
+    'Hairgrow': 5201285.927455300465,
+    'Liblab - Avilop': 3418784.065363799687,
+    'Loratan - Loradad': 76074.169113450000,
+    'Lovista - Evadad': 332466.647802800057,
+    'Matador - Livador': 274862.499812069931,
+    'Mixif - Murex': 1588733.747171400115,
+    'Motrinex': 923297.863686639932,
+    'Mycoheal': 842393.198796230019,
+    'Myogesic': 70628.813370720003,
+    'Nerva Foot Care': -366.211200300000,
+    'Rina': 3955235.068956419826,
+    'Rozitta - Robust': 625969.835648400011,
+    'Sucrazide': 0.000000000000,
+    'Tyra 20 Mg': 1352406.368512319867,
+    'Tyra 5 Mg': 839434.943819200154,
+    'Vitadad - DivaD': 381922.115028150030,
+    'Zarlan - Xivar': 125606.099277599991,
+  });
+
+  function selectedStockGroups() {
+    const filter = document.getElementById('stockProductGroupFilter');
+    if (!filter) return [];
+
+    if (typeof filter._getSelected === 'function') {
+      return filter._getSelected().map(String).filter(Boolean);
+    }
+
+    if (typeof window.getSelected === 'function') {
+      return (window.getSelected('stockProductGroupFilter') || [])
+        .map(String)
+        .filter(Boolean);
+    }
+
+    return [...filter.querySelectorAll('.multi-options input:checked')]
+      .map(input => String(input.value || ''))
+      .filter(Boolean);
+  }
+
+  function ksaHistoricalSalesForCurrentScope() {
+    const selectedGroups = selectedStockGroups();
+    if (!selectedGroups.length) return KSA_HISTORICAL_SALES_TOTAL_USD;
+
+    const selectedKeys = new Set(selectedGroups.map(normalizeIdentity));
+    return Object.entries(ksaHistoricalSalesByGroup)
+      .reduce((total, [group, value]) => (
+        selectedKeys.has(normalizeIdentity(group)) ? total + value : total
+      ), 0);
+  }
+
+  function installKsaStockTableHistoricalOverride() {
+    const originalRenderer = window.stockStatementTableHtml;
+    if (
+      typeof originalRenderer !== 'function' ||
+      originalRenderer.__ksaHistoricalTableWrapped
+    ) return;
+
+    const wrappedRenderer = function (
+      rows,
+      totals,
+      dimension = 'Brand',
+      ...rest
+    ) {
+      const dimensionKey = normalizeIdentity(dimension);
+      if (dimensionKey !== 'market' && dimensionKey !== 'country') {
+        return originalRenderer.call(this, rows, totals, dimension, ...rest);
+      }
+
+      const nextRows = Array.isArray(rows)
+        ? rows.map(row => ({ ...row }))
+        : [];
+      const ksaIndex = nextRows.findIndex(row =>
+        canonicalCountry(row?.name) === 'KSA'
+      );
+
+      if (ksaIndex < 0) {
+        return originalRenderer.call(this, rows, totals, dimension, ...rest);
+      }
+
+      const previousHistorical = Number(nextRows[ksaIndex].historical) || 0;
+      const replacementHistorical = ksaHistoricalSalesForCurrentScope();
+      nextRows[ksaIndex].historical = replacementHistorical;
+
+      const nextTotals = {
+        ...(totals || {}),
+        historical:
+          (Number(totals?.historical) || 0) -
+          previousHistorical +
+          replacementHistorical
+      };
+
+      return originalRenderer.call(
+        this,
+        nextRows,
+        nextTotals,
+        dimension,
+        ...rest
+      );
+    };
+
+    wrappedRenderer.__ksaHistoricalTableWrapped = true;
+    window.stockStatementTableHtml = wrappedRenderer;
+  }
+
+  window.BRKsaStockHistoricalSales = Object.freeze({
+    totalUsd: KSA_HISTORICAL_SALES_TOTAL_USD,
+    byProductGroup: ksaHistoricalSalesByGroup,
+    formula:
+      '(Goods Qty 2025 + Goods Qty 2026 + Bonus Qty 2025 + Bonus Qty 2026) × Price 2026',
+    excludedProductsWithout2026Price: 6
+  });
+
+  installKsaStockTableHistoricalOverride();
+
   window.loadActualGpRows = undefined;
   removeRetiredUi();
 })();
