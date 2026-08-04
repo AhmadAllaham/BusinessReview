@@ -185,10 +185,17 @@
         await Promise.all([
           loadFreshScript('sales-ims-canonical.js','data-latest-sales-canonical'),
           loadFreshScript('sales-fy-budget.js','data-sales-fy-budget'),
-          loadFreshScript('actual-gp-2026-fix.js','data-actual-gp-2026-fix'),
           loadFreshScript('report-access.js','data-latest-report-access'),
           loadFreshScript('report-readability.js','data-report-readability')
         ]);
+
+        // Report Access installs its Actual GP permission bridge first. Load
+        // the rebuilt report module afterwards so the fresh calculation loader
+        // is wrapped by that bridge and is ready before Firestore data arrives.
+        await loadFreshScript(
+          'actual-gp.js',
+          'data-actual-gp-module'
+        );
 
         await loadFreshScript(
           'analysis-window.js',
