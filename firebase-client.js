@@ -131,8 +131,18 @@
       if (document.querySelector('script[data-latest-dashboard-runtime]')) return;
       const status = document.getElementById('statusBox');
       try {
-        // Load these first so the dashboard cannot resolve to a cached child
-        // module. Sales v4 fixes TMS 2025/LY matching and zero fallbacks.
+        // Install the S&M calendar reader before its rows are loaded. The
+        // second patch corrects legacy 31 May records that actually represent
+        // the June reporting month.
+        await loadFreshScript(
+          'near-expiry-agent-stock-fix.js',
+          'data-near-expiry-stock-fix'
+        );
+        await loadFreshScript(
+          'sm-june-month-fix.js',
+          'data-sm-june-month-fix'
+        );
+
         await Promise.all([
           loadFreshScript('sales-ims-canonical.js','data-latest-sales-canonical'),
           loadFreshScript('report-access.js','data-latest-report-access')
