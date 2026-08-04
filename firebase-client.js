@@ -26,7 +26,14 @@
   const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(config);
   const auth = app.auth();
   const db = app.firestore();
-  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(console.error);
+
+  // Keep authentication only for the current browser session. This avoids a
+  // shared computer remaining signed in after all browser windows are closed.
+  const persistenceReady = auth
+    .setPersistence(firebase.auth.Auth.Persistence.SESSION)
+    .catch(error => {
+      console.error("Unable to set session authentication persistence.", error);
+    });
 
   async function getProfile(uid) {
     const snap = await db.collection("users").doc(uid).get();
@@ -34,6 +41,7 @@
   }
 
   async function currentSession() {
+    await persistenceReady;
     const user = auth.currentUser;
     if (!user) return null;
     const profile = await getProfile(user.uid);
@@ -55,6 +63,7 @@
   }
 
   async function requireSession(options={}) {
+    await persistenceReady;
     const session = await waitForAuth();
     if (!session?.user) {
       location.replace(`Login.html?next=${encodeURIComponent(options.next || location.pathname.split("/").pop() || "index.html")}`);
@@ -83,6 +92,7 @@
     app,
     auth,
     db,
+    persistenceReady,
     getProfile,
     currentSession,
     waitForAuth,
@@ -95,9 +105,23 @@
   const isDashboardPage = pageName.toLowerCase() === 'index.html' || pageName === '';
   if (isDashboardPage && !window.__BR_LATEST_DASHBOARD_BOOTSTRAP__) {
     window.__BR_LATEST_DASHBOARD_BOOTSTRAP__ = true;
+
+    // Do not expose or activate any dashboard UI before Firebase confirms both
+    // the authenticated user and an enabled application profile.
+    const dashboardBody = document.body;
+    if (dashboardBody) {
+      dashboardBody.style.visibility = 'hidden';
+      dashboardBody.style.pointerEvents = 'none';
+      dashboardBody.setAttribute('aria-busy', 'true');
+    }
+
     const realRequireSession = window.BRPortal.requireSession;
+    const dashboardSessionPromise = realRequireSession({ next:'index.html' });
     let skipLegacyDashboardSession = true;
 
+    // index.html still contains an old pinned dashboard script. Prevent that
+    // copy from running; the authenticated bootstrap below loads one fresh
+    // runtime after access has been verified.
     window.BRPortal.requireSession = function (options={}) {
       if (skipLegacyDashboardSession && options.next === 'index.html') {
         skipLegacyDashboardSession = false;
@@ -105,6 +129,13 @@
       }
       return realRequireSession(options);
     };
+
+    function revealDashboard() {
+      if (!dashboardBody) return;
+      dashboardBody.style.visibility = '';
+      dashboardBody.style.pointerEvents = '';
+      dashboardBody.removeAttribute('aria-busy');
+    }
 
     function loadFreshScript(src,attribute) {
       return new Promise((resolve,reject) => {
@@ -130,6 +161,14 @@
     window.addEventListener('DOMContentLoaded', async () => {
       if (document.querySelector('script[data-latest-dashboard-runtime]')) return;
       const status = document.getElementById('statusBox');
+
+      // An unauthenticated or disabled account is redirected by
+      // requireSession and never reaches any dashboard loader below.
+      const verifiedSession = await dashboardSessionPromise;
+      if (!verifiedSession) return;
+
+      revealDashboard();
+
       try {
         // Install the S&M calendar reader before its rows are loaded. The
         // second patch corrects legacy 31 May records that actually represent
