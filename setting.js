@@ -15,6 +15,7 @@
     {key:"stockDashboard",label:"Stock Dashboard"},
     {key:"smExpenses",label:"Selling & Marketing Expenses"},
     {key:"pnl",label:"P&L"},
+    {key:"analysis",label:"Analysis"},
     {key:"mda",label:"MD&A"}
   ];
   const allReportKeys = reportCatalog.map(report => report.key);
