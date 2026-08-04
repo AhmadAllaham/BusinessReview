@@ -1,10 +1,13 @@
 (() => {
   'use strict';
 
-  // Actual GP vs Budget GP is retired. This lightweight runtime now also
-  // standardizes every Saudi country-name variation to one display name: KSA.
+  // Actual GP vs Budget GP is retired. This runtime also standardizes Saudi
+  // country-name variations and applies the KSA Historical Sales override used
+  // only by the main Stock Level market table.
   const RETIRED_REPORT_KEY = 'actualGp';
   const access = window.BRReportAccess;
+  const KSA_FORMULA =
+    '(Goods Qty 2025 + Goods Qty 2026 + Bonus Qty 2025 + Bonus Qty 2026) × Price 2026';
 
   const normalizeIdentity = value => String(value ?? '')
     .normalize('NFKC')
@@ -114,8 +117,8 @@
     console.error('Could not install KSA normalization for Analysis.', error);
   }
 
-  // Expand Saudi permission aliases only for Firestore querying. The rows are
-  // still displayed and grouped once under KSA after they are loaded.
+  // Expand Saudi aliases for Firestore queries. Loaded rows are still grouped
+  // and displayed once under KSA.
   if (window.BRPortal?.requireSession && !window.BRPortal.__ksaSessionWrapped) {
     window.BRPortal.__ksaSessionWrapped = true;
     const originalRequireSession = window.BRPortal.requireSession.bind(window.BRPortal);
@@ -215,56 +218,58 @@
     access.any = keys => (keys || []).some(key => access.has(key));
   }
 
-  // KSA Historical Sales is based on:
-  // (Goods Qty 2025 + Goods Qty 2026 + Bonus Qty 2025 + Bonus Qty 2026)
-  // × weighted average 2026 selling price for each product.
-  //
-  // This override is intentionally limited to the main Stock Level market table.
-  // It does not change Firestore rows, the Stock Dashboard, drilldowns, exports,
-  // Nearly Expired, or any market other than KSA.
-  const KSA_HISTORICAL_SALES_TOTAL_USD = 38954560.270270966;
-  const ksaHistoricalSalesByGroup = Object.freeze({
-    'Ambolar': 723448.794978320017,
-    'Amlodar - Amolar': 54537.407020800005,
-    'Amoxydar - Moxidad': 135501.053455980000,
-    'Amuretic': 1610.621271400000,
-    'Anxetin': 598662.313373800018,
-    'Aphrodil': 0.000000000000,
-    'Azord - Xevaneer': 541150.739071337623,
-    'Capocard': 560147.980154398479,
-    'Carbatol': 1647352.004237499787,
-    'Cephadar': 211346.188184360508,
-    'Ciprodar - Qurex': 849877.869952380075,
-    'Claridar': 684938.635671080556,
-    'Clavodar': 8288767.741969339550,
-    'Cloracef': 338549.784780886956,
-    'Daroxime': 846997.566013055388,
-    'Diclogesic': 583542.896990849986,
-    'Doxydar': 864901.634919309989,
-    'Erythrodar': 40606.149599600001,
-    'Esperal-Espedar-Tiaqueen': 24485.625542010002,
-    'Famodar': 404429.937250519986,
-    'Gamcet': 1519566.250814499799,
-    'Gizlan': 9409.882347350002,
-    'Gizlan Duo - Gizamlo': 15994.040058000002,
-    'Hairgrow': 5201285.927455300465,
-    'Liblab - Avilop': 3418784.065363799687,
-    'Loratan - Loradad': 76074.169113450000,
-    'Lovista - Evadad': 332466.647802800057,
-    'Matador - Livador': 274862.499812069931,
-    'Mixif - Murex': 1588733.747171400115,
-    'Motrinex': 923297.863686639932,
-    'Mycoheal': 842393.198796230019,
-    'Myogesic': 70628.813370720003,
-    'Nerva Foot Care': -366.211200300000,
-    'Rina': 3955235.068956419826,
-    'Rozitta - Robust': 625969.835648400011,
-    'Sucrazide': 0.000000000000,
-    'Tyra 20 Mg': 1352406.368512319867,
-    'Tyra 5 Mg': 839434.943819200154,
-    'Vitadad - DivaD': 381922.115028150030,
-    'Zarlan - Xivar': 125606.099277599991,
+  const FALLBACK_KSA_TOTAL_USD = 38954560.270270966;
+  const fallbackKsaByGroup = Object.freeze({
+    'Ambolar':723448.794978320017,
+    'Amlodar - Amolar':54537.407020800005,
+    'Amoxydar - Moxidad':135501.053455980000,
+    'Amuretic':1610.621271400000,
+    'Anxetin':598662.313373800018,
+    'Aphrodil':0,
+    'Azord - Xevaneer':541150.739071337623,
+    'Capocard':560147.980154398479,
+    'Carbatol':1647352.004237499787,
+    'Cephadar':211346.188184360508,
+    'Ciprodar - Qurex':849877.869952380075,
+    'Claridar':684938.635671080556,
+    'Clavodar':8288767.741969339550,
+    'Cloracef':338549.784780886956,
+    'Daroxime':846997.566013055388,
+    'Diclogesic':583542.896990849986,
+    'Doxydar':864901.634919309989,
+    'Erythrodar':40606.149599600001,
+    'Esperal-Espedar-Tiaqueen':24485.625542010002,
+    'Famodar':404429.937250519986,
+    'Gamcet':1519566.250814499799,
+    'Gizlan':9409.882347350002,
+    'Gizlan Duo - Gizamlo':15994.040058000002,
+    'Hairgrow':5201285.927455300465,
+    'Liblab - Avilop':3418784.065363799687,
+    'Loratan - Loradad':76074.169113450000,
+    'Lovista - Evadad':332466.647802800057,
+    'Matador - Livador':274862.499812069931,
+    'Mixif - Murex':1588733.747171400115,
+    'Motrinex':923297.863686639932,
+    'Mycoheal':842393.198796230019,
+    'Myogesic':70628.813370720003,
+    'Nerva Foot Care':-366.211200300000,
+    'Rina':3955235.068956419826,
+    'Rozitta - Robust':625969.835648400011,
+    'Sucrazide':0,
+    'Tyra 20 Mg':1352406.368512319867,
+    'Tyra 5 Mg':839434.943819200154,
+    'Vitadad - DivaD':381922.115028150030,
+    'Zarlan - Xivar':125606.099277599991
   });
+
+  let activeKsaTotalUsd = FALLBACK_KSA_TOTAL_USD;
+  let activeKsaByGroup = { ...fallbackKsaByGroup };
+  let activeKsaMetadata = {
+    source:'fallback',
+    reportingPeriod:'',
+    sourceFile:'',
+    excludedProductsWithout2026Price:6
+  };
 
   function selectedStockGroups() {
     const filter = document.getElementById('stockProductGroupFilter');
@@ -287,13 +292,79 @@
 
   function ksaHistoricalSalesForCurrentScope() {
     const selectedGroups = selectedStockGroups();
-    if (!selectedGroups.length) return KSA_HISTORICAL_SALES_TOTAL_USD;
+    if (!selectedGroups.length) return activeKsaTotalUsd;
 
     const selectedKeys = new Set(selectedGroups.map(normalizeIdentity));
-    return Object.entries(ksaHistoricalSalesByGroup)
-      .reduce((total, [group, value]) => (
-        selectedKeys.has(normalizeIdentity(group)) ? total + value : total
-      ), 0);
+    return Object.entries(activeKsaByGroup)
+      .reduce((total,[group,value]) => (
+        selectedKeys.has(normalizeIdentity(group))
+          ? total + (Number(value) || 0)
+          : total
+      ),0);
+  }
+
+  function publishKsaState() {
+    window.BRKsaStockHistoricalSales = Object.freeze({
+      totalUsd:activeKsaTotalUsd,
+      byProductGroup:Object.freeze({ ...activeKsaByGroup }),
+      formula:KSA_FORMULA,
+      ...activeKsaMetadata
+    });
+  }
+
+  function parseUploadedGroups(data) {
+    if (Array.isArray(data?.groups)) {
+      return Object.fromEntries(
+        data.groups
+          .map(item => [String(item?.name || '').trim(),Number(item?.value)])
+          .filter(([name,value]) => name && Number.isFinite(value))
+      );
+    }
+    if (data?.byProductGroup && typeof data.byProductGroup === 'object') {
+      return Object.fromEntries(
+        Object.entries(data.byProductGroup)
+          .map(([name,value]) => [String(name).trim(),Number(value)])
+          .filter(([name,value]) => name && Number.isFinite(value))
+      );
+    }
+    return {};
+  }
+
+  function applyUploadedKsaData(data) {
+    const groups = parseUploadedGroups(data);
+    const calculatedTotal = Object.values(groups)
+      .reduce((total,value) => total + (Number(value) || 0),0);
+    const suppliedTotal = Number(data?.totalUsd);
+    const total = Number.isFinite(suppliedTotal) ? suppliedTotal : calculatedTotal;
+    if (!Object.keys(groups).length || !Number.isFinite(total)) return false;
+
+    activeKsaTotalUsd = total;
+    activeKsaByGroup = groups;
+    activeKsaMetadata = {
+      source:'firestore',
+      reportingPeriod:String(data.reportingPeriod || ''),
+      sourceFile:String(data.sourceFile || ''),
+      includedProducts:Number(data.includedProducts) || 0,
+      excludedProductsWithout2026Price:
+        Number(data.excludedProductsWithout2026Price) || 0,
+      uploadedAt:data.uploadedAt || null
+    };
+    publishKsaState();
+    window.renderStockLevel?.();
+    return true;
+  }
+
+  async function loadUploadedKsaData() {
+    try {
+      const snapshot = await window.BRPortal?.db
+        ?.collection('system')
+        .doc('ksaHistoricalSales')
+        .get();
+      if (snapshot?.exists) applyUploadedKsaData(snapshot.data() || {});
+    } catch (error) {
+      console.error('Unable to load uploaded KSA Historical Sales.',error);
+    }
+    return window.BRKsaStockHistoricalSales;
   }
 
   function installKsaStockTableHistoricalOverride() {
@@ -311,7 +382,7 @@
     ) {
       const dimensionKey = normalizeIdentity(dimension);
       if (dimensionKey !== 'market' && dimensionKey !== 'country') {
-        return originalRenderer.call(this, rows, totals, dimension, ...rest);
+        return originalRenderer.call(this,rows,totals,dimension,...rest);
       }
 
       const nextRows = Array.isArray(rows)
@@ -322,7 +393,7 @@
       );
 
       if (ksaIndex < 0) {
-        return originalRenderer.call(this, rows, totals, dimension, ...rest);
+        return originalRenderer.call(this,rows,totals,dimension,...rest);
       }
 
       const previousHistorical = Number(nextRows[ksaIndex].historical) || 0;
@@ -350,15 +421,9 @@
     window.stockStatementTableHtml = wrappedRenderer;
   }
 
-  window.BRKsaStockHistoricalSales = Object.freeze({
-    totalUsd: KSA_HISTORICAL_SALES_TOTAL_USD,
-    byProductGroup: ksaHistoricalSalesByGroup,
-    formula:
-      '(Goods Qty 2025 + Goods Qty 2026 + Bonus Qty 2025 + Bonus Qty 2026) × Price 2026',
-    excludedProductsWithout2026Price: 6
-  });
-
+  publishKsaState();
   installKsaStockTableHistoricalOverride();
+  window.BRKsaHistoricalSalesReady = loadUploadedKsaData();
 
   window.loadActualGpRows = undefined;
   removeRetiredUi();
