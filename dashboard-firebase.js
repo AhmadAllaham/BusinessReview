@@ -136,7 +136,7 @@
     console.error(accessError);
     allowedReports = [
       "salesAnalysis","actualGp","focAnalysis","stockLevel",
-      "nearlyExpired","stockDashboard","smExpenses","pnl","mda"
+      "nearlyExpired","stockDashboard","smExpenses","pnl","analysis","mda"
     ];
   }
   const allowedReportSet = new Set(allowedReports);
@@ -214,7 +214,7 @@
     }
 
     const active = activeSnap.data();
-    const needsSales = hasAnyReport(["salesAnalysis","focAnalysis","actualGp"]);
+    const needsSales = hasAnyReport(["salesAnalysis","focAnalysis","actualGp","analysis"]);
     const needsPnl = hasAnyReport(["pnl","actualGp"]);
     const needsSm = hasReport("smExpenses");
     const needsStock = hasAnyReport(["stockLevel","stockDashboard"]);
@@ -246,8 +246,11 @@
       ? window.canonicalizeSalesRows(sales)
       : sales;
 
-    if (hasAnyReport(["salesAnalysis","focAnalysis"])) {
+    if (hasAnyReport(["salesAnalysis","focAnalysis","analysis"])) {
       window.loadSalesRowsFromDatabase?.(canonicalSales);
+    }
+    if (hasReport("analysis")) {
+      window.loadSalesAnalysisRows?.(canonicalSales);
     }
     if (hasReport("pnl")) window.loadPnlRowsFromDatabase?.(pnl);
     if (hasReport("smExpenses")) window.loadSmRowsFromDatabase?.(sm);
@@ -284,10 +287,10 @@
     showStatus(
       loadedReports.length
         ? `Loaded ${totalRows.toLocaleString("en-US")} authorized rows · ${loadedReports.join(" · ")}.`
-        : hasReport("mda")
+        : hasAnyReport(["mda","analysis"])
           ? "Your authorized report windows are ready."
           : "No data is available for your authorized report windows.",
-      Boolean(loadedReports.length || hasReport("mda")),
+      Boolean(loadedReports.length || hasAnyReport(["mda","analysis"])),
       false
     );
   } catch (error) {
