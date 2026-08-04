@@ -189,6 +189,11 @@
           loadFreshScript('report-readability.js','data-report-readability')
         ]);
 
+        await loadFreshScript(
+          'analysis-window.js',
+          'data-analysis-window'
+        );
+
         const script = document.createElement('script');
         script.src = `dashboard-firebase.js?v=${Date.now()}`;
         script.dataset.latestDashboardRuntime = 'true';
