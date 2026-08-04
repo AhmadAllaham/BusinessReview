@@ -19,17 +19,20 @@
     show("This account is inactive. Contact the administrator.","error");
   }
 
-  BRPortal.waitForAuth().then(session => {
-    if (session?.user && session.profile?.active !== false) {
-      location.replace(params.get("next") || "index.html");
-    }
-  });
+  BRPortal.persistenceReady
+    .then(() => BRPortal.waitForAuth())
+    .then(session => {
+      if (session?.user && session.profile?.active !== false) {
+        location.replace(params.get("next") || "index.html");
+      }
+    });
 
   form.addEventListener("submit",async event => {
     event.preventDefault();
     button.disabled = true;
     show("Signing in…");
     try {
+      await BRPortal.persistenceReady;
       const credential = await BRPortal.auth.signInWithEmailAndPassword(
         document.getElementById("email").value.trim(),
         document.getElementById("password").value
