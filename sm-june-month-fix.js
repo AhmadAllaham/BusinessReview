@@ -4,6 +4,24 @@
   if (window.__smJuneMonthFixInstalled) return;
   window.__smJuneMonthFixInstalled = true;
 
+  // Keep the Reporting Month filter available to the report logic, but hide
+  // it from the S&M interface. The latest actual month remains selected
+  // automatically, while users can continue filtering by country.
+  function hideSmReportingMonthFilter() {
+    const monthFilter = document.getElementById('smSimpleMonthFilter');
+    const filterWrapper = monthFilter?.closest('.filter');
+    if (!filterWrapper) return;
+
+    filterWrapper.hidden = true;
+    filterWrapper.setAttribute('aria-hidden', 'true');
+    filterWrapper.dataset.smMonthFilterHidden = 'true';
+
+    const grid = filterWrapper.closest('.sm-filters-grid');
+    if (grid) grid.dataset.smMonthFilterHidden = 'true';
+  }
+
+  hideSmReportingMonthFilter();
+
   // Legacy S&M uploads created before the calendar-date fix stored 1 June as
   // 31 May. Correct only that known shifted month boundary while reading the
   // existing Firestore rows, so no data re-upload is required.
@@ -48,4 +66,8 @@
       Date: correctLegacyJuneDate(row?.Date)
     });
   }
+
+  // Re-apply after report modules finish initializing, in case the filter
+  // controls were rebuilt while Firestore rows were loading.
+  window.requestAnimationFrame(hideSmReportingMonthFilter);
 })();
