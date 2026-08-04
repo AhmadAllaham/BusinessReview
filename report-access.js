@@ -18,6 +18,7 @@
   const businessKeys = allKeys.filter(key => key !== 'mda');
   let allowed = new Set(allKeys);
   let stockPatched = false;
+  let stockHeaderPatched = false;
   let stockTabBridgeInstalled = false;
   let activating = false;
   let refreshScheduled = false;
@@ -100,6 +101,50 @@
         return String(left).localeCompare(String(right), undefined, { numeric: true });
       });
     };
+  }
+
+  function installStockHeaderPeriods() {
+    if (stockHeaderPatched || typeof window.stockStatementTableHtml !== 'function') return;
+    stockHeaderPatched = true;
+
+    if (!document.getElementById('stock-header-period-style')) {
+      const style = document.createElement('style');
+      style.id = 'stock-header-period-style';
+      style.textContent = `
+        .stock-header-period {
+          display: inline-block;
+          margin-inline-start: 6px;
+          font-size: 10px;
+          line-height: 1;
+          font-weight: 600;
+          letter-spacing: .02em;
+          opacity: .72;
+          vertical-align: middle;
+          white-space: nowrap;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    const original = window.stockStatementTableHtml;
+    const patched = function (...args) {
+      return original.apply(this, args)
+        .replace(
+          /Historical Sales \(([^)]+)\)/g,
+          'Historical Sales <small class="stock-header-period">12 Month</small> ($1)'
+        )
+        .replace(
+          /Forecast Sales \(([^)]+)\)/g,
+          'Forecast Sales <small class="stock-header-period">6 Month</small> ($1)'
+        );
+    };
+
+    window.stockStatementTableHtml = patched;
+    try {
+      stockStatementTableHtml = patched;
+    } catch (error) {
+      console.error('Could not patch the Stock Level headers.', error);
+    }
   }
 
   function resolve(profile) {
@@ -327,6 +372,7 @@
     requestAnimationFrame(() => {
       refreshScheduled = false;
       installMonthFilterSort();
+      installStockHeaderPeriods();
       patchStockMode();
       enforceStaticAccess();
       activateFirstAllowed();
@@ -337,6 +383,7 @@
     allowed = new Set(resolve(profile));
     window.BR_ALLOWED_REPORTS = [...allowed];
     installMonthFilterSort();
+    installStockHeaderPeriods();
     installActualGpSalesBridge();
     installStockTabBridge();
     patchStockMode();
