@@ -184,6 +184,7 @@
 
         await Promise.all([
           loadFreshScript('sales-ims-canonical.js','data-latest-sales-canonical'),
+          loadFreshScript('sales-fy-budget.js','data-sales-fy-budget'),
           loadFreshScript('report-access.js','data-latest-report-access')
         ]);
 
