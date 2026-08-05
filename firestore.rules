@@ -35,6 +35,34 @@ service cloud.firestore {
       ];
     }
 
+    function saudiCountry(country) {
+      return country in [
+        "KSA",
+        "Ksa",
+        "ksa",
+        "Saudi",
+        "SAUDI",
+        "saudi",
+        "Saudi Arabia",
+        "SAUDI ARABIA",
+        "saudi arabia",
+        "Kingdom of Saudi Arabia"
+      ];
+    }
+
+    function listHasSaudi(countries) {
+      return "KSA" in countries ||
+        "Ksa" in countries ||
+        "ksa" in countries ||
+        "Saudi" in countries ||
+        "SAUDI" in countries ||
+        "saudi" in countries ||
+        "Saudi Arabia" in countries ||
+        "SAUDI ARABIA" in countries ||
+        "saudi arabia" in countries ||
+        "Kingdom of Saudi Arabia" in countries;
+    }
+
     function allowedCountry(country) {
       let countries = currentProfile().get("countries", []);
       return enabledUser() &&
@@ -43,6 +71,7 @@ service cloud.firestore {
             countries is list &&
             (
               country in countries ||
+              (listHasSaudi(countries) && saudiCountry(country)) ||
               ("GCC" in countries && gccCountry(country)) ||
               ("Gcc" in countries && gccCountry(country)) ||
               ("gcc" in countries && gccCountry(country))
@@ -52,6 +81,7 @@ service cloud.firestore {
             countries is string &&
             (
               country == countries ||
+              (saudiCountry(countries) && saudiCountry(country)) ||
               (
                 countries in ["GCC", "Gcc", "gcc"] &&
                 gccCountry(country)
