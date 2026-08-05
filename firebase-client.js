@@ -1,16 +1,18 @@
 (function () {
+  'use strict';
+
   const config = window.BR_FIREBASE_CONFIG || {};
   const configured = Boolean(
     config.apiKey &&
     config.projectId &&
     config.appId &&
-    !String(config.apiKey).startsWith("REPLACE_")
+    !String(config.apiKey).startsWith('REPLACE_')
   );
 
   if (!configured) {
     window.BRPortal = {
       configured:false,
-      error:"Firebase is not configured. Update firebase-config.js first."
+      error:'Firebase is not configured. Update firebase-config.js first.'
     };
     return;
   }
@@ -18,7 +20,7 @@
   if (!window.firebase) {
     window.BRPortal = {
       configured:false,
-      error:"Firebase SDK could not be loaded."
+      error:'Firebase SDK could not be loaded.'
     };
     return;
   }
@@ -26,18 +28,17 @@
   const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(config);
   const auth = app.auth();
   const db = app.firestore();
+  const ASSET_VERSION = '20260805-3';
 
-  // Keep authentication only for the current browser session. This avoids a
-  // shared computer remaining signed in after all browser windows are closed.
   const persistenceReady = auth
     .setPersistence(firebase.auth.Auth.Persistence.SESSION)
     .catch(error => {
-      console.error("Unable to set session authentication persistence.", error);
+      console.error('Unable to set session authentication persistence.',error);
     });
 
   async function getProfile(uid) {
-    const snap = await db.collection("users").doc(uid).get();
-    return snap.exists ? { id:snap.id, ...snap.data() } : null;
+    const snap = await db.collection('users').doc(uid).get();
+    return snap.exists ? {id:snap.id,...snap.data()} : null;
   }
 
   async function currentSession() {
@@ -45,7 +46,7 @@
     const user = auth.currentUser;
     if (!user) return null;
     const profile = await getProfile(user.uid);
-    return { user, profile };
+    return {user,profile};
   }
 
   function waitForAuth() {
@@ -54,9 +55,9 @@
         unsubscribe();
         if (!user) return resolve(null);
         try {
-          resolve({ user, profile:await getProfile(user.uid) });
+          resolve({user,profile:await getProfile(user.uid)});
         } catch (error) {
-          resolve({ user, profile:null, error });
+          resolve({user,profile:null,error});
         }
       });
     });
@@ -66,16 +67,23 @@
     await persistenceReady;
     const session = await waitForAuth();
     if (!session?.user) {
-      location.replace(`Login.html?next=${encodeURIComponent(options.next || location.pathname.split("/").pop() || "index.html")}`);
+      location.replace(
+        `Login.html?next=${encodeURIComponent(
+          options.next || location.pathname.split('/').pop() || 'index.html'
+        )}`
+      );
       return null;
     }
     if (!session.profile || session.profile.active === false) {
       await auth.signOut();
-      location.replace("Login.html?error=inactive");
+      location.replace('Login.html?error=inactive');
       return null;
     }
-    if (options.admin && session.profile.role !== "admin") {
-      location.replace("index.html");
+    if (
+      options.admin &&
+      String(session.profile.role || '').trim().toLowerCase() !== 'admin'
+    ) {
+      location.replace('index.html');
       return null;
     }
     return session;
@@ -83,7 +91,7 @@
 
   async function signOut() {
     await auth.signOut();
-    location.replace("Login.html");
+    location.replace('Login.html');
   }
 
   window.BRPortal = {
@@ -103,132 +111,100 @@
 
   const pageName = location.pathname.split('/').pop() || 'index.html';
   const isDashboardPage = pageName.toLowerCase() === 'index.html' || pageName === '';
-  if (isDashboardPage && !window.__BR_LATEST_DASHBOARD_BOOTSTRAP__) {
-    window.__BR_LATEST_DASHBOARD_BOOTSTRAP__ = true;
+  if (!isDashboardPage || window.__BR_LATEST_DASHBOARD_BOOTSTRAP__) return;
+  window.__BR_LATEST_DASHBOARD_BOOTSTRAP__ = true;
 
-    // Do not expose or activate any dashboard UI before Firebase confirms both
-    // the authenticated user and an enabled application profile.
-    const dashboardBody = document.body;
-    if (dashboardBody) {
-      dashboardBody.style.visibility = 'hidden';
-      dashboardBody.style.pointerEvents = 'none';
-      dashboardBody.setAttribute('aria-busy', 'true');
-    }
-
-    const realRequireSession = window.BRPortal.requireSession;
-    const dashboardSessionPromise = realRequireSession({ next:'index.html' });
-    let skipLegacyDashboardSession = true;
-
-    // index.html still contains an old pinned dashboard script. Prevent that
-    // copy from running; the authenticated bootstrap below loads one fresh
-    // runtime after access has been verified.
-    window.BRPortal.requireSession = function (options={}) {
-      if (skipLegacyDashboardSession && options.next === 'index.html') {
-        skipLegacyDashboardSession = false;
-        return Promise.resolve(null);
-      }
-      return realRequireSession(options);
-    };
-
-    function revealDashboard() {
-      if (!dashboardBody) return;
-      dashboardBody.style.visibility = '';
-      dashboardBody.style.pointerEvents = '';
-      dashboardBody.removeAttribute('aria-busy');
-    }
-
-    function loadFreshScript(src,attribute) {
-      return new Promise((resolve,reject) => {
-        const existing = document.querySelector(`script[${attribute}]`);
-        if (existing) {
-          if (existing.dataset.loaded === 'true') return resolve();
-          existing.addEventListener('load',resolve,{once:true});
-          existing.addEventListener('error',reject,{once:true});
-          return;
-        }
-        const script = document.createElement('script');
-        script.src = `${src}${src.includes('?') ? '&' : '?'}v=${Date.now()}`;
-        script.setAttribute(attribute,'true');
-        script.onload = () => {
-          script.dataset.loaded = 'true';
-          resolve();
-        };
-        script.onerror = () => reject(new Error(`Unable to load ${src}`));
-        document.body.appendChild(script);
-      });
-    }
-
-    window.addEventListener('DOMContentLoaded', async () => {
-      if (document.querySelector('script[data-latest-dashboard-runtime]')) return;
-      const status = document.getElementById('statusBox');
-
-      // An unauthenticated or disabled account is redirected by
-      // requireSession and never reaches any dashboard loader below.
-      const verifiedSession = await dashboardSessionPromise;
-      if (!verifiedSession) return;
-
-      revealDashboard();
-
-      try {
-        // Install the S&M calendar reader before its rows are loaded. The
-        // second patch corrects legacy 31 May records that actually represent
-        // the June reporting month.
-        await loadFreshScript(
-          'near-expiry-agent-stock-fix.js',
-          'data-near-expiry-stock-fix'
-        );
-        await loadFreshScript(
-          'sm-june-month-fix.js',
-          'data-sm-june-month-fix'
-        );
-
-        await Promise.all([
-          loadFreshScript('sales-ims-canonical.js','data-latest-sales-canonical'),
-          loadFreshScript('sales-fy-budget.js','data-sales-fy-budget'),
-          loadFreshScript('report-access.js','data-latest-report-access'),
-          loadFreshScript('report-readability.js','data-report-readability')
-        ]);
-
-        // Report Access installs its Actual GP permission bridge first. Load
-        // the rebuilt report module afterwards so the fresh calculation loader
-        // is wrapped by that bridge and is ready before Firestore data arrives.
-        await loadFreshScript(
-          'actual-gp.js',
-          'data-actual-gp-module'
-        );
-
-        await loadFreshScript(
-          'ksa-forecast-override.js',
-          'data-ksa-forecast-override'
-        );
-
-        await loadFreshScript(
-          'analysis-window.js',
-          'data-analysis-window'
-        );
-
-        await loadFreshScript(
-          'sm-test-link.js',
-          'data-sm-test-link'
-        );
-
-        const script = document.createElement('script');
-        script.src = `dashboard-firebase.js?v=${Date.now()}`;
-        script.dataset.latestDashboardRuntime = 'true';
-        script.onerror = () => {
-          if (status) {
-            status.textContent = 'Unable to load the latest dashboard version. Refresh the page.';
-            status.className = 'status-box error';
-          }
-        };
-        document.body.appendChild(script);
-      } catch (error) {
-        console.error(error);
-        if (status) {
-          status.textContent = error.message || 'Unable to load the latest dashboard fixes.';
-          status.className = 'status-box error';
-        }
-      }
-    }, { once:true });
+  const dashboardBody = document.body;
+  if (dashboardBody) {
+    dashboardBody.style.visibility = 'hidden';
+    dashboardBody.style.pointerEvents = 'none';
+    dashboardBody.setAttribute('aria-busy','true');
   }
+
+  const realRequireSession = window.BRPortal.requireSession;
+  const dashboardSessionPromise = realRequireSession({next:'index.html'});
+  let skipLegacyDashboardSession = true;
+
+  // index.html still references one legacy dashboard script. Let it exit before
+  // reading data, then run one optimized cached dashboard runtime below.
+  window.BRPortal.requireSession = function (options={}) {
+    if (skipLegacyDashboardSession && options.next === 'index.html') {
+      skipLegacyDashboardSession = false;
+      return Promise.resolve(null);
+    }
+    return realRequireSession(options);
+  };
+
+  function revealDashboard() {
+    if (!dashboardBody) return;
+    dashboardBody.style.visibility = '';
+    dashboardBody.style.pointerEvents = '';
+    dashboardBody.removeAttribute('aria-busy');
+  }
+
+  function versioned(src) {
+    return `${src}${src.includes('?') ? '&' : '?'}v=${ASSET_VERSION}`;
+  }
+
+  function loadCachedScript(src,attribute) {
+    return new Promise((resolve,reject) => {
+      const existing = document.querySelector(`script[${attribute}]`);
+      if (existing) {
+        if (existing.dataset.loaded === 'true') return resolve();
+        existing.addEventListener('load',resolve,{once:true});
+        existing.addEventListener('error',reject,{once:true});
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = versioned(src);
+      script.setAttribute(attribute,'true');
+      script.onload = () => {
+        script.dataset.loaded = 'true';
+        resolve();
+      };
+      script.onerror = () => reject(new Error(`Unable to load ${src}`));
+      document.body.appendChild(script);
+    });
+  }
+
+  window.addEventListener('DOMContentLoaded',async () => {
+    if (document.querySelector('script[data-latest-dashboard-runtime]')) return;
+    const status = document.getElementById('statusBox');
+    const verifiedSession = await dashboardSessionPromise;
+    if (!verifiedSession) return;
+
+    revealDashboard();
+
+    try {
+      // Only startup-critical patches are loaded here. Report-specific code and
+      // Firestore datasets are now loaded when the user opens that report.
+      await loadCachedScript('report-access.js','data-latest-report-access');
+
+      await Promise.all([
+        loadCachedScript('sales-fy-budget.js','data-sales-fy-budget'),
+        loadCachedScript('report-readability.js','data-report-readability'),
+        loadCachedScript('sm-june-month-fix.js','data-sm-june-month-fix'),
+        loadCachedScript('ksa-forecast-override.js','data-ksa-forecast-override'),
+        loadCachedScript('sm-test-link.js','data-sm-test-link')
+      ]);
+
+      await loadCachedScript('analysis-window.js','data-analysis-window');
+
+      const script = document.createElement('script');
+      script.src = versioned('dashboard-firebase.js');
+      script.dataset.latestDashboardRuntime = 'true';
+      script.onerror = () => {
+        if (!status) return;
+        status.textContent = 'Unable to load the latest dashboard version. Refresh the page.';
+        status.className = 'status-box error';
+      };
+      document.body.appendChild(script);
+    } catch (error) {
+      console.error(error);
+      if (!status) return;
+      status.textContent = error.message || 'Unable to load the dashboard startup files.';
+      status.className = 'status-box error';
+    }
+  },{once:true});
 })();
