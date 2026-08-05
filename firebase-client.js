@@ -28,7 +28,7 @@
   const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(config);
   const auth = app.auth();
   const db = app.firestore();
-  const ASSET_VERSION = '20260805-5';
+  const ASSET_VERSION = '20260805-6';
 
   const persistenceReady = auth
     .setPersistence(firebase.auth.Auth.Persistence.SESSION)
@@ -186,7 +186,8 @@
         loadCachedScript('report-readability.js','data-report-readability'),
         loadCachedScript('sm-june-month-fix.js','data-sm-june-month-fix'),
         loadCachedScript('ksa-forecast-override.js','data-ksa-forecast-override'),
-        loadCachedScript('sm-test-link.js','data-sm-test-link')
+        loadCachedScript('sm-test-link.js','data-sm-test-link'),
+        loadCachedScript('header-flag-images.js','data-header-flag-images')
       ]);
 
       await loadCachedScript('analysis-window.js','data-analysis-window');
