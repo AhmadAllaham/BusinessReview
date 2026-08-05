@@ -3,6 +3,14 @@
 
   let displayCountries = [];
   const legacyAliasesByCountry = new Map();
+  const KNOWN_QUERY_ALIASES = {
+    KSA:[
+      'KSA','Ksa','ksa','Saudi','SAUDI','saudi',
+      'Saudi Arabia','SAUDI ARABIA','saudi arabia',
+      'Kingdom of Saudi Arabia'
+    ],
+    UAE:['UAE','United Arab Emirates']
+  };
 
   function countryIdentity(value) {
     return String(value ?? '')
@@ -61,14 +69,15 @@
 
   function rememberLegacyAliases(values) {
     legacyAliasesByCountry.clear();
-    rawCountryList(values).forEach(rawCountry => {
-      const canonical = canonicalCountry(rawCountry);
-      if (!canonical) return;
-      if (!legacyAliasesByCountry.has(canonical)) {
-        legacyAliasesByCountry.set(canonical,new Set());
-      }
-      legacyAliasesByCountry.get(canonical).add(rawCountry);
-      legacyAliasesByCountry.get(canonical).add(canonical);
+    const rawCountries = rawCountryList(values);
+    const canonicalCountries = canonicalCountryList(rawCountries);
+
+    canonicalCountries.forEach(canonical => {
+      const aliases = new Set([canonical,...(KNOWN_QUERY_ALIASES[canonical] || [])]);
+      rawCountries
+        .filter(raw => canonicalCountry(raw) === canonical)
+        .forEach(raw => aliases.add(raw));
+      legacyAliasesByCountry.set(canonical,aliases);
     });
   }
 
@@ -86,7 +95,6 @@
       ...profile,
       role:String(profile.role || 'user').trim().toLocaleLowerCase('en-US'),
       active:profile.active === false || activeValue === 'false' ? false : true,
-      // The application sees one standardized country name only.
       countries:canonicalCountries,
       __displayCountries:canonicalCountries
     };
@@ -164,7 +172,9 @@
               if (!countryConstraint) return target.get(...args);
 
               const canonical = canonicalCountry(countryConstraint.value);
-              const aliases = [...(legacyAliasesByCountry.get(canonical) || [])];
+              const aliases = [...(legacyAliasesByCountry.get(canonical) || [
+                countryConstraint.value
+              ])];
               if (aliases.length <= 1) return target.get(...args);
 
               const otherConstraints = constraints.filter(constraint =>
