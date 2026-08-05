@@ -145,7 +145,8 @@
     sm:null,
     stock:null,
     nearlyExpired:null,
-    profitability:null
+    profitability:null,
+    analysisCost:null
   };
   const mounted = new Set();
 
@@ -225,6 +226,20 @@
     return rows;
   }
 
+  async function getStock() {
+    if (!data.stock) data.stock = await loadDataset(active.stock);
+    return data.stock;
+  }
+
+  async function mountStock() {
+    const rows = await getStock();
+    if (!mounted.has('stock')) {
+      window.loadStockRowsFromDatabase?.(rows);
+      mounted.add('stock');
+    }
+    return rows;
+  }
+
   async function mountSm() {
     await loadNearExpiryStockFix();
     if (!data.sm) data.sm = await loadDataset(active.sm);
@@ -235,36 +250,44 @@
     return data.sm;
   }
 
-  async function mountStock() {
-    if (!data.stock) data.stock = await loadDataset(active.stock);
-    if (!mounted.has('stock')) {
-      window.loadStockRowsFromDatabase?.(data.stock);
-      mounted.add('stock');
-    }
-    return data.stock;
-  }
-
-  async function mountNearlyExpired() {
-    await loadNearExpiryStockFix();
+  async function getNearlyExpired() {
     if (!data.nearlyExpired) {
       data.nearlyExpired = await loadDataset(active.nearlyExpired);
-    }
-    if (!mounted.has('nearlyExpired')) {
-      window.loadNearlyExpiredRowsFromDatabase?.(data.nearlyExpired);
-      mounted.add('nearlyExpired');
     }
     return data.nearlyExpired;
   }
 
-  async function mountProfitability() {
+  async function mountNearlyExpired() {
+    await loadNearExpiryStockFix();
+    const rows = await getNearlyExpired();
+    if (!mounted.has('nearlyExpired')) {
+      window.loadNearlyExpiredRowsFromDatabase?.(rows);
+      mounted.add('nearlyExpired');
+    }
+    return rows;
+  }
+
+  async function getProfitability() {
     if (!data.profitability) {
       data.profitability = await loadDataset(active.profitability);
     }
+    return data.profitability;
+  }
+
+  async function mountProfitability() {
+    const rows = await getProfitability();
     if (!mounted.has('profitability')) {
-      window.loadProfitabilityRowsFromDatabase?.(data.profitability);
+      window.loadProfitabilityRowsFromDatabase?.(rows);
       mounted.add('profitability');
     }
-    return data.profitability;
+    return rows;
+  }
+
+  async function getAnalysisCost() {
+    if (!data.analysisCost) {
+      data.analysisCost = await loadDataset(active.analysisCost);
+    }
+    return data.analysisCost;
   }
 
   async function mountActualGp() {
@@ -278,6 +301,33 @@
       window.loadActualGpRows?.(sales,pnl,profitability);
       mounted.add('actualGp');
     }
+  }
+
+  async function mountAnalysis() {
+    const canUseSales = hasReport('salesAnalysis') || hasReport('focAnalysis') || hasReport('actualGp');
+    const canUsePnl = hasReport('pnl');
+    const canUseStock = hasReport('stockLevel') || hasReport('stockDashboard');
+    const canUseNearExpiry = hasReport('nearlyExpired');
+    const canUseProfitability = hasReport('actualGp') || hasReport('salesAnalysis') || hasReport('stockLevel');
+
+    const [sales,pnl,stock,nearlyExpired,profitability,cost] = await Promise.all([
+      canUseSales ? getSales() : Promise.resolve([]),
+      canUsePnl ? getPnl() : Promise.resolve([]),
+      canUseStock ? getStock() : Promise.resolve([]),
+      canUseNearExpiry ? getNearlyExpired() : Promise.resolve([]),
+      canUseProfitability ? getProfitability() : Promise.resolve([]),
+      getAnalysisCost()
+    ]);
+
+    window.loadIntegratedAnalysisData?.({
+      sales,
+      pnl,
+      stock,
+      nearlyExpired,
+      profitability,
+      cost
+    });
+    mounted.add('analysis');
   }
 
   const reportLabels = {
@@ -322,6 +372,8 @@
           await mountPnl();
           break;
         case 'analysis':
+          await mountAnalysis();
+          break;
         case 'mda':
           break;
         default:
@@ -411,7 +463,6 @@
     return;
   }
 
-  // Profitability is useful for GP toggles, but it should never delay the first screen.
   if (hasReport('salesAnalysis') || hasReport('focAnalysis') || hasReport('stockLevel')) {
     const preloadProfitability = () => mountProfitability().catch(error => console.error(error));
     if ('requestIdleCallback' in window) {
