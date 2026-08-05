@@ -28,7 +28,7 @@
   const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(config);
   const auth = app.auth();
   const db = app.firestore();
-  const ASSET_VERSION = '20260805-6';
+  const ASSET_VERSION = '20260806-1';
 
   const persistenceReady = auth
     .setPersistence(firebase.auth.Auth.Persistence.SESSION)
@@ -125,8 +125,6 @@
   const dashboardSessionPromise = realRequireSession({next:'index.html'});
   let skipLegacyDashboardSession = true;
 
-  // index.html still references one legacy dashboard script. Let it exit before
-  // reading data, then run one optimized cached dashboard runtime below.
   window.BRPortal.requireSession = function (options={}) {
     if (skipLegacyDashboardSession && options.next === 'index.html') {
       skipLegacyDashboardSession = false;
@@ -177,8 +175,6 @@
     revealDashboard();
 
     try {
-      // Only startup-critical patches are loaded here. Report-specific code and
-      // Firestore datasets are now loaded when the user opens that report.
       await loadCachedScript('report-access.js','data-latest-report-access');
 
       await Promise.all([
