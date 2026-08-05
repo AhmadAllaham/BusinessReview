@@ -168,14 +168,6 @@
     return;
   }
 
-  function countryBatches(values,size=10) {
-    const batches = [];
-    for (let index=0; index<values.length; index+=size) {
-      batches.push(values.slice(index,index+size));
-    }
-    return batches;
-  }
-
   async function loadDataset(datasetId) {
     if (!datasetId) return [];
     let chunkDocs = [];
@@ -185,11 +177,10 @@
         .get();
       chunkDocs = snapshot.docs;
     } else {
-      const batches = countryBatches(queryCountries);
-      const snapshots = await Promise.all(batches.map(countries =>
+      const snapshots = await Promise.all(queryCountries.map(country =>
         BRPortal.db.collection("reportChunks")
           .where("datasetId","==",datasetId)
-          .where("country","in",countries)
+          .where("country","==",country)
           .get()
       ));
       chunkDocs = snapshots.flatMap(snapshot => snapshot.docs);
