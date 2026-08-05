@@ -198,6 +198,11 @@
         );
 
         await loadFreshScript(
+          'ksa-forecast-override.js',
+          'data-ksa-forecast-override'
+        );
+
+        await loadFreshScript(
           'analysis-window.js',
           'data-analysis-window'
         );
