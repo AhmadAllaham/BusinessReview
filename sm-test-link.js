@@ -1,13 +1,8 @@
 (() => {
   'use strict';
 
-  const SAUDI_ALIASES = [
-    'KSA','Ksa','ksa','Saudi','SAUDI','saudi',
-    'Saudi Arabia','SAUDI ARABIA','saudi arabia',
-    'Kingdom of Saudi Arabia'
-  ];
-
   let displayCountries = [];
+  const legacyAliasesByCountry = new Map();
 
   function countryIdentity(value) {
     return String(value ?? '')
@@ -47,26 +42,40 @@
       );
   }
 
-  function canonicalCountryList(values) {
+  function rawCountryList(values) {
     const source = Array.isArray(values)
       ? values
       : values == null || values === ''
         ? []
         : [values];
     return [...new Set(source
+      .map(value => String(value ?? '').trim())
+      .filter(Boolean))];
+  }
+
+  function canonicalCountryList(values) {
+    return [...new Set(rawCountryList(values)
       .map(canonicalCountry)
       .filter(Boolean))];
   }
 
-  function queryCountryList(values) {
-    return [...new Set(canonicalCountryList(values).flatMap(country =>
-      country === 'KSA' ? SAUDI_ALIASES : [country]
-    ))];
+  function rememberLegacyAliases(values) {
+    legacyAliasesByCountry.clear();
+    rawCountryList(values).forEach(rawCountry => {
+      const canonical = canonicalCountry(rawCountry);
+      if (!canonical) return;
+      if (!legacyAliasesByCountry.has(canonical)) {
+        legacyAliasesByCountry.set(canonical,new Set());
+      }
+      legacyAliasesByCountry.get(canonical).add(rawCountry);
+      legacyAliasesByCountry.get(canonical).add(canonical);
+    });
   }
 
   function normalizeProfile(profile) {
     if (!profile || typeof profile !== 'object') return profile;
 
+    rememberLegacyAliases(profile.countries);
     const canonicalCountries = canonicalCountryList(profile.countries);
     displayCountries = canonicalCountries;
     const activeValue = String(profile.active ?? 'true')
@@ -77,9 +86,8 @@
       ...profile,
       role:String(profile.role || 'user').trim().toLocaleLowerCase('en-US'),
       active:profile.active === false || activeValue === 'false' ? false : true,
-      // Query every old Saudi spelling so legacy chunks remain readable, while
-      // every dashboard/filter value is normalized to the single name KSA.
-      countries:queryCountryList(canonicalCountries),
+      // The application sees one standardized country name only.
+      countries:canonicalCountries,
       __displayCountries:canonicalCountries
     };
   }
@@ -109,6 +117,97 @@
     }
 
     portal.__profileCompatibilityInstalled = true;
+  }
+
+  function mergedSnapshot(snapshots) {
+    const documentMap = new Map();
+    snapshots.forEach(snapshot => {
+      (snapshot?.docs || []).forEach(doc => {
+        const key = doc.ref?.path || doc.id;
+        if (!documentMap.has(key)) documentMap.set(key,doc);
+      });
+    });
+    const docs = [...documentMap.values()];
+    return {
+      docs,
+      size:docs.length,
+      empty:docs.length === 0,
+      forEach(callback,thisArg) {
+        docs.forEach(callback,thisArg);
+      }
+    };
+  }
+
+  function installLegacyCountryChunkReader() {
+    const portal = window.BRPortal;
+    const db = portal?.db;
+    if (!db || db.__legacyCountryChunkReaderInstalled) return;
+
+    const originalCollection = db.collection.bind(db);
+
+    function wrapReportChunkQuery(query,constraints=[]) {
+      return new Proxy(query,{
+        get(target,property) {
+          if (property === 'where') {
+            return (field,operator,value) => wrapReportChunkQuery(
+              target.where(field,operator,value),
+              [...constraints,{field,operator,value}]
+            );
+          }
+
+          if (property === 'get') {
+            return async (...args) => {
+              const countryConstraint = constraints.find(constraint =>
+                constraint.field === 'country' &&
+                constraint.operator === '=='
+              );
+              if (!countryConstraint) return target.get(...args);
+
+              const canonical = canonicalCountry(countryConstraint.value);
+              const aliases = [...(legacyAliasesByCountry.get(canonical) || [])];
+              if (aliases.length <= 1) return target.get(...args);
+
+              const otherConstraints = constraints.filter(constraint =>
+                constraint !== countryConstraint
+              );
+              const results = await Promise.allSettled(aliases.map(alias => {
+                let aliasQuery = originalCollection('reportChunks');
+                otherConstraints.forEach(constraint => {
+                  aliasQuery = aliasQuery.where(
+                    constraint.field,
+                    constraint.operator,
+                    constraint.value
+                  );
+                });
+                return aliasQuery.where('country','==',alias).get(...args);
+              }));
+
+              const fulfilled = results
+                .filter(result => result.status === 'fulfilled')
+                .map(result => result.value);
+              if (fulfilled.length) return mergedSnapshot(fulfilled);
+
+              const firstFailure = results.find(result => result.status === 'rejected');
+              throw firstFailure?.reason || new Error(
+                `Unable to load ${canonical || countryConstraint.value} data.`
+              );
+            };
+          }
+
+          const value = Reflect.get(target,property,target);
+          return typeof value === 'function' ? value.bind(target) : value;
+        }
+      });
+    }
+
+    db.collection = function (collectionPath) {
+      const reference = originalCollection(collectionPath);
+      return collectionPath === 'reportChunks'
+        ? wrapReportChunkQuery(reference)
+        : reference;
+    };
+
+    db.__legacyCountryChunkReaderInstalled = true;
   }
 
   function normalizeCountryRow(row) {
@@ -214,6 +313,7 @@
   }
 
   installProfileCompatibility();
+  installLegacyCountryChunkReader();
   installAllCountryMerges();
   installCountryScopeDisplay();
 
