@@ -1,6 +1,14 @@
 (function () {
   'use strict';
 
+  // Apply the saved theme before the dashboard is revealed to avoid a light flash.
+  try {
+    const savedTheme = localStorage.getItem('br-theme') === 'dark' ? 'dark' : 'light';
+    document.documentElement.classList.toggle('br-night-mode',savedTheme === 'dark');
+    document.documentElement.dataset.brTheme = savedTheme;
+    document.documentElement.style.colorScheme = savedTheme;
+  } catch (_) {}
+
   const config = window.BR_FIREBASE_CONFIG || {};
   const configured = Boolean(
     config.apiKey &&
@@ -28,7 +36,7 @@
   const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(config);
   const auth = app.auth();
   const db = app.firestore();
-  const ASSET_VERSION = '20260806-2';
+  const ASSET_VERSION = '20260806-3';
 
   const persistenceReady = auth
     .setPersistence(firebase.auth.Auth.Persistence.SESSION)
@@ -184,6 +192,11 @@
     const verifiedSession = await dashboardSessionPromise;
     if (!verifiedSession) return;
 
+    try {
+      await loadCachedScript('night-mode.js','data-br-night-mode');
+    } catch (themeError) {
+      console.error('Unable to load night mode.',themeError);
+    }
     revealDashboard();
 
     try {
