@@ -11,13 +11,16 @@ service cloud.firestore {
     }
 
     function enabledUser() {
+      let active = currentProfile().get("active", true);
       return signedIn() &&
-        (!("active" in currentProfile()) || currentProfile().active == true);
+        active != false &&
+        active != "false";
     }
 
     function adminUser() {
+      let role = currentProfile().get("role", "user");
       return enabledUser() &&
-        currentProfile().role == "admin";
+        role in ["admin", "Admin", "ADMIN"];
     }
 
     function gccCountry(country) {
@@ -33,11 +36,28 @@ service cloud.firestore {
     }
 
     function allowedCountry(country) {
+      let countries = currentProfile().get("countries", []);
       return enabledUser() &&
-        currentProfile().countries is list &&
         (
-          country in currentProfile().countries ||
-          ("GCC" in currentProfile().countries && gccCountry(country))
+          (
+            countries is list &&
+            (
+              country in countries ||
+              ("GCC" in countries && gccCountry(country)) ||
+              ("Gcc" in countries && gccCountry(country)) ||
+              ("gcc" in countries && gccCountry(country))
+            )
+          ) ||
+          (
+            countries is string &&
+            (
+              country == countries ||
+              (
+                countries in ["GCC", "Gcc", "gcc"] &&
+                gccCountry(country)
+              )
+            )
+          )
         );
     }
 
