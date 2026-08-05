@@ -11,6 +11,25 @@
     ],
     UAE:['UAE','United Arab Emirates']
   };
+  const COUNTRY_FLAGS = {
+    KSA:'🇸🇦',
+    Jordan:'🇯🇴',
+    UAE:'🇦🇪',
+    Qatar:'🇶🇦',
+    Bahrain:'🇧🇭',
+    Kuwait:'🇰🇼',
+    Oman:'🇴🇲',
+    Iraq:'🇮🇶',
+    Lebanon:'🇱🇧',
+    Libya:'🇱🇾',
+    Sudan:'🇸🇩',
+    Algeria:'🇩🇿',
+    Zambia:'🇿🇲',
+    Uganda:'🇺🇬',
+    USA:'🇺🇸',
+    UK:'🇬🇧'
+  };
+  const GCC_DISPLAY_COUNTRIES = ['UAE','Qatar','Bahrain','Kuwait','Oman'];
 
   function countryIdentity(value) {
     return String(value ?? '')
@@ -302,9 +321,96 @@
     }
   }
 
-  async function installTestLink() {
+  function displayFlagCountries(values) {
+    return [...new Set(canonicalCountryList(values).flatMap(country =>
+      country === 'GCC' || country === 'GCC Common'
+        ? GCC_DISPLAY_COUNTRIES
+        : [country]
+    ))];
+  }
+
+  function ensureHeaderFlagStyle() {
+    if (document.getElementById('header-country-flags-style')) return;
+    const style = document.createElement('style');
+    style.id = 'header-country-flags-style';
+    style.textContent = `
+      .header-country-flags{
+        display:flex;
+        align-items:center;
+        justify-content:flex-end;
+        gap:7px;
+        min-height:42px;
+        padding:4px 6px;
+      }
+      .header-country-flag{
+        display:grid;
+        place-items:center;
+        width:42px;
+        height:34px;
+        border:1px solid #d7e2e7;
+        border-radius:10px;
+        background:#fff;
+        font-size:25px;
+        line-height:1;
+        box-shadow:0 3px 10px rgba(15,35,55,.07);
+        cursor:default;
+      }
+      .header-country-flag:hover{
+        transform:translateY(-1px);
+        box-shadow:0 5px 14px rgba(15,35,55,.11);
+      }
+      @media(max-width:760px){
+        .header-country-flags{gap:4px;padding-inline:2px}
+        .header-country-flag{width:36px;height:31px;font-size:22px}
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function installHeaderAccessControls(session) {
+    const profile = session?.profile || {};
+    const isAdmin = String(profile.role || '').trim().toLowerCase() === 'admin';
+
+    document.querySelectorAll('[data-admin-only]').forEach(element => {
+      element.hidden = !isAdmin;
+      element.style.display = isAdmin ? '' : 'none';
+      element.setAttribute('aria-hidden',isAdmin ? 'false' : 'true');
+    });
+
+    document.querySelector('[data-user-country-flags]')?.remove();
+    if (isAdmin) return;
+
+    const headerActions = document.querySelector('.header-actions');
+    const logoutButton = document.getElementById('logoutButton');
+    if (!headerActions || !logoutButton) return;
+
+    ensureHeaderFlagStyle();
+    const countries = displayFlagCountries(
+      profile.__displayCountries || profile.countries || displayCountries
+    );
+    const flags = document.createElement('div');
+    flags.className = 'header-country-flags';
+    flags.dataset.userCountryFlags = 'true';
+    flags.setAttribute('aria-label','Authorized countries');
+
+    (countries.length ? countries : ['Authorized']).forEach(country => {
+      const badge = document.createElement('span');
+      badge.className = 'header-country-flag';
+      badge.textContent = COUNTRY_FLAGS[country] || '🌐';
+      badge.title = country;
+      badge.setAttribute('aria-label',country);
+      flags.appendChild(badge);
+    });
+
+    headerActions.insertBefore(flags,logoutButton);
+  }
+
+  async function installSessionHeaderAndTestLink() {
     const session = await window.BRPortal?.currentSession?.();
-    if (!session?.profile || session.profile.role !== 'admin') return;
+    if (!session?.profile) return;
+
+    installHeaderAccessControls(session);
+    if (String(session.profile.role || '').trim().toLowerCase() !== 'admin') return;
 
     const submenu = document.getElementById('businessSubmenu');
     if (!submenu || submenu.querySelector('[data-sm-expense-test-link]')) return;
@@ -328,8 +434,8 @@
   installCountryScopeDisplay();
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded',installTestLink,{once:true});
+    document.addEventListener('DOMContentLoaded',installSessionHeaderAndTestLink,{once:true});
   } else {
-    installTestLink();
+    installSessionHeaderAndTestLink();
   }
 })();
