@@ -50,6 +50,57 @@
       );
   }
 
+  function normalizeProfile(profile) {
+    if (!profile || typeof profile !== 'object') return profile;
+
+    const rawCountries = profile.countries;
+    const countries = Array.isArray(rawCountries)
+      ? rawCountries
+      : rawCountries == null || rawCountries === ''
+        ? []
+        : [rawCountries];
+
+    const activeValue = String(profile.active ?? 'true')
+      .trim()
+      .toLocaleLowerCase('en-US');
+
+    return {
+      ...profile,
+      role:String(profile.role || 'user').trim().toLocaleLowerCase('en-US'),
+      active:profile.active === false || activeValue === 'false' ? false : true,
+      countries:[...new Set(countries
+        .map(country => String(country ?? '').trim())
+        .filter(Boolean))]
+    };
+  }
+
+  function normalizeSession(session) {
+    if (!session || typeof session !== 'object') return session;
+    return { ...session, profile:normalizeProfile(session.profile) };
+  }
+
+  function installProfileCompatibility() {
+    const portal = window.BRPortal;
+    if (!portal || portal.__profileCompatibilityInstalled) return;
+
+    ['requireSession','currentSession','waitForAuth'].forEach(methodName => {
+      const original = portal[methodName];
+      if (typeof original !== 'function') return;
+      portal[methodName] = async function (...args) {
+        return normalizeSession(await original.apply(this,args));
+      };
+    });
+
+    if (typeof portal.getProfile === 'function') {
+      const originalGetProfile = portal.getProfile;
+      portal.getProfile = async function (...args) {
+        return normalizeProfile(await originalGetProfile.apply(this,args));
+      };
+    }
+
+    portal.__profileCompatibilityInstalled = true;
+  }
+
   function installStockCountryMerge() {
     const originalLoader = window.loadStockRowsFromDatabase;
     if (
@@ -97,6 +148,7 @@
     submenu.insertBefore(button,pnlButton || null);
   }
 
+  installProfileCompatibility();
   installStockCountryMerge();
 
   if (document.readyState === 'loading') {
