@@ -28,7 +28,7 @@
   const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(config);
   const auth = app.auth();
   const db = app.firestore();
-  const ASSET_VERSION = '20260806-1';
+  const ASSET_VERSION = '20260806-2';
 
   const persistenceReady = auth
     .setPersistence(firebase.auth.Auth.Persistence.SESSION)
@@ -166,6 +166,18 @@
     });
   }
 
+  function waitFor(test,message,timeout=10000) {
+    return new Promise((resolve,reject) => {
+      const started=Date.now();
+      const check=() => {
+        if (test()) return resolve();
+        if (Date.now()-started >= timeout) return reject(new Error(message));
+        setTimeout(check,25);
+      };
+      check();
+    });
+  }
+
   window.addEventListener('DOMContentLoaded',async () => {
     if (document.querySelector('script[data-latest-dashboard-runtime]')) return;
     const status = document.getElementById('statusBox');
@@ -187,6 +199,10 @@
       ]);
 
       await loadCachedScript('analysis-window.js','data-analysis-window');
+      await waitFor(
+        () => Number(window.__BR_ANALYSIS_WINDOW_VERSION__ || 0) >= 4,
+        'The integrated Analysis module did not start.'
+      );
 
       const script = document.createElement('script');
       script.src = versioned('dashboard-firebase.js');
