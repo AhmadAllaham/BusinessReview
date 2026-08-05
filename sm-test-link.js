@@ -1,7 +1,15 @@
 (() => {
   'use strict';
 
-  function stockCountryIdentity(value) {
+  const SAUDI_ALIASES = [
+    'KSA','Ksa','ksa','Saudi','SAUDI','saudi',
+    'Saudi Arabia','SAUDI ARABIA','saudi arabia',
+    'Kingdom of Saudi Arabia'
+  ];
+
+  let displayCountries = [];
+
+  function countryIdentity(value) {
     return String(value ?? '')
       .normalize('NFKD')
       .replace(/[\u0300-\u036f]/g,'')
@@ -10,22 +18,11 @@
       .replace(/[^a-z0-9]+/g,'');
   }
 
-  function canonicalStockCountry(value) {
+  function canonicalCountry(value) {
     const raw = String(value ?? '').trim().replace(/\s+/g,' ');
     if (!raw) return '';
 
-    let standardized = raw;
-    if (typeof window.BRCanonicalCountry === 'function') {
-      try {
-        standardized = String(window.BRCanonicalCountry(raw) || raw)
-          .trim()
-          .replace(/\s+/g,' ');
-      } catch (_) {
-        standardized = raw;
-      }
-    }
-
-    const key = stockCountryIdentity(standardized);
+    const key = countryIdentity(raw);
     const known = {
       ksa:'KSA',
       saudi:'KSA',
@@ -43,23 +40,35 @@
     };
     if (known[key]) return known[key];
 
-    return standardized
+    return raw
       .toLocaleLowerCase('en-US')
       .replace(/(^|[\s/-])([a-z])/g,(_,separator,letter) =>
         `${separator}${letter.toLocaleUpperCase('en-US')}`
       );
   }
 
+  function canonicalCountryList(values) {
+    const source = Array.isArray(values)
+      ? values
+      : values == null || values === ''
+        ? []
+        : [values];
+    return [...new Set(source
+      .map(canonicalCountry)
+      .filter(Boolean))];
+  }
+
+  function queryCountryList(values) {
+    return [...new Set(canonicalCountryList(values).flatMap(country =>
+      country === 'KSA' ? SAUDI_ALIASES : [country]
+    ))];
+  }
+
   function normalizeProfile(profile) {
     if (!profile || typeof profile !== 'object') return profile;
 
-    const rawCountries = profile.countries;
-    const countries = Array.isArray(rawCountries)
-      ? rawCountries
-      : rawCountries == null || rawCountries === ''
-        ? []
-        : [rawCountries];
-
+    const canonicalCountries = canonicalCountryList(profile.countries);
+    displayCountries = canonicalCountries;
     const activeValue = String(profile.active ?? 'true')
       .trim()
       .toLocaleLowerCase('en-US');
@@ -68,9 +77,10 @@
       ...profile,
       role:String(profile.role || 'user').trim().toLocaleLowerCase('en-US'),
       active:profile.active === false || activeValue === 'false' ? false : true,
-      countries:[...new Set(countries
-        .map(country => String(country ?? '').trim())
-        .filter(Boolean))]
+      // Query every old Saudi spelling so legacy chunks remain readable, while
+      // every dashboard/filter value is normalized to the single name KSA.
+      countries:queryCountryList(canonicalCountries),
+      __displayCountries:canonicalCountries
     };
   }
 
@@ -101,31 +111,86 @@
     portal.__profileCompatibilityInstalled = true;
   }
 
-  function installStockCountryMerge() {
-    const originalLoader = window.loadStockRowsFromDatabase;
-    if (
-      typeof originalLoader !== 'function' ||
-      originalLoader.__stockCountryCaseMerged
-    ) return;
+  function normalizeCountryRow(row) {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) return row;
+    const next = { ...row };
+    Object.keys(next).forEach(key => {
+      const normalizedKey = countryIdentity(key);
+      if (['country','countryname','market','marketname'].includes(normalizedKey)) {
+        next[key] = canonicalCountry(next[key]);
+      }
+    });
+    return next;
+  }
 
-    const wrappedLoader = function (rows,...rest) {
-      const normalizedRows = (Array.isArray(rows) ? rows : []).map(row => {
-        const next = { ...(row || {}) };
-        const countryKey = Object.keys(next).find(key =>
-          ['country','countryname','market'].includes(stockCountryIdentity(key))
-        );
-        if (countryKey) next[countryKey] = canonicalStockCountry(next[countryKey]);
-        if (Object.prototype.hasOwnProperty.call(next,'Country')) {
-          next.Country = canonicalStockCountry(next.Country);
-        }
-        return next;
-      });
-      return originalLoader.call(this,normalizedRows,...rest);
+  function normalizeCountryRows(rows) {
+    return (Array.isArray(rows) ? rows : []).map(normalizeCountryRow);
+  }
+
+  function wrapRowLoader(name) {
+    const original = window[name];
+    if (typeof original !== 'function' || original.__countryCanonicalized) return;
+
+    const wrapped = function (...args) {
+      const normalizedArgs = args.map(value =>
+        Array.isArray(value) ? normalizeCountryRows(value) : value
+      );
+      return original.apply(this,normalizedArgs);
+    };
+    wrapped.__countryCanonicalized = true;
+    window[name] = wrapped;
+
+    try {
+      if (name === 'loadSalesRowsFromDatabase') loadSalesRowsFromDatabase = wrapped;
+      if (name === 'loadSalesAnalysisRows') loadSalesAnalysisRows = wrapped;
+      if (name === 'loadPnlRowsFromDatabase') loadPnlRowsFromDatabase = wrapped;
+      if (name === 'loadSmRowsFromDatabase') loadSmRowsFromDatabase = wrapped;
+      if (name === 'loadStockRowsFromDatabase') loadStockRowsFromDatabase = wrapped;
+      if (name === 'loadNearlyExpiredRowsFromDatabase') loadNearlyExpiredRowsFromDatabase = wrapped;
+      if (name === 'loadProfitabilityRowsFromDatabase') loadProfitabilityRowsFromDatabase = wrapped;
+      if (name === 'loadActualGpRows') loadActualGpRows = wrapped;
+    } catch (_) {}
+  }
+
+  function installAllCountryMerges() {
+    [
+      'loadSalesRowsFromDatabase',
+      'loadSalesAnalysisRows',
+      'loadPnlRowsFromDatabase',
+      'loadSmRowsFromDatabase',
+      'loadStockRowsFromDatabase',
+      'loadNearlyExpiredRowsFromDatabase',
+      'loadProfitabilityRowsFromDatabase',
+      'loadActualGpRows'
+    ].forEach(wrapRowLoader);
+
+    window.BRCanonicalCountry = canonicalCountry;
+    window.BRCanonicalStockCountry = canonicalCountry;
+  }
+
+  function installCountryScopeDisplay() {
+    const update = () => {
+      const scope = document.getElementById('currentUserScope');
+      if (!scope || !displayCountries.length) return;
+      const text = String(scope.textContent || '');
+      const suffix = text.match(/·\s*(\d+)\s+windows\s*$/i);
+      const next = suffix
+        ? `${displayCountries.join(', ')} · ${suffix[1]} windows`
+        : displayCountries.join(', ');
+      if (scope.textContent !== next) scope.textContent = next;
     };
 
-    wrappedLoader.__stockCountryCaseMerged = true;
-    window.loadStockRowsFromDatabase = wrappedLoader;
-    window.BRCanonicalStockCountry = canonicalStockCountry;
+    update();
+    const observer = new MutationObserver(update);
+    const start = () => {
+      const scope = document.getElementById('currentUserScope');
+      if (scope) observer.observe(scope,{childList:true,subtree:true,characterData:true});
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded',start,{once:true});
+    } else {
+      start();
+    }
   }
 
   async function installTestLink() {
@@ -149,7 +214,8 @@
   }
 
   installProfileCompatibility();
-  installStockCountryMerge();
+  installAllCountryMerges();
+  installCountryScopeDisplay();
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded',installTestLink,{once:true});
