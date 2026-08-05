@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TEST · Expense Detail</title>
+<style>
+:root{font-family:Inter,Arial,sans-serif;color:#17324d;background:#f2f6f9}*{box-sizing:border-box}body{margin:0}.top{display:flex;justify-content:space-between;align-items:center;padding:18px 26px;background:#fff;border-bottom:1px solid #d7e2ea}.top h1{margin:0;font-size:22px}.top p{margin:4px 0 0;color:#728799}.top a{padding:10px 15px;border:1px solid #c7d5df;border-radius:10px;color:#244861;text-decoration:none;font-weight:800}.wrap{max-width:1500px;margin:auto;padding:22px}.banner,.upload,.controls,.kpi,.tablebox{background:#fff;border:1px solid #d6e2ea;border-radius:16px}.banner{display:flex;justify-content:space-between;gap:18px;padding:20px 22px}.banner h2{margin:3px 0 7px}.banner p{margin:0;color:#6a8092}.badge{padding:8px 12px;border-radius:999px;background:#fff4d5;color:#85600b;border:1px solid #efd991;font-size:12px;font-weight:900}.upload{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:end;margin-top:16px;padding:18px}.upload label{display:block;margin-bottom:7px;font-size:12px;font-weight:900;color:#5c7385}.upload input{width:100%;padding:11px;border:1px solid #c7d5df;border-radius:10px}.status{min-width:310px;padding:12px;border-radius:10px;background:#eef4f7;color:#567085;font-weight:800}.status.ok{background:#e9f7ef;color:#19724a}.status.err{background:#fff0f0;color:#b23838}.report{display:grid;gap:14px;margin-top:16px}.controls{display:flex;justify-content:space-between;gap:14px;align-items:center;padding:13px 15px}.nav{display:flex;align-items:center;gap:10px;font-weight:900}.nav span{color:#8a9baa}.control-right{display:flex;align-items:center;gap:10px}.currency{display:flex;padding:3px;border:1px solid #bfd0db;border-radius:10px;background:#f5f9fb}.currency button{min-width:62px;border:0;border-radius:7px;padding:8px 12px;background:transparent;color:#557083;font-weight:900;cursor:pointer}.currency button.active{background:#0c817c;color:#fff;box-shadow:0 3px 10px rgba(12,129,124,.2)}.unit{font-size:12px;font-weight:900;color:#647b8d;min-width:72px}.back{padding:8px 12px;border:1px solid #c7d5df;border-radius:9px;background:#f8fafb;color:#244861;font-weight:900;cursor:pointer}.search{min-width:270px;height:40px;padding:0 12px;border:1px solid #c7d5df;border-radius:10px}.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:11px}.kpi{padding:15px}.kpi span{display:block;font-size:11px;font-weight:900;color:#74899a;text-transform:uppercase}.kpi strong{display:block;margin-top:7px;font-size:20px}.kpi small{display:block;margin-top:4px;color:#8295a5}.tablebox{overflow:auto;max-height:66vh}.tbl{width:100%;min-width:1270px;border-collapse:separate;border-spacing:0;font-variant-numeric:tabular-nums}.tbl th{position:sticky;top:0;z-index:2;padding:12px 10px;background:#173b57;color:#fff;text-align:right;font-size:12px}.tbl th:first-child{text-align:left;left:0;z-index:4;min-width:310px}.tbl td{padding:11px 10px;border-bottom:1px solid #e4ecf2;text-align:right;background:#fff;white-space:nowrap}.tbl td:first-child{position:sticky;left:0;text-align:left;background:inherit}.tbl tbody tr[data-id]{cursor:pointer}.tbl tbody tr:hover td{background:#f2f7fa}.item{display:flex;gap:10px;align-items:center}.arrow{width:26px;height:26px;display:grid;place-items:center;border:1px solid #ccd9e3;border-radius:7px;background:#f8fbfc;font-weight:900}.item b{display:block}.item small{display:block;margin-top:3px;color:#8396a5}.total td{font-weight:900;background:#eaf1f5;border-top:2px solid #b9cbd7}.pos{color:#168052;font-weight:800}.neg{color:#c33d3d;font-weight:800}.empty{text-align:center!important;padding:38px!important;color:#71889a}@media(max-width:1050px){.kpis{grid-template-columns:repeat(2,1fr)}.upload{grid-template-columns:1fr}.status{min-width:0}.controls{align-items:flex-start;flex-direction:column}.control-right{width:100%;flex-wrap:wrap}.search{flex:1;min-width:220px}}
+</style>
+</head>
+<body>
+<header class="top"><div><h1>Business Review · TEST</h1><p>Expense detail preview — official S&amp;M is unchanged</p></div><a href="index.html">← Back to Business Review</a></header>
+<main class="wrap">
+<section class="banner"><div><small>Temporary Preview</small><h2>Market → Main Category → Expense Account</h2><p>Values are displayed in thousands. JOD = source value ÷ 1,000. USD = source value ÷ 709.</p></div><span class="badge">TEST ONLY</span></section>
+<section class="upload"><div><label for="file">EXPENSE WORKBOOK</label><input id="file" type="file" accept=".xlsx,.xls,.xlsm"></div><div id="status" class="status">Select Selling and Marketing Expenses New.xlsx</div></section>
+<section id="report" class="report" hidden>
+<div class="controls"><div class="nav"><button id="back" class="back" hidden>← Back</button><div id="crumb">All Markets</div></div><div class="control-right"><div class="currency" role="group" aria-label="Currency"><button type="button" data-currency="JOD" class="active" aria-pressed="true">JOD</button><button type="button" data-currency="USD" aria-pressed="false">USD</button></div><span id="unit" class="unit">JOD '000</span><input id="search" class="search" type="search" placeholder="Search markets…"></div></div>
+<div id="kpis" class="kpis"></div><div class="tablebox"><table id="table" class="tbl"></table></div>
+</section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script><script src="firebase-client.js"></script>
+<script>
+(async()=>{
+const session=await BRPortal.requireSession({admin:true,next:'test-v3.html'});if(!session)return;
+const $=id=>document.getElementById(id);
+const norm=v=>String(v??'').normalize('NFKC').trim().toLowerCase().replace(/&/g,'and').replace(/[^\p{L}\p{N}]+/gu,'');
+const num=v=>{if(typeof v==='number')return Number.isFinite(v)?v:0;const n=Number(String(v??'').replace(/,/g,'').replace(/^\((.*)\)$/,'-$1'));return Number.isFinite(n)?n:0};
+const gl=v=>v==null||v===''||v==='-'?'':Number.isFinite(Number(v))?String(Math.trunc(Number(v))):String(v).trim();
+const market=v=>String(v??'').replace(/^Sales Market\s+/i,'').replace(/-\s*Privet$/i,'').trim();
+const esc=v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+const pc=(v,b)=>Math.abs(Number(b)||0)?`${(Number(v||0)/Math.abs(Number(b))*100).toFixed(1)}%`:'—';
+const cls=v=>Math.abs(Number(v)||0)<.005?'':Number(v)>0?'pos':'neg';
+const sum=rows=>rows.reduce((t,r)=>(t.ly+=r.ly||0,t.budget+=r.budget||0,t.actual+=r.actual||0,t.fy+=r.fy||0,t),{ly:0,budget:0,actual:0,fy:0});
+let data=null,level='market',mi=null,cat='',q='',currency='JOD';
+const converted=value=>currency==='USD'?(Number(value)||0)/709:(Number(value)||0)/1000;
+const fmt=value=>Math.round(converted(value)).toLocaleString('en-US');
+const unitLabel=()=>currency==='USD'?"USD '000":"JOD '000";
+
+function parse(wb,name){
+  const find=n=>wb.SheetNames.find(x=>norm(x)===norm(n)),sn=find('S&M'),mn=find('MTD S&M');
+  if(!sn||!mn)throw Error('Sheets S&M and MTD S&M are required.');
+  const s=wb.Sheets[sn],m=wb.Sheets[mn],v=(sh,r,c)=>sh[XLSX.utils.encode_cell({r:r-1,c:c-1})]?.v??null,range=sh=>XLSX.utils.decode_range(sh['!ref']||'A1'),sr=range(s),mr=range(m),byFc=new Map(),byName=new Map();
+  let mc=0;
+  for(let c=1;c<=mr.e.c+1;c++){
+    const n=String(v(m,3,c)||'').trim();if(!/^Sales Market\b/i.test(n))continue;
+    let fy=0;for(let j=c;j<=Math.min(c+16,mr.e.c+1);j++)if(norm(v(m,5,j))==='fybudget'){fy=j;break}
+    if(!fy)continue;const fc=gl(v(m,2,c)),x={fy,fc,n};if(fc)byFc.set(fc,x);byName.set(norm(n),x);mc++;
+  }
+  const defs=[];let sc=0;
+  for(let c=1;c<=sr.e.c+1;c++){
+    const n=String(v(s,3,c)||'').trim();if(!/^Sales Market\b/i.test(n))continue;
+    if(norm(v(s,5,c))!=='ly'||norm(v(s,5,c+1))!=='budget'||norm(v(s,5,c+2))!=='actual')continue;
+    sc++;const fc=gl(v(s,2,c)),x=(fc&&byFc.get(fc))||byName.get(norm(n));if(x)defs.push({name:market(n),fc,ly:c,b:c+1,a:c+2,fy:x.fy});
+  }
+  if(!defs.length)throw Error(`No matching markets found. S&M markets: ${sc}; MTD S&M markets: ${mc}.`);
+  let category='';const accounts=[];
+  for(let r=25;r<=Math.max(sr.e.r,mr.e.r)+1;r++){
+    const code=gl(v(s,r,1))||gl(v(m,r,1)),n=String(v(s,r,2)??v(m,r,2)??'').trim();
+    if(!code){if(n&&!/^(total|toal)\b/i.test(n))category=n;continue}
+    if(category&&n&&n!=='-')accounts.push({r,category,gl:code,name:n});
+  }
+  return{name,month:String(v(s,3,2)||'June'),markets:defs.map(d=>({name:d.name,fc:d.fc,accounts:accounts.map(a=>({category:a.category,gl:a.gl,name:a.name,ly:num(v(s,a.r,d.ly)),budget:num(v(s,a.r,d.b)),actual:num(v(s,a.r,d.a)),fy:num(v(m,a.r,d.fy))}))}))};
+}
+function scope(){if(level==='market')return data.markets.flatMap(x=>x.accounts);const x=data.markets[mi];return level==='category'?x.accounts:x.accounts.filter(a=>a.category===cat)}
+function rows(){
+  const z=norm(q);
+  if(level==='market')return data.markets.map((x,i)=>({id:i,label:x.name,meta:`${new Set(x.accounts.map(a=>a.category)).size} categories`,drill:1,...sum(x.accounts)})).filter(r=>!z||norm(r.label+r.meta).includes(z));
+  const x=data.markets[mi];
+  if(level==='category'){
+    const g=new Map();x.accounts.forEach(a=>{if(!g.has(a.category))g.set(a.category,[]);g.get(a.category).push(a)});
+    return[...g].map(([n,a])=>({id:n,label:n,meta:`${a.length} expense accounts`,drill:1,...sum(a)})).filter(r=>!z||norm(r.label+r.meta).includes(z));
+  }
+  return x.accounts.filter(a=>a.category===cat).map(a=>({id:a.gl,label:a.name,meta:'Expense account',...a})).filter(r=>!z||norm(r.label+r.meta).includes(z));
+}
+function updateCurrencyUi(){
+  document.querySelectorAll('[data-currency]').forEach(button=>{const active=button.dataset.currency===currency;button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active))});
+  $('unit').textContent=unitLabel();
+}
+function render(){
+  const x=data.markets[mi],crumb=['All Markets',x?.name,cat].filter(Boolean);$('crumb').innerHTML=crumb.map(esc).join(' <span>›</span> ');$('back').hidden=level==='market';$('search').placeholder=level==='market'?'Search markets…':level==='category'?'Search categories…':'Search expense accounts…';updateCurrencyUi();
+  const t=sum(scope()),vb=t.budget-t.actual,rem=t.fy-t.actual;
+  $('kpis').innerHTML=`<div class="kpi"><span>Actual</span><strong>${fmt(t.actual)}</strong><small>${unitLabel()} · ${esc(data.month)} YTD</small></div><div class="kpi"><span>Budget YTD</span><strong>${fmt(t.budget)}</strong><small>Vs Actual ${pc(vb,t.budget)}</small></div><div class="kpi"><span>FY Budget</span><strong>${fmt(t.fy)}</strong><small>${unitLabel()} · Full year</small></div><div class="kpi"><span>Remaining</span><strong class="${cls(rem)}">${fmt(rem)}</strong><small>FY Budget − Actual</small></div><div class="kpi"><span>LY</span><strong>${fmt(t.ly)}</strong><small>Vs LY ${pc(t.ly-t.actual,t.ly)}</small></div>`;
+  const rr=rows(),tt=sum(rr),body=rr.map(r=>{const vb=r.budget-r.actual,vl=r.ly-r.actual,rm=r.fy-r.actual;return`<tr data-id="${esc(r.id)}"><td><div class="item">${r.drill?'<span class="arrow">›</span>':''}<div><b>${esc(r.label)}</b><small>${esc(r.meta)}</small></div></div></td><td>${fmt(r.actual)}</td><td>${fmt(r.budget)}</td><td class="${cls(vb)}">${fmt(vb)}</td><td class="${cls(vb)}">${pc(vb,r.budget)}</td><td>${fmt(r.ly)}</td><td class="${cls(vl)}">${fmt(vl)}</td><td class="${cls(vl)}">${pc(vl,r.ly)}</td><td>${fmt(r.fy)}</td><td class="${cls(rm)}">${fmt(rm)}</td></tr>`}).join(''),tvb=tt.budget-tt.actual,tvl=tt.ly-tt.actual,tr=tt.fy-tt.actual;
+  $('table').innerHTML=`<thead><tr><th>Item</th><th>Actual</th><th>Budget YTD</th><th>Vs Budget</th><th>Vs Budget %</th><th>LY</th><th>Vs LY</th><th>Vs LY %</th><th>FY Budget</th><th>Remaining</th></tr></thead><tbody>${body||'<tr><td colspan="10" class="empty">No matching rows.</td></tr>'}${rr.length?`<tr class="total"><td>Total · ${unitLabel()}</td><td>${fmt(tt.actual)}</td><td>${fmt(tt.budget)}</td><td class="${cls(tvb)}">${fmt(tvb)}</td><td class="${cls(tvb)}">${pc(tvb,tt.budget)}</td><td>${fmt(tt.ly)}</td><td class="${cls(tvl)}">${fmt(tvl)}</td><td class="${cls(tvl)}">${pc(tvl,tt.ly)}</td><td>${fmt(tt.fy)}</td><td class="${cls(tr)}">${fmt(tr)}</td></tr>`:''}</tbody>`;
+  if(level!=='account')$('table').querySelectorAll('tr[data-id]').forEach(tr=>tr.onclick=()=>{if(level==='market'){mi=Number(tr.dataset.id);level='category';cat=''}else{cat=tr.dataset.id;level='account'}q='';$('search').value='';render()});
+}
+$('file').onchange=async e=>{const f=e.target.files?.[0];if(!f)return;try{$('status').className='status';$('status').textContent='Reading workbook…';data=parse(XLSX.read(await f.arrayBuffer(),{type:'array'}),f.name);level='market';mi=null;cat='';q='';$('report').hidden=false;render();$('status').className='status ok';$('status').textContent=`Ready: ${data.markets.length} markets. Departments excluded.`}catch(err){console.error(err);$('report').hidden=true;$('status').className='status err';$('status').textContent=err.message||'Unable to read workbook.'}};
+$('search').oninput=e=>{q=e.target.value;render()};
+$('back').onclick=()=>{if(level==='account'){level='category';cat=''}else{level='market';mi=null}q='';$('search').value='';render()};
+document.querySelectorAll('[data-currency]').forEach(button=>button.onclick=()=>{currency=button.dataset.currency;render()});
+})();
+</script>
+</body>
+</html>
