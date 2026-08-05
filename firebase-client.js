@@ -36,7 +36,7 @@
   const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(config);
   const auth = app.auth();
   const db = app.firestore();
-  const ASSET_VERSION = '20260806-4';
+  const ASSET_VERSION = '20260806-5';
 
   const persistenceReady = auth
     .setPersistence(firebase.auth.Auth.Persistence.SESSION)
@@ -195,6 +195,7 @@
     try {
       await loadCachedScript('night-mode.js','data-br-night-mode');
       await loadCachedScript('night-format-unified.js','data-br-night-format-unified');
+      await loadCachedScript('table-format-unified.js','data-br-table-format-unified');
     } catch (themeError) {
       console.error('Unable to load night mode.',themeError);
     }
