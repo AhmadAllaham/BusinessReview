@@ -12,7 +12,7 @@ service cloud.firestore {
 
     function enabledUser() {
       return signedIn() &&
-        currentProfile().active == true;
+        (!("active" in currentProfile()) || currentProfile().active == true);
     }
 
     function adminUser() {
@@ -63,11 +63,6 @@ service cloud.firestore {
     }
 
     match /reportChunks/{chunkId} {
-      // The dashboard already requests only the active dataset IDs from
-      // system/activeDatasets. Restricting reads here again through a second
-      // document lookup caused valid country-scoped list queries to be denied
-      // for newly created non-admin users. Keep the security boundary on the
-      // signed-in active profile and the chunk country.
       allow read: if adminUser() || allowedCountry(resource.data.country);
       allow create, update, delete: if adminUser();
     }
