@@ -45,7 +45,7 @@
 
     return standardized
       .toLocaleLowerCase('en-US')
-      .replace(/(^|[\s-/])([a-z])/g,(_,separator,letter) =>
+      .replace(/(^|[\s/-])([a-z])/g,(_,separator,letter) =>
         `${separator}${letter.toLocaleUpperCase('en-US')}`
       );
   }
