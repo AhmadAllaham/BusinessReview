@@ -64,11 +64,12 @@
 
     if (selected.length && Object.keys(groups).length) {
       const selectedKeys = new Set(selected.map(normalizeIdentity));
-      return Object.entries(groups).reduce((total,[name,value]) =>
-        selectedKeys.has(normalizeIdentity(name))
+      return Object.entries(groups).reduce(
+        (total,[name,value]) => selectedKeys.has(normalizeIdentity(name))
           ? total + (Number(value) || 0)
           : total,
-      0);
+        0
+      );
     }
 
     const uploadedTotal = Number(active.totalUsd);
@@ -178,6 +179,12 @@
 
   async function loadActiveHistoricalSales() {
     try {
+      await window.BRPortal?.persistenceReady;
+      const session = typeof window.BRPortal?.waitForAuth === 'function'
+        ? await window.BRPortal.waitForAuth()
+        : {user:window.BRPortal?.auth?.currentUser};
+      if (!session?.user) return;
+
       const db = window.BRPortal?.db;
       if (!db) return;
 
