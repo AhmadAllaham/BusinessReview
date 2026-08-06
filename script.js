@@ -2114,6 +2114,15 @@ function pnlLineValue(totals,line){
     :pnlNumber(totals[line.key]);
 }
 
+const PNL_KSA_FOC_COMPENSATION_USD = 174;
+
+function pnlIsSaudiOnlyScope(){
+  const selected=getSelected('pnlMarketFilter');
+  if(selected.length!==1) return false;
+  const identity=textIdentity(selected[0]).replace(/[^a-z0-9]+/g,'');
+  return identity==='ksa'||identity==='saudi'||identity.includes('saudiarabia');
+}
+
 function renderPnlVertical() {
   const rows = pnlFilteredRows();
   const actual = pnlConvertCurrency(pnlScenarioTotals(rows, 'Actual'));
@@ -2124,8 +2133,9 @@ function renderPnlVertical() {
   const table = $('pnlTable');
   if (!table) return;
   const visibleLines = pnlVisibleLines();
+  const showKsaFocCompensation=pnlIsSaudiOnlyScope();
   const count = $('pnlCount');
-  if (count) count.textContent = `${visibleLines.length} P&L lines`;
+  if (count) count.textContent = `${visibleLines.length+(showKsaFocCompensation?1:0)} P&L lines`;
 
   let html = pnlComparisonMode==='fyBudget' ? `
     <thead>
@@ -2194,6 +2204,25 @@ function renderPnlVertical() {
         <td class="pnl-percent ${pnlVarianceClass(vl)} ${pnlAmountClass(vl)}">${pnlPercent(vl,l)}</td>
       </tr>`;
   });
+
+  if(showKsaFocCompensation){
+    const noteValue=PNL_KSA_FOC_COMPENSATION_USD*(pnlCurrency==='JOD'?PNL_USD_TO_JOD:1);
+    html += pnlComparisonMode==='fyBudget' ? `
+      <tr class="pnl-foc-compensation-note pnl-note-row">
+        <td>FOC ( COMPASATION)</td>
+        <td>${pnlFormat(noteValue)}</td>
+        <td></td>
+        <td></td>
+      </tr>` : `
+      <tr class="pnl-foc-compensation-note pnl-note-row">
+        <td>FOC ( COMPASATION)</td>
+        <td>${pnlFormat(noteValue)}</td>
+        <td></td>
+        <td colspan="2"></td>
+        <td></td>
+        <td colspan="2"></td>
+      </tr>`;
+  }
 
   const ratioRows = [
     { label:'COGS / Gross Sales', numerator:'cogs', denominator:'grossSales', absolute:true, cogsToggle:true },
