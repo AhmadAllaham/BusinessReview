@@ -1,0 +1,3379 @@
+===== lines 684-933 =====
+684:   },{passive:true});
+685: 
+686:   document.addEventListener('pointermove',event=>{
+687:     if(window.scrollY<=scrollThreshold) return;
+688:     if(event.clientY<=18){
+689:       showHeader(true);
+690:     }else if(hoverReveal && !header.matches(':hover') && event.clientY>header.offsetHeight+12){
+691:       scheduleHide();
+692:     }
+693:   },{passive:true});
+694: 
+695:   header.addEventListener('pointerenter',()=>{
+696:     if(window.scrollY>scrollThreshold) showHeader(true);
+697:   });
+698:   header.addEventListener('pointerleave',scheduleHide);
+699:   header.addEventListener('focusin',()=>showHeader(true));
+700:   header.addEventListener('focusout',scheduleHide);
+701: })();
+702: 
+703: /* Management presentation mode — summary, top rows and single-row focus. */
+704: (function initManagementView(){
+705:   const overlay=$('managementView');
+706:   const content=$('managementContent');
+707:   if(!overlay||!content) return;
+708: 
+709:   const reports={
+710:     sales:{tableId:'salesTable',title:'Sales Performance',scopeFilter:'countryFilter',scopeAll:'All Markets',kpis:[1,2,4,6]},
+711:     foc:{tableId:'focTable',title:'IMS FOC Utilization',scopeFilter:'countryFilter',scopeAll:'All Markets',kpis:[1,2,4,6]},
+712:     stock:{tableId:'stockTable',title:'Stock Level',scopeFilter:'stockCountryFilter',scopeAll:'All Markets',kpis:[1,2,3,5]},
+713:     sm:{tableId:'smSimpleTable',title:'Selling & Marketing Expenses',scopeFilter:'smSimpleCountryFilter',scopeAll:'All Countries',kpis:[1,2,4,6]},
+714:     pnl:{tableId:'pnlTable',title:'Consolidated P&L',scopeFilter:'pnlMarketFilter',scopeAll:'All Markets',kpis:[]}
+715:   };
+716: 
+717:   let activeReport='sales';
+718:   let managementMode='summary';
+719:   let managementShowAll=false;
+720:   let managementFocusIndex=0;
+721:   let managementDrill={level:'root',country:'',item:''};
+722: 
+723:   const currentConfig=()=>reports[activeReport];
+724:   const currentTable=()=>$(currentConfig()?.tableId);
+725:   const isOpen=()=>!overlay.hidden;
+726: 
+727:   function managementColumnCount(table){
+728:     return Math.max(0,...[...table.rows].map(row=>[...row.cells]
+729:       .reduce((count,cell)=>count+(Number(cell.colSpan)||1),0)));
+730:   }
+731: 
+732:   function managementColumnLabels(table){
+733:     const count=managementColumnCount(table);
+734:     const labels=Array.from({length:count},()=>[]);
+735:     const occupied=[];
+736: 
+737:     [...(table.tHead?.rows||[])].forEach((row,rowIndex)=>{
+738:       let columnIndex=0;
+739:       [...row.cells].forEach(cell=>{
+740:         while(occupied[rowIndex]?.[columnIndex]) columnIndex++;
+741:         const colspan=Number(cell.colSpan)||1;
+742:         const rowspan=Number(cell.rowSpan)||1;
+743:         for(let r=rowIndex;r<rowIndex+rowspan;r++){
+744:           occupied[r]??=[];
+745:           for(let c=columnIndex;c<columnIndex+colspan;c++) occupied[r][c]=true;
+746:         }
+747: 
+748:         const label=cell.getAttribute('aria-hidden')==='true'
+749:           ?''
+750:           :String(cell.textContent||'').replace(/\s+/g,' ').trim();
+751:         if(label){
+752:           for(let c=columnIndex;c<columnIndex+colspan;c++){
+753:             if(!labels[c].includes(label)) labels[c].push(label);
+754:           }
+755:         }
+756:         columnIndex+=colspan;
+757:       });
+758:     });
+759: 
+760:     return labels.map((parts,index)=>parts.join(' · ')||`Column ${index+1}`);
+761:   }
+762: 
+763:   function managementDataRows(table){
+764:     return [...(table.tBodies?.[0]?.rows||[])].filter(row=>
+765:       !row.classList.contains('total-row')&&
+766:       !row.classList.contains('sm-total-row')&&
+767:       !row.classList.contains('pnl-ratio-spacer')&&
+768:       !row.classList.contains('pnl-statement-ratio')&&
+769:       !row.querySelector('.sm-no-data,.stock-empty')
+770:     );
+771:   }
+772: 
+773:   function managementValueClass(cell){
+774:     const value=String(cell?.textContent||'').trim();
+775:     if(
+776:       cell?.classList.contains('negative')||
+777:       cell?.classList.contains('sm-bad')||
+778:       cell?.classList.contains('pnl-negative')||
+779:       cell?.classList.contains('pnl-kpi-negative')||
+780:       cell?.classList.contains('pnl-amount-negative')||
+781:       /^\(.*\)$/.test(value)
+782:     ) return 'negative';
+783:     if(
+784:       cell?.classList.contains('positive')||
+785:       cell?.classList.contains('sm-good')||
+786:       cell?.classList.contains('pnl-positive')
+787:     ) return 'positive';
+788:     return '';
+789:   }
+790: 
+791:   function managementScope(){
+792:     const config=currentConfig();
+793:     const selected=getSelected(config.scopeFilter);
+794:     return selected.length?selected.join(' · '):config.scopeAll;
+795:   }
+796: 
+797:   function managementRootCanDrill(){
+798:     if(activeReport==='sales') return $('salesView')?.value==='Country';
+799:     if(activeReport==='foc') return $('focView')?.value==='Country';
+800:     return activeReport==='stock';
+801:   }
+802: 
+803:   function managementFocRows(rows){
+804:     return aggregate(rows,'Product Name',[]).sort((a,b)=>b.actual-a.actual).map(item=>{
+805:       const actualRate=item.actual?item.actualFoc/item.actual:0;
+806:       const budgetRate=item.actual?item.budgetFoc/item.actual:0;
+807:       return {
+808:         name:item.name,
+809:         actual:item.actual,
+810:         actualFoc:item.actualFoc,
+811:         budgetFoc:item.budgetFoc,
+812:         varianceRate:actualRate-budgetRate
+813:       };
+814:     });
+815:   }
+816: 
+817:   function managementSourceTable(){
+818:     if(managementDrill.level==='root') return currentTable();
+819: 
+820:     const table=document.createElement('table');
+821:     const country=managementDrill.country;
+822: 
+823:     if(activeReport==='sales'){
+824:       const rows=filtered().filter(row=>String(row.Country||'')===country);
+825:       const lyRows=filteredLY().filter(row=>String(row.Country||'')===country);
+826:       if(managementDrill.level==='country'){
+827:         const data=aggregate(rows,'Brand',lyRows).sort((a,b)=>b.actual-a.actual);
+828:         table.className='sales-statement-detail';
+829:         table.innerHTML=salesStatementTableHtml(data,'Brand');
+830:       }else{
+831:         const itemRows=rows.filter(row=>row.__brand===managementDrill.item);
+832:         const itemLyRows=lyRows.filter(row=>row.__brand===managementDrill.item);
+833:         const data=aggregate(itemRows,'Product Name',itemLyRows).sort((a,b)=>b.actual-a.actual);
+834:         table.className='sales-statement-detail';
+835:         table.innerHTML=salesStatementTableHtml(data,'Product');
+836:       }
+837:       return table;
+838:     }
+839: 
+840:     if(activeReport==='foc'){
+841:       let rows=filtered().filter(row=>
+842:         String(row.Country||'')===country&&String(row.Type||'').toUpperCase()==='IMS'
+843:       );
+844:       let dimension='Product Group';
+845:       if(managementDrill.level==='country'){
+846:         const grouped=aggregate(rows,'Product Group',[]).sort((a,b)=>b.actual-a.actual);
+847:         rows=grouped.map(item=>{
+848:           const actualRate=item.actual?item.actualFoc/item.actual:0;
+849:           const budgetRate=item.actual?item.budgetFoc/item.actual:0;
+850:           return {...item,varianceRate:actualRate-budgetRate};
+851:         });
+852:       }else{
+853:         rows=rows.filter(row=>
+854:           String(row['Product Group']||row.__group||'').trim()===managementDrill.item
+855:         );
+856:         rows=managementFocRows(rows);
+857:         dimension='Product';
+858:       }
+859:       table.className='foc-statement-detail';
+860:       table.innerHTML=focDetailTableHtml(rows,'Total',dimension);
+861:       return table;
+862:     }
+863: 
+864:     if(activeReport==='stock'){
+865:       let rows=filteredStockRows().filter(row=>String(row.Country||'')===country);
+866:       let dimension='Brand';
+867:       if(managementDrill.level==='detail'){
+868:         rows=rows.filter(row=>String(row.Brand||'')===managementDrill.item);
+869:         dimension='SKU';
+870:       }
+871:       const {data,totals}=stockAggregateRows(
+872:         rows,
+873:         dimension,
+874:         dimension==='Brand'?'Unassigned Brand':'Unassigned SKU'
+875:       );
+876:       table.className='stock-statement-table';
+877:       table.innerHTML=stockStatementTableHtml(data,totals,dimension);
+878:       return table;
+879:     }
+880: 
+881:     return currentTable();
+882:   }
+883: 
+884:   function updateManagementHeading(){
+885:     const config=currentConfig();
+886:     const scope=managementDrill.level==='root'
+887:       ?managementScope()
+888:       :[managementDrill.country,managementDrill.item].filter(Boolean).join(' · ');
+889:     const singleCountry=scope&&!scope.startsWith('All ')&&!scope.includes(' · ')?scope:'';
+890:     const flagCountry=managementDrill.country||singleCountry;
+891:     const code=flagCountry?countryFlagCode(flagCountry):'';
+892:     const flag=$('managementFlag');
+893:     const backButton=$('managementBackBtn');
+894: 
+895:     $('managementTitle').textContent=config.title;
+896:     $('managementScope').textContent=scope;
+897:     backButton.hidden=managementDrill.level==='root';
+898:     backButton.textContent=managementDrill.level==='detail'
+899:       ?`← Back to ${activeReport==='foc'?'Product Groups':'Brands'}`
+900:       :'← Back to Markets';
+901:     flag.hidden=!code;
+902:     flag.src=code?countryFlagDataUri(code):'';
+903:     flag.alt=code?`${flagCountry} flag`:'';
+904:     flag.onerror=()=>{flag.hidden=true;};
+905:   }
+906: 
+907:   function pnlManagementKpis(){
+908:     return [
+909:       ['Net Sales',$('pnlNetSalesKpi')?.textContent,$('pnlNetSalesKpi')],
+910:       ['Gross Profit',$('pnlGrossProfitKpi')?.textContent,$('pnlGrossProfitKpi')],
+911:       ['Net Income',$('pnlNetIncomeKpi')?.textContent,$('pnlNetIncomeKpi')],
+912:       ['GP Margin',$('pnlGpMarginKpi')?.textContent,$('pnlGpMarginKpi')]
+913:     ].map(([label,value,source])=>({label,value:value||'—',className:managementValueClass(source)}));
+914:   }
+915: 
+916:   function managementKpis(table,labels){
+917:     if(activeReport==='pnl') return pnlManagementKpis();
+918:     const total=table.querySelector('tbody .total-row,tbody .sm-total-row');
+919:     if(!total) return [];
+920:     return currentConfig().kpis
+921:       .filter(index=>total.cells[index])
+922:       .map(index=>({
+923:         label:labels[index],
+924:         value:String(total.cells[index].textContent||'').trim()||'—',
+925:         className:managementValueClass(total.cells[index])
+926:       }));
+927:   }
+928: 
+929:   function managementTableClone(table,limit=10){
+930:     const sourceRows=[...(table.tBodies?.[0]?.rows||[])];
+931:     const focusRows=managementDataRows(table);
+932:     const focusIndex=new Map(focusRows.map((row,index)=>[row,index]));
+933:     const clone=table.cloneNode(true);
+===== lines 1791-2040 =====
+1791:   setupResizableColumns($('countryDetailTable'));
+1792: }
+1793: 
+1794: $('backToBrands').addEventListener('click',()=>{
+1795:   if(detailMode==='foc-product'){
+1796:     renderFocCountryGroups();
+1797:   }else{
+1798:     renderCountryBrands();
+1799:   }
+1800: });
+1801: 
+1802: function closeModal(){
+1803:   $('countryModal').classList.remove('open');
+1804:   $('countryModal').setAttribute('aria-hidden','true');
+1805: }
+1806: 
+1807: $('closeCountryModal').addEventListener('click',closeModal);
+1808: document.querySelector('[data-close-modal]').addEventListener('click',closeModal);
+1809: document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+1810: 
+1811: // P&L vertical report
+1812: 
+1813: let pnlRawData = [];
+1814: let pnlViewMode = 'full';
+1815: let pnlComparisonMode = 'standard';
+1816: let pnlCurrency = 'USD';
+1817: let pnlCogsExpanded = false;
+1818: let pnlReturnExpanded = false;
+1819: const PNL_USD_TO_JOD = 0.709;
+1820: 
+1821: const pnlLineConfig = [
+1822:   { key: 'grossSales', label: 'Gross Sales' },
+1823:   { key: 'actualReturn', label: 'Actual Return' },
+1824:   { key: 'expectedReturn', label: 'Expected Return' },
+1825:   { key: 'discounts', label: 'Discounts' },
+1826:   { key: 'commissions', label: 'Commissions' },
+1827:   { key: 'restoun', label: 'Restoun' },
+1828:   { key: 'netSales', label: 'Net Sales', subtotal: true },
+1829:   { key: 'actualCogs', label: 'Goods COGS' },
+1830:   { key: 'focCogs', label: 'FOC COGS' },
+1831:   { key: 'grossProfit', label: 'Gross Profit', subtotal: true },
+1832:   { key: 'sm', label: 'S&M' },
+1833:   { key: 'netIncome', label: 'Net Income', subtotal: true }
+1834: ];
+1835: 
+1836: function pnlPresentationLines(){
+1837:   const lines=[];
+1838:   pnlLineConfig.forEach(line=>{
+1839:     if(line.key==='actualReturn'){
+1840:       lines.push({key:'return',label:'Return',returnToggle:true});
+1841:       if(pnlReturnExpanded){
+1842:         lines.push({...line,returnDetail:true});
+1843:       }
+1844:       return;
+1845:     }
+1846:     if(line.key==='expectedReturn'){
+1847:       if(pnlReturnExpanded) lines.push({...line,returnDetail:true});
+1848:       return;
+1849:     }
+1850:     if(line.key==='actualCogs'){
+1851:       lines.push({key:'cogs',label:'COGS',cogsToggle:true});
+1852:       if(pnlCogsExpanded){
+1853:         lines.push({...line,cogsDetail:true});
+1854:       }
+1855:       return;
+1856:     }
+1857:     if(line.key==='focCogs'){
+1858:       if(pnlCogsExpanded) lines.push({...line,cogsDetail:true});
+1859:       return;
+1860:     }
+1861:     lines.push(line);
+1862:   });
+1863:   return lines;
+1864: }
+1865: 
+1866: function pnlVisibleLines(){
+1867:   const presentationLines=pnlPresentationLines();
+1868:   if(pnlViewMode==='netSales'){
+1869:     const start=presentationLines.findIndex(line=>line.key==='netSales');
+1870:     return presentationLines.slice(start);
+1871:   }
+1872:   if(pnlViewMode==='summary'){
+1873:     const summaryKeys=new Set([
+1874:       'grossSales','netSales','cogs','actualCogs','focCogs','grossProfit','sm','netIncome'
+1875:     ]);
+1876:     return presentationLines.filter(line=>summaryKeys.has(line.key));
+1877:   }
+1878:   return presentationLines;
+1879: }
+1880: 
+1881: document.querySelectorAll('[data-pnl-view]').forEach(button=>{
+1882:   button.addEventListener('click',()=>{
+1883:     pnlViewMode=button.dataset.pnlView||'full';
+1884:     document.querySelectorAll('[data-pnl-view]').forEach(option=>{
+1885:       const active=option===button;
+1886:       option.classList.toggle('active',active);
+1887:       option.setAttribute('aria-pressed',String(active));
+1888:     });
+1889:     renderPnlVertical();
+1890:   });
+1891: });
+1892: 
+1893: document.querySelectorAll('[data-pnl-comparison]').forEach(button=>{
+1894:   button.addEventListener('click',()=>{
+1895:     pnlComparisonMode=button.dataset.pnlComparison==='fyBudget'?'fyBudget':'standard';
+1896:     document.querySelectorAll('[data-pnl-comparison]').forEach(option=>{
+1897:       const active=option===button;
+1898:       option.classList.toggle('active',active);
+1899:       option.setAttribute('aria-pressed',String(active));
+1900:     });
+1901:     renderPnlVertical();
+1902:   });
+1903: });
+1904: 
+1905: document.querySelectorAll('[data-pnl-currency]').forEach(button=>{
+1906:   button.addEventListener('click',()=>{
+1907:     pnlCurrency=button.dataset.pnlCurrency==='JOD'?'JOD':'USD';
+1908:     document.querySelectorAll('[data-pnl-currency]').forEach(option=>{
+1909:       const active=option===button;
+1910:       option.classList.toggle('active',active);
+1911:       option.setAttribute('aria-pressed',String(active));
+1912:     });
+1913:     renderPnlVertical();
+1914:   });
+1915: });
+1916: 
+1917: function updatePnlSpotlightCountry(){
+1918:   const header=$('pnlSpotlightCountryHeader');
+1919:   const flag=$('pnlSpotlightCountryFlag');
+1920:   const name=$('pnlSpotlightCountryName');
+1921:   if(!header || !flag || !name) return;
+1922: 
+1923:   const selected=getSelected('pnlMarketFilter');
+1924:   const available=[...new Set(
+1925:     pnlFilterData().map(row=>row.Market).filter(Boolean)
+1926:   )].sort((a,b)=>a.localeCompare(b));
+1927:   const markets=selected.length?selected:available;
+1928:   const singleMarket=markets.length===1?markets[0]:'';
+1929: 
+1930:   name.textContent=singleMarket || (
+1931:     markets.length ? markets.join(' · ') : 'All Markets'
+1932:   );
+1933:   renderSpotlightFlags(flag,selected.length?markets:(markets.length===1?markets:[]));
+1934: }
+1935: 
+1936: let pnlSpotlightOriginalParent=null;
+1937: let pnlSpotlightOriginalNextSibling=null;
+1938: 
+1939: function setPnlTableSpotlight(active){
+1940:   const spotlightButton=$('pnlSpotlightBtn');
+1941:   const exitButton=$('pnlSpotlightExitBtn');
+1942:   const countryHeader=$('pnlSpotlightCountryHeader');
+1943:   const tableWrap=document.querySelector('#pnlSection .pnl-table-wrap, .pnl-table-wrap.pnl-spotlight-stage');
+1944:   if(active) updatePnlSpotlightCountry();
+1945: 
+1946:   if(active && tableWrap && !tableWrap.classList.contains('pnl-spotlight-stage')){
+1947:     pnlSpotlightOriginalParent=tableWrap.parentNode;
+1948:     pnlSpotlightOriginalNextSibling=tableWrap.nextSibling;
+1949:     tableWrap.classList.add('pnl-spotlight-stage');
+1950:     document.body.appendChild(tableWrap);
+1951:     tableWrap.scrollTop=0;
+1952:     tableWrap.scrollLeft=0;
+1953:   }
+1954: 
+1955:   document.body.classList.toggle('pnl-table-spotlight',active);
+1956:   spotlightButton?.setAttribute('aria-pressed',String(active));
+1957:   if(exitButton) exitButton.hidden=!active;
+1958:   if(countryHeader) countryHeader.hidden=!active;
+1959: 
+1960:   if(!active && tableWrap?.classList.contains('pnl-spotlight-stage')){
+1961:     tableWrap.classList.remove('pnl-spotlight-stage');
+1962:     if(pnlSpotlightOriginalParent){
+1963:       if(
+1964:         pnlSpotlightOriginalNextSibling &&
+1965:         pnlSpotlightOriginalNextSibling.parentNode===pnlSpotlightOriginalParent
+1966:       ){
+1967:         pnlSpotlightOriginalParent.insertBefore(tableWrap,pnlSpotlightOriginalNextSibling);
+1968:       }else{
+1969:         pnlSpotlightOriginalParent.appendChild(tableWrap);
+1970:       }
+1971:     }
+1972:     pnlSpotlightOriginalParent=null;
+1973:     pnlSpotlightOriginalNextSibling=null;
+1974:   }
+1975: 
+1976:   if(active){
+1977:     exitButton?.focus();
+1978:   }else{
+1979:     spotlightButton?.focus();
+1980:   }
+1981: }
+1982: 
+1983: $('pnlSpotlightBtn')?.addEventListener('click',()=>setPnlTableSpotlight(true));
+1984: $('pnlSpotlightExitBtn')?.addEventListener('click',()=>setPnlTableSpotlight(false));
+1985: 
+1986: function pnlNumber(v) {
+1987:   const n = Number(v);
+1988:   return Number.isFinite(n) ? n : 0;
+1989: }
+1990: 
+1991: function pnlFormat(v) {
+1992:   const n = Math.round(pnlNumber(v));
+1993:   return n < 0
+1994:     ? `(${Math.abs(n).toLocaleString('en-US')})`
+1995:     : n.toLocaleString('en-US');
+1996: }
+1997: 
+1998: function pnlPercent(n, d) {
+1999:   if (!d) return '—';
+2000:   return `${((n / Math.abs(d)) * 100).toFixed(1)}%`;
+2001: }
+2002: 
+2003: function pnlUnique(key) {
+2004:   return [...new Set(pnlRawData.map(r => String(r[key] || '').trim()).filter(Boolean))]
+2005:     .sort((a,b) => a.localeCompare(b));
+2006: }
+2007: 
+2008: function pnlFilterData() {
+2009:   return pnlRawData
+2010:     .filter(r => !['Total','Grand Total'].includes(String(r.salesType || '')))
+2011:     .filter(r => !String(r.market || '').toLowerCase().includes('total company'))
+2012:     .map(r => ({
+2013:       'Agent': String(r.agent || '').trim(),
+2014:       'Market': String(r.market || '').trim(),
+2015:       'Sales Type': String(r.salesType || '').trim()
+2016:     }));
+2017: }
+2018: 
+2019: function initPnlFilters() {
+2020:   rebuildPnlFilters(true);
+2021: 
+2022:   const resetBtn = $('pnlResetBtn');
+2023:   if (resetBtn && !resetBtn.dataset.pnlBound) {
+2024:     resetBtn.addEventListener('click', () => {
+2025:       rebuildPnlFilters(true);
+2026:       renderPnlVertical();
+2027:     });
+2028:     resetBtn.dataset.pnlBound = '1';
+2029:   }
+2030: 
+2031: }
+2032: 
+2033: function rebuildPnlFilters(reset=false,changedId='') {
+2034:   const ids = ['pnlMarketFilter','pnlAgentFilter','pnlSalesTypeFilter'];
+2035:   const data = pnlFilterData();
+2036:   const selections = reset
+2037:     ? Object.fromEntries(ids.map(id => [id, []]))
+2038:     : captureSelections(ids);
+2039: 
+2040:   if(changedId==='pnlMarketFilter'){
+===== lines 1808-2057 =====
+1808: document.querySelector('[data-close-modal]').addEventListener('click',closeModal);
+1809: document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+1810: 
+1811: // P&L vertical report
+1812: 
+1813: let pnlRawData = [];
+1814: let pnlViewMode = 'full';
+1815: let pnlComparisonMode = 'standard';
+1816: let pnlCurrency = 'USD';
+1817: let pnlCogsExpanded = false;
+1818: let pnlReturnExpanded = false;
+1819: const PNL_USD_TO_JOD = 0.709;
+1820: 
+1821: const pnlLineConfig = [
+1822:   { key: 'grossSales', label: 'Gross Sales' },
+1823:   { key: 'actualReturn', label: 'Actual Return' },
+1824:   { key: 'expectedReturn', label: 'Expected Return' },
+1825:   { key: 'discounts', label: 'Discounts' },
+1826:   { key: 'commissions', label: 'Commissions' },
+1827:   { key: 'restoun', label: 'Restoun' },
+1828:   { key: 'netSales', label: 'Net Sales', subtotal: true },
+1829:   { key: 'actualCogs', label: 'Goods COGS' },
+1830:   { key: 'focCogs', label: 'FOC COGS' },
+1831:   { key: 'grossProfit', label: 'Gross Profit', subtotal: true },
+1832:   { key: 'sm', label: 'S&M' },
+1833:   { key: 'netIncome', label: 'Net Income', subtotal: true }
+1834: ];
+1835: 
+1836: function pnlPresentationLines(){
+1837:   const lines=[];
+1838:   pnlLineConfig.forEach(line=>{
+1839:     if(line.key==='actualReturn'){
+1840:       lines.push({key:'return',label:'Return',returnToggle:true});
+1841:       if(pnlReturnExpanded){
+1842:         lines.push({...line,returnDetail:true});
+1843:       }
+1844:       return;
+1845:     }
+1846:     if(line.key==='expectedReturn'){
+1847:       if(pnlReturnExpanded) lines.push({...line,returnDetail:true});
+1848:       return;
+1849:     }
+1850:     if(line.key==='actualCogs'){
+1851:       lines.push({key:'cogs',label:'COGS',cogsToggle:true});
+1852:       if(pnlCogsExpanded){
+1853:         lines.push({...line,cogsDetail:true});
+1854:       }
+1855:       return;
+1856:     }
+1857:     if(line.key==='focCogs'){
+1858:       if(pnlCogsExpanded) lines.push({...line,cogsDetail:true});
+1859:       return;
+1860:     }
+1861:     lines.push(line);
+1862:   });
+1863:   return lines;
+1864: }
+1865: 
+1866: function pnlVisibleLines(){
+1867:   const presentationLines=pnlPresentationLines();
+1868:   if(pnlViewMode==='netSales'){
+1869:     const start=presentationLines.findIndex(line=>line.key==='netSales');
+1870:     return presentationLines.slice(start);
+1871:   }
+1872:   if(pnlViewMode==='summary'){
+1873:     const summaryKeys=new Set([
+1874:       'grossSales','netSales','cogs','actualCogs','focCogs','grossProfit','sm','netIncome'
+1875:     ]);
+1876:     return presentationLines.filter(line=>summaryKeys.has(line.key));
+1877:   }
+1878:   return presentationLines;
+1879: }
+1880: 
+1881: document.querySelectorAll('[data-pnl-view]').forEach(button=>{
+1882:   button.addEventListener('click',()=>{
+1883:     pnlViewMode=button.dataset.pnlView||'full';
+1884:     document.querySelectorAll('[data-pnl-view]').forEach(option=>{
+1885:       const active=option===button;
+1886:       option.classList.toggle('active',active);
+1887:       option.setAttribute('aria-pressed',String(active));
+1888:     });
+1889:     renderPnlVertical();
+1890:   });
+1891: });
+1892: 
+1893: document.querySelectorAll('[data-pnl-comparison]').forEach(button=>{
+1894:   button.addEventListener('click',()=>{
+1895:     pnlComparisonMode=button.dataset.pnlComparison==='fyBudget'?'fyBudget':'standard';
+1896:     document.querySelectorAll('[data-pnl-comparison]').forEach(option=>{
+1897:       const active=option===button;
+1898:       option.classList.toggle('active',active);
+1899:       option.setAttribute('aria-pressed',String(active));
+1900:     });
+1901:     renderPnlVertical();
+1902:   });
+1903: });
+1904: 
+1905: document.querySelectorAll('[data-pnl-currency]').forEach(button=>{
+1906:   button.addEventListener('click',()=>{
+1907:     pnlCurrency=button.dataset.pnlCurrency==='JOD'?'JOD':'USD';
+1908:     document.querySelectorAll('[data-pnl-currency]').forEach(option=>{
+1909:       const active=option===button;
+1910:       option.classList.toggle('active',active);
+1911:       option.setAttribute('aria-pressed',String(active));
+1912:     });
+1913:     renderPnlVertical();
+1914:   });
+1915: });
+1916: 
+1917: function updatePnlSpotlightCountry(){
+1918:   const header=$('pnlSpotlightCountryHeader');
+1919:   const flag=$('pnlSpotlightCountryFlag');
+1920:   const name=$('pnlSpotlightCountryName');
+1921:   if(!header || !flag || !name) return;
+1922: 
+1923:   const selected=getSelected('pnlMarketFilter');
+1924:   const available=[...new Set(
+1925:     pnlFilterData().map(row=>row.Market).filter(Boolean)
+1926:   )].sort((a,b)=>a.localeCompare(b));
+1927:   const markets=selected.length?selected:available;
+1928:   const singleMarket=markets.length===1?markets[0]:'';
+1929: 
+1930:   name.textContent=singleMarket || (
+1931:     markets.length ? markets.join(' · ') : 'All Markets'
+1932:   );
+1933:   renderSpotlightFlags(flag,selected.length?markets:(markets.length===1?markets:[]));
+1934: }
+1935: 
+1936: let pnlSpotlightOriginalParent=null;
+1937: let pnlSpotlightOriginalNextSibling=null;
+1938: 
+1939: function setPnlTableSpotlight(active){
+1940:   const spotlightButton=$('pnlSpotlightBtn');
+1941:   const exitButton=$('pnlSpotlightExitBtn');
+1942:   const countryHeader=$('pnlSpotlightCountryHeader');
+1943:   const tableWrap=document.querySelector('#pnlSection .pnl-table-wrap, .pnl-table-wrap.pnl-spotlight-stage');
+1944:   if(active) updatePnlSpotlightCountry();
+1945: 
+1946:   if(active && tableWrap && !tableWrap.classList.contains('pnl-spotlight-stage')){
+1947:     pnlSpotlightOriginalParent=tableWrap.parentNode;
+1948:     pnlSpotlightOriginalNextSibling=tableWrap.nextSibling;
+1949:     tableWrap.classList.add('pnl-spotlight-stage');
+1950:     document.body.appendChild(tableWrap);
+1951:     tableWrap.scrollTop=0;
+1952:     tableWrap.scrollLeft=0;
+1953:   }
+1954: 
+1955:   document.body.classList.toggle('pnl-table-spotlight',active);
+1956:   spotlightButton?.setAttribute('aria-pressed',String(active));
+1957:   if(exitButton) exitButton.hidden=!active;
+1958:   if(countryHeader) countryHeader.hidden=!active;
+1959: 
+1960:   if(!active && tableWrap?.classList.contains('pnl-spotlight-stage')){
+1961:     tableWrap.classList.remove('pnl-spotlight-stage');
+1962:     if(pnlSpotlightOriginalParent){
+1963:       if(
+1964:         pnlSpotlightOriginalNextSibling &&
+1965:         pnlSpotlightOriginalNextSibling.parentNode===pnlSpotlightOriginalParent
+1966:       ){
+1967:         pnlSpotlightOriginalParent.insertBefore(tableWrap,pnlSpotlightOriginalNextSibling);
+1968:       }else{
+1969:         pnlSpotlightOriginalParent.appendChild(tableWrap);
+1970:       }
+1971:     }
+1972:     pnlSpotlightOriginalParent=null;
+1973:     pnlSpotlightOriginalNextSibling=null;
+1974:   }
+1975: 
+1976:   if(active){
+1977:     exitButton?.focus();
+1978:   }else{
+1979:     spotlightButton?.focus();
+1980:   }
+1981: }
+1982: 
+1983: $('pnlSpotlightBtn')?.addEventListener('click',()=>setPnlTableSpotlight(true));
+1984: $('pnlSpotlightExitBtn')?.addEventListener('click',()=>setPnlTableSpotlight(false));
+1985: 
+1986: function pnlNumber(v) {
+1987:   const n = Number(v);
+1988:   return Number.isFinite(n) ? n : 0;
+1989: }
+1990: 
+1991: function pnlFormat(v) {
+1992:   const n = Math.round(pnlNumber(v));
+1993:   return n < 0
+1994:     ? `(${Math.abs(n).toLocaleString('en-US')})`
+1995:     : n.toLocaleString('en-US');
+1996: }
+1997: 
+1998: function pnlPercent(n, d) {
+1999:   if (!d) return '—';
+2000:   return `${((n / Math.abs(d)) * 100).toFixed(1)}%`;
+2001: }
+2002: 
+2003: function pnlUnique(key) {
+2004:   return [...new Set(pnlRawData.map(r => String(r[key] || '').trim()).filter(Boolean))]
+2005:     .sort((a,b) => a.localeCompare(b));
+2006: }
+2007: 
+2008: function pnlFilterData() {
+2009:   return pnlRawData
+2010:     .filter(r => !['Total','Grand Total'].includes(String(r.salesType || '')))
+2011:     .filter(r => !String(r.market || '').toLowerCase().includes('total company'))
+2012:     .map(r => ({
+2013:       'Agent': String(r.agent || '').trim(),
+2014:       'Market': String(r.market || '').trim(),
+2015:       'Sales Type': String(r.salesType || '').trim()
+2016:     }));
+2017: }
+2018: 
+2019: function initPnlFilters() {
+2020:   rebuildPnlFilters(true);
+2021: 
+2022:   const resetBtn = $('pnlResetBtn');
+2023:   if (resetBtn && !resetBtn.dataset.pnlBound) {
+2024:     resetBtn.addEventListener('click', () => {
+2025:       rebuildPnlFilters(true);
+2026:       renderPnlVertical();
+2027:     });
+2028:     resetBtn.dataset.pnlBound = '1';
+2029:   }
+2030: 
+2031: }
+2032: 
+2033: function rebuildPnlFilters(reset=false,changedId='') {
+2034:   const ids = ['pnlMarketFilter','pnlAgentFilter','pnlSalesTypeFilter'];
+2035:   const data = pnlFilterData();
+2036:   const selections = reset
+2037:     ? Object.fromEntries(ids.map(id => [id, []]))
+2038:     : captureSelections(ids);
+2039: 
+2040:   if(changedId==='pnlMarketFilter'){
+2041:     constrainChildrenToParent(data,selections,'pnlMarketFilter',[
+2042:       'pnlAgentFilter'
+2043:     ]);
+2044:   }
+2045:   rebuildDependentFilters(data,ids,selections,nextChangedId=>{
+2046:     rebuildPnlFilters(false,nextChangedId);
+2047:     renderPnlVertical();
+2048:   });
+2049: }
+2050: 
+2051: function pnlFilteredRows() {
+2052:   const agents = getSelected('pnlAgentFilter');
+2053:   const markets = getSelected('pnlMarketFilter');
+2054:   const salesTypes = getSelected('pnlSalesTypeFilter');
+2055: 
+2056:   const allFiltersEmpty = !agents.length && !markets.length && !salesTypes.length;
+2057: 
+===== lines 2052-2301 =====
+2052:   const agents = getSelected('pnlAgentFilter');
+2053:   const markets = getSelected('pnlMarketFilter');
+2054:   const salesTypes = getSelected('pnlSalesTypeFilter');
+2055: 
+2056:   const allFiltersEmpty = !agents.length && !markets.length && !salesTypes.length;
+2057: 
+2058:   if (allFiltersEmpty) {
+2059:     const grandTotal = pnlRawData.filter(r =>
+2060:       r.salesType === 'Grand Total' && r.market === 'Total Company'
+2061:     );
+2062:     if (grandTotal.length) return grandTotal;
+2063:   }
+2064: 
+2065:   if (!agents.length && markets.length === 1 && !salesTypes.length) {
+2066:     const marketTotal = pnlRawData.filter(r =>
+2067:       r.salesType === 'Total' && r.market === markets[0]
+2068:     );
+2069:     if (marketTotal.length) return marketTotal;
+2070:   }
+2071: 
+2072:   return pnlRawData.filter(r =>
+2073:     !['Total','Grand Total'].includes(String(r.salesType || '')) &&
+2074:     !String(r.market || '').toLowerCase().includes('total company') &&
+2075:     (!agents.length || agents.includes(String(r.agent || ''))) &&
+2076:     (!markets.length || markets.includes(String(r.market || ''))) &&
+2077:     (!salesTypes.length || salesTypes.includes(String(r.salesType || '')))
+2078:   );
+2079: }
+2080: 
+2081: function pnlScenarioTotals(rows, scenario) {
+2082:   const result = Object.fromEntries(pnlLineConfig.map(x => [x.key, 0]));
+2083:   rows.filter(r => r.scenario === scenario).forEach(r => {
+2084:     pnlLineConfig.forEach(line => result[line.key] += pnlNumber(r[line.key]));
+2085:   });
+2086:   return result;
+2087: }
+2088: 
+2089: function pnlConvertCurrency(totals) {
+2090:   const rate=pnlCurrency==='JOD'?PNL_USD_TO_JOD:1;
+2091:   return Object.fromEntries(
+2092:     Object.entries(totals).map(([key,value])=>[key,pnlNumber(value)*rate])
+2093:   );
+2094: }
+2095: 
+2096: function pnlVarianceClass(value) {
+2097:   return value > 0 ? 'pnl-positive' : value < 0 ? 'pnl-negative' : '';
+2098: }
+2099: 
+2100: function pnlAmountClass(value) {
+2101:   return value < 0 ? 'pnl-amount-negative' : '';
+2102: }
+2103: 
+2104: function pnlRatio(value, netSales) {
+2105:   return netSales ? value / netSales : 0;
+2106: }
+2107: 
+2108: function pnlLineValue(totals,line){
+2109:   if(line.key==='return'){
+2110:     return pnlNumber(totals.actualReturn)+pnlNumber(totals.expectedReturn);
+2111:   }
+2112:   return line.key==='cogs'
+2113:     ?pnlNumber(totals.actualCogs)+pnlNumber(totals.focCogs)
+2114:     :pnlNumber(totals[line.key]);
+2115: }
+2116: 
+2117: function renderPnlVertical() {
+2118:   const rows = pnlFilteredRows();
+2119:   const actual = pnlConvertCurrency(pnlScenarioTotals(rows, 'Actual'));
+2120:   const budget = pnlConvertCurrency(pnlScenarioTotals(rows, 'Budget'));
+2121:   const ly = pnlConvertCurrency(pnlScenarioTotals(rows, 'LY'));
+2122:   const fyBudget = pnlConvertCurrency(pnlScenarioTotals(rows, 'FY Budget'));
+2123: 
+2124:   const table = $('pnlTable');
+2125:   if (!table) return;
+2126:   const visibleLines = pnlVisibleLines();
+2127:   const count = $('pnlCount');
+2128:   if (count) count.textContent = `${visibleLines.length} P&L lines`;
+2129: 
+2130:   let html = pnlComparisonMode==='fyBudget' ? `
+2131:     <thead>
+2132:       <tr class="pnl-group-head pnl-fy-budget-head">
+2133:         <th>Consolidated P&amp;L</th>
+2134:         <th>Actual (${pnlCurrency})</th>
+2135:         <th>FY Budget (${pnlCurrency})</th>
+2136:         <th>Remaining (${pnlCurrency})</th>
+2137:       </tr>
+2138:     </thead>
+2139:     <tbody>` : `
+2140:     <thead>
+2141:       <tr class="pnl-group-head">
+2142:         <th rowspan="2">Consolidated P&amp;L</th>
+2143:         <th rowspan="2">Actual (${pnlCurrency})</th>
+2144:         <th rowspan="2">Budget (${pnlCurrency})</th>
+2145:         <th colspan="2">Vs Budget</th>
+2146:         <th rowspan="2">LY (${pnlCurrency})</th>
+2147:         <th colspan="2">Vs Last Year</th>
+2148:       </tr>
+2149:       <tr class="pnl-sub-head">
+2150:         <th>Value</th>
+2151:         <th>%</th>
+2152:         <th>Value</th>
+2153:         <th>%</th>
+2154:       </tr>
+2155:     </thead>
+2156:     <tbody>`;
+2157: 
+2158:   visibleLines.forEach(line => {
+2159:     const a = pnlLineValue(actual,line);
+2160:     const b = pnlLineValue(budget,line);
+2161:     const l = pnlLineValue(ly,line);
+2162:     const f = pnlLineValue(fyBudget,line);
+2163:     const vb = a - b;
+2164:     const vl = a - l;
+2165:     const remaining = f - a;
+2166:     const rowClasses = [
+2167:       `pnl-line-${line.key}`,
+2168:       line.subtotal ? 'pnl-subtotal pnl-statement-total' : '',
+2169:       ['cogs','actualCogs','focCogs'].includes(line.key) ? 'pnl-cost-row' : '',
+2170:       line.cogsDetail ? 'pnl-cogs-detail-row' : '',
+2171:       line.returnDetail ? 'pnl-return-detail-row' : ''
+2172:     ].filter(Boolean).join(' ');
+2173:     const lineLabel=line.cogsToggle
+2174:       ?`<button class="pnl-cogs-toggle" type="button" data-pnl-cogs-toggle aria-expanded="${pnlCogsExpanded}"><span aria-hidden="true">${pnlCogsExpanded?'⌄':'›'}</span> COGS</button>`
+2175:       :line.returnToggle
+2176:         ?`<button class="pnl-return-toggle" type="button" data-pnl-return-toggle aria-expanded="${pnlReturnExpanded}"><span aria-hidden="true">${pnlReturnExpanded?'⌄':'›'}</span> Return</button>`
+2177:         :line.label;
+2178: 
+2179:     html += pnlComparisonMode==='fyBudget' ? `
+2180:       <tr class="${rowClasses}">
+2181:         <td>${lineLabel}</td>
+2182:         <td class="${pnlAmountClass(a)}">${pnlFormat(a)}</td>
+2183:         <td class="${pnlAmountClass(f)}">${pnlFormat(f)}</td>
+2184:         <td class="${pnlVarianceClass(remaining)} ${pnlAmountClass(remaining)}">${pnlFormat(remaining)}</td>
+2185:       </tr>` : `
+2186:       <tr class="${rowClasses}">
+2187:         <td>${lineLabel}</td>
+2188:         <td class="${pnlAmountClass(a)}">${pnlFormat(a)}</td>
+2189:         <td class="${pnlAmountClass(b)}">${pnlFormat(b)}</td>
+2190:         <td class="${pnlVarianceClass(vb)} ${pnlAmountClass(vb)}">${pnlFormat(vb)}</td>
+2191:         <td class="pnl-percent ${pnlVarianceClass(vb)} ${pnlAmountClass(vb)}">${pnlPercent(vb,b)}</td>
+2192:         <td class="${pnlAmountClass(l)}">${pnlFormat(l)}</td>
+2193:         <td class="${pnlVarianceClass(vl)} ${pnlAmountClass(vl)}">${pnlFormat(vl)}</td>
+2194:         <td class="pnl-percent ${pnlVarianceClass(vl)} ${pnlAmountClass(vl)}">${pnlPercent(vl,l)}</td>
+2195:       </tr>`;
+2196:   });
+2197: 
+2198:   const ratioRows = [
+2199:     { label:'COGS / Gross Sales', numerator:'cogs', denominator:'grossSales', absolute:true, cogsToggle:true },
+2200:     ...(pnlCogsExpanded?[
+2201:       { label:'Goods COGS / Gross Sales', numerator:'actualCogs', denominator:'grossSales', absolute:true, cogsDetail:true },
+2202:       { label:'FOC COGS / Net Sales', numerator:'focCogs', denominator:'netSales', absolute:true, cogsDetail:true }
+2203:     ]:[]),
+2204:     { label:'Gross Profit', numerator:'grossProfit' },
+2205:     { label:'S&M', numerator:'sm', absolute:true },
+2206:     { label:'Net Income', numerator:'netIncome' }
+2207:   ];
+2208:   html += `<tr class="pnl-ratio-spacer"><td colspan="${pnlComparisonMode==='fyBudget'?4:8}"></td></tr>`;
+2209:   ratioRows.forEach(row=>{
+2210:     const ratioValue=(value,netSales)=>{
+2211:       const ratio=pnlRatio(value,netSales);
+2212:       return row.absolute?Math.abs(ratio):ratio;
+2213:     };
+2214:     const formatRatio=value=>`${(value*100).toFixed(1)}%`;
+2215:     const ratioNumerator=totals=>row.numerator==='cogs'
+2216:       ?pnlNumber(totals.actualCogs)+pnlNumber(totals.focCogs)
+2217:       :pnlNumber(totals[row.numerator]);
+2218:     const ratioDenominator=totals=>pnlNumber(totals[row.denominator||'netSales']);
+2219:     const actualRatio=ratioValue(ratioNumerator(actual),ratioDenominator(actual));
+2220:     const budgetRatio=ratioValue(ratioNumerator(budget),ratioDenominator(budget));
+2221:     const lyRatio=ratioValue(ratioNumerator(ly),ratioDenominator(ly));
+2222:     const fyBudgetRatio=ratioValue(ratioNumerator(fyBudget),ratioDenominator(fyBudget));
+2223:     const remainingRatio=fyBudgetRatio-actualRatio;
+2224:     const ratioLabel=row.cogsToggle
+2225:       ?`<button class="pnl-cogs-toggle" type="button" data-pnl-cogs-toggle aria-expanded="${pnlCogsExpanded}"><span aria-hidden="true">${pnlCogsExpanded?'⌄':'›'}</span> ${row.label}</button>`
+2226:       :row.label;
+2227:     const ratioRowClasses=['pnl-statement-ratio',row.cogsDetail?'pnl-cogs-detail-row':'']
+2228:       .filter(Boolean).join(' ');
+2229:     html += pnlComparisonMode==='fyBudget' ? `
+2230:       <tr class="${ratioRowClasses}">
+2231:         <td>${ratioLabel}</td>
+2232:         <td class="${pnlAmountClass(actualRatio)}">${formatRatio(actualRatio)}</td>
+2233:         <td class="${pnlAmountClass(fyBudgetRatio)}">${formatRatio(fyBudgetRatio)}</td>
+2234:         <td class="${pnlVarianceClass(remainingRatio)} ${pnlAmountClass(remainingRatio)}">${(remainingRatio*100).toFixed(1)} pp</td>
+2235:       </tr>` : `
+2236:       <tr class="${ratioRowClasses}">
+2237:         <td>${ratioLabel}</td>
+2238:         <td class="${pnlAmountClass(actualRatio)}">${formatRatio(actualRatio)}</td>
+2239:         <td class="${pnlAmountClass(budgetRatio)}">${formatRatio(budgetRatio)}</td>
+2240:         <td colspan="2"></td>
+2241:         <td class="${pnlAmountClass(lyRatio)}">${formatRatio(lyRatio)}</td>
+2242:         <td colspan="2"></td>
+2243:       </tr>`;
+2244:   });
+2245: 
+2246:   html += '</tbody>';
+2247:   table.innerHTML = html;
+2248:   table.querySelectorAll('[data-pnl-cogs-toggle]').forEach(button=>{
+2249:     button.addEventListener('click',()=>{
+2250:       pnlCogsExpanded=!pnlCogsExpanded;
+2251:       renderPnlVertical();
+2252:     });
+2253:   });
+2254:   table.querySelector('[data-pnl-return-toggle]')?.addEventListener('click',()=>{
+2255:     pnlReturnExpanded=!pnlReturnExpanded;
+2256:     renderPnlVertical();
+2257:   });
+2258:   setupResizableColumns(table);
+2259: 
+2260:   const comparisonTarget=pnlComparisonMode==='fyBudget'?fyBudget:budget;
+2261:   const comparisonLabel=pnlComparisonMode==='fyBudget'?'Remaining':'Vs Budget';
+2262:   const netSalesVar = pnlComparisonMode==='fyBudget'
+2263:     ?comparisonTarget.netSales-actual.netSales
+2264:     :actual.netSales-comparisonTarget.netSales;
+2265:   const gpVar = pnlComparisonMode==='fyBudget'
+2266:     ?comparisonTarget.grossProfit-actual.grossProfit
+2267:     :actual.grossProfit-comparisonTarget.grossProfit;
+2268:   const niVar = pnlComparisonMode==='fyBudget'
+2269:     ?comparisonTarget.netIncome-actual.netIncome
+2270:     :actual.netIncome-comparisonTarget.netIncome;
+2271:   const actualGpMargin = actual.netSales ? actual.grossProfit / actual.netSales : 0;
+2272:   const comparisonGpMargin = comparisonTarget.netSales
+2273:     ?comparisonTarget.grossProfit/comparisonTarget.netSales
+2274:     :0;
+2275: 
+2276:   const netSalesKpi = $('pnlNetSalesKpi');
+2277:   const grossProfitKpi = $('pnlGrossProfitKpi');
+2278:   const netIncomeKpi = $('pnlNetIncomeKpi');
+2279:   netSalesKpi.textContent = pnlFormat(actual.netSales);
+2280:   grossProfitKpi.textContent = pnlFormat(actual.grossProfit);
+2281:   netIncomeKpi.textContent = pnlFormat(actual.netIncome);
+2282:   [
+2283:     [netSalesKpi, actual.netSales],
+2284:     [grossProfitKpi, actual.grossProfit],
+2285:     [netIncomeKpi, actual.netIncome]
+2286:   ].forEach(([element,value])=>{
+2287:     element.classList.toggle('pnl-kpi-negative',value<0);
+2288:   });
+2289:   $('pnlGpMarginKpi').textContent = `${(actualGpMargin*100).toFixed(1)}%`;
+2290: 
+2291:   const netEl = $('pnlNetSalesVar');
+2292:   const gpEl = $('pnlGrossProfitVar');
+2293:   const niEl = $('pnlNetIncomeVar');
+2294:   const gmEl = $('pnlGpMarginVar');
+2295: 
+2296:   netEl.textContent = `${comparisonLabel} ${pnlFormat(netSalesVar)}`;
+2297:   gpEl.textContent = `${comparisonLabel} ${pnlFormat(gpVar)}`;
+2298:   niEl.textContent = `${comparisonLabel} ${pnlFormat(niVar)}`;
+2299:   gmEl.textContent = `${pnlComparisonMode==='fyBudget'?'FY Budget':'Budget'} ${(comparisonGpMargin*100).toFixed(1)}%`;
+2300: 
+2301:   [ [netEl,netSalesVar], [gpEl,gpVar], [niEl,niVar] ].forEach(([el,v]) => {
+===== lines 2054-2303 =====
+2054:   const salesTypes = getSelected('pnlSalesTypeFilter');
+2055: 
+2056:   const allFiltersEmpty = !agents.length && !markets.length && !salesTypes.length;
+2057: 
+2058:   if (allFiltersEmpty) {
+2059:     const grandTotal = pnlRawData.filter(r =>
+2060:       r.salesType === 'Grand Total' && r.market === 'Total Company'
+2061:     );
+2062:     if (grandTotal.length) return grandTotal;
+2063:   }
+2064: 
+2065:   if (!agents.length && markets.length === 1 && !salesTypes.length) {
+2066:     const marketTotal = pnlRawData.filter(r =>
+2067:       r.salesType === 'Total' && r.market === markets[0]
+2068:     );
+2069:     if (marketTotal.length) return marketTotal;
+2070:   }
+2071: 
+2072:   return pnlRawData.filter(r =>
+2073:     !['Total','Grand Total'].includes(String(r.salesType || '')) &&
+2074:     !String(r.market || '').toLowerCase().includes('total company') &&
+2075:     (!agents.length || agents.includes(String(r.agent || ''))) &&
+2076:     (!markets.length || markets.includes(String(r.market || ''))) &&
+2077:     (!salesTypes.length || salesTypes.includes(String(r.salesType || '')))
+2078:   );
+2079: }
+2080: 
+2081: function pnlScenarioTotals(rows, scenario) {
+2082:   const result = Object.fromEntries(pnlLineConfig.map(x => [x.key, 0]));
+2083:   rows.filter(r => r.scenario === scenario).forEach(r => {
+2084:     pnlLineConfig.forEach(line => result[line.key] += pnlNumber(r[line.key]));
+2085:   });
+2086:   return result;
+2087: }
+2088: 
+2089: function pnlConvertCurrency(totals) {
+2090:   const rate=pnlCurrency==='JOD'?PNL_USD_TO_JOD:1;
+2091:   return Object.fromEntries(
+2092:     Object.entries(totals).map(([key,value])=>[key,pnlNumber(value)*rate])
+2093:   );
+2094: }
+2095: 
+2096: function pnlVarianceClass(value) {
+2097:   return value > 0 ? 'pnl-positive' : value < 0 ? 'pnl-negative' : '';
+2098: }
+2099: 
+2100: function pnlAmountClass(value) {
+2101:   return value < 0 ? 'pnl-amount-negative' : '';
+2102: }
+2103: 
+2104: function pnlRatio(value, netSales) {
+2105:   return netSales ? value / netSales : 0;
+2106: }
+2107: 
+2108: function pnlLineValue(totals,line){
+2109:   if(line.key==='return'){
+2110:     return pnlNumber(totals.actualReturn)+pnlNumber(totals.expectedReturn);
+2111:   }
+2112:   return line.key==='cogs'
+2113:     ?pnlNumber(totals.actualCogs)+pnlNumber(totals.focCogs)
+2114:     :pnlNumber(totals[line.key]);
+2115: }
+2116: 
+2117: function renderPnlVertical() {
+2118:   const rows = pnlFilteredRows();
+2119:   const actual = pnlConvertCurrency(pnlScenarioTotals(rows, 'Actual'));
+2120:   const budget = pnlConvertCurrency(pnlScenarioTotals(rows, 'Budget'));
+2121:   const ly = pnlConvertCurrency(pnlScenarioTotals(rows, 'LY'));
+2122:   const fyBudget = pnlConvertCurrency(pnlScenarioTotals(rows, 'FY Budget'));
+2123: 
+2124:   const table = $('pnlTable');
+2125:   if (!table) return;
+2126:   const visibleLines = pnlVisibleLines();
+2127:   const count = $('pnlCount');
+2128:   if (count) count.textContent = `${visibleLines.length} P&L lines`;
+2129: 
+2130:   let html = pnlComparisonMode==='fyBudget' ? `
+2131:     <thead>
+2132:       <tr class="pnl-group-head pnl-fy-budget-head">
+2133:         <th>Consolidated P&amp;L</th>
+2134:         <th>Actual (${pnlCurrency})</th>
+2135:         <th>FY Budget (${pnlCurrency})</th>
+2136:         <th>Remaining (${pnlCurrency})</th>
+2137:       </tr>
+2138:     </thead>
+2139:     <tbody>` : `
+2140:     <thead>
+2141:       <tr class="pnl-group-head">
+2142:         <th rowspan="2">Consolidated P&amp;L</th>
+2143:         <th rowspan="2">Actual (${pnlCurrency})</th>
+2144:         <th rowspan="2">Budget (${pnlCurrency})</th>
+2145:         <th colspan="2">Vs Budget</th>
+2146:         <th rowspan="2">LY (${pnlCurrency})</th>
+2147:         <th colspan="2">Vs Last Year</th>
+2148:       </tr>
+2149:       <tr class="pnl-sub-head">
+2150:         <th>Value</th>
+2151:         <th>%</th>
+2152:         <th>Value</th>
+2153:         <th>%</th>
+2154:       </tr>
+2155:     </thead>
+2156:     <tbody>`;
+2157: 
+2158:   visibleLines.forEach(line => {
+2159:     const a = pnlLineValue(actual,line);
+2160:     const b = pnlLineValue(budget,line);
+2161:     const l = pnlLineValue(ly,line);
+2162:     const f = pnlLineValue(fyBudget,line);
+2163:     const vb = a - b;
+2164:     const vl = a - l;
+2165:     const remaining = f - a;
+2166:     const rowClasses = [
+2167:       `pnl-line-${line.key}`,
+2168:       line.subtotal ? 'pnl-subtotal pnl-statement-total' : '',
+2169:       ['cogs','actualCogs','focCogs'].includes(line.key) ? 'pnl-cost-row' : '',
+2170:       line.cogsDetail ? 'pnl-cogs-detail-row' : '',
+2171:       line.returnDetail ? 'pnl-return-detail-row' : ''
+2172:     ].filter(Boolean).join(' ');
+2173:     const lineLabel=line.cogsToggle
+2174:       ?`<button class="pnl-cogs-toggle" type="button" data-pnl-cogs-toggle aria-expanded="${pnlCogsExpanded}"><span aria-hidden="true">${pnlCogsExpanded?'⌄':'›'}</span> COGS</button>`
+2175:       :line.returnToggle
+2176:         ?`<button class="pnl-return-toggle" type="button" data-pnl-return-toggle aria-expanded="${pnlReturnExpanded}"><span aria-hidden="true">${pnlReturnExpanded?'⌄':'›'}</span> Return</button>`
+2177:         :line.label;
+2178: 
+2179:     html += pnlComparisonMode==='fyBudget' ? `
+2180:       <tr class="${rowClasses}">
+2181:         <td>${lineLabel}</td>
+2182:         <td class="${pnlAmountClass(a)}">${pnlFormat(a)}</td>
+2183:         <td class="${pnlAmountClass(f)}">${pnlFormat(f)}</td>
+2184:         <td class="${pnlVarianceClass(remaining)} ${pnlAmountClass(remaining)}">${pnlFormat(remaining)}</td>
+2185:       </tr>` : `
+2186:       <tr class="${rowClasses}">
+2187:         <td>${lineLabel}</td>
+2188:         <td class="${pnlAmountClass(a)}">${pnlFormat(a)}</td>
+2189:         <td class="${pnlAmountClass(b)}">${pnlFormat(b)}</td>
+2190:         <td class="${pnlVarianceClass(vb)} ${pnlAmountClass(vb)}">${pnlFormat(vb)}</td>
+2191:         <td class="pnl-percent ${pnlVarianceClass(vb)} ${pnlAmountClass(vb)}">${pnlPercent(vb,b)}</td>
+2192:         <td class="${pnlAmountClass(l)}">${pnlFormat(l)}</td>
+2193:         <td class="${pnlVarianceClass(vl)} ${pnlAmountClass(vl)}">${pnlFormat(vl)}</td>
+2194:         <td class="pnl-percent ${pnlVarianceClass(vl)} ${pnlAmountClass(vl)}">${pnlPercent(vl,l)}</td>
+2195:       </tr>`;
+2196:   });
+2197: 
+2198:   const ratioRows = [
+2199:     { label:'COGS / Gross Sales', numerator:'cogs', denominator:'grossSales', absolute:true, cogsToggle:true },
+2200:     ...(pnlCogsExpanded?[
+2201:       { label:'Goods COGS / Gross Sales', numerator:'actualCogs', denominator:'grossSales', absolute:true, cogsDetail:true },
+2202:       { label:'FOC COGS / Net Sales', numerator:'focCogs', denominator:'netSales', absolute:true, cogsDetail:true }
+2203:     ]:[]),
+2204:     { label:'Gross Profit', numerator:'grossProfit' },
+2205:     { label:'S&M', numerator:'sm', absolute:true },
+2206:     { label:'Net Income', numerator:'netIncome' }
+2207:   ];
+2208:   html += `<tr class="pnl-ratio-spacer"><td colspan="${pnlComparisonMode==='fyBudget'?4:8}"></td></tr>`;
+2209:   ratioRows.forEach(row=>{
+2210:     const ratioValue=(value,netSales)=>{
+2211:       const ratio=pnlRatio(value,netSales);
+2212:       return row.absolute?Math.abs(ratio):ratio;
+2213:     };
+2214:     const formatRatio=value=>`${(value*100).toFixed(1)}%`;
+2215:     const ratioNumerator=totals=>row.numerator==='cogs'
+2216:       ?pnlNumber(totals.actualCogs)+pnlNumber(totals.focCogs)
+2217:       :pnlNumber(totals[row.numerator]);
+2218:     const ratioDenominator=totals=>pnlNumber(totals[row.denominator||'netSales']);
+2219:     const actualRatio=ratioValue(ratioNumerator(actual),ratioDenominator(actual));
+2220:     const budgetRatio=ratioValue(ratioNumerator(budget),ratioDenominator(budget));
+2221:     const lyRatio=ratioValue(ratioNumerator(ly),ratioDenominator(ly));
+2222:     const fyBudgetRatio=ratioValue(ratioNumerator(fyBudget),ratioDenominator(fyBudget));
+2223:     const remainingRatio=fyBudgetRatio-actualRatio;
+2224:     const ratioLabel=row.cogsToggle
+2225:       ?`<button class="pnl-cogs-toggle" type="button" data-pnl-cogs-toggle aria-expanded="${pnlCogsExpanded}"><span aria-hidden="true">${pnlCogsExpanded?'⌄':'›'}</span> ${row.label}</button>`
+2226:       :row.label;
+2227:     const ratioRowClasses=['pnl-statement-ratio',row.cogsDetail?'pnl-cogs-detail-row':'']
+2228:       .filter(Boolean).join(' ');
+2229:     html += pnlComparisonMode==='fyBudget' ? `
+2230:       <tr class="${ratioRowClasses}">
+2231:         <td>${ratioLabel}</td>
+2232:         <td class="${pnlAmountClass(actualRatio)}">${formatRatio(actualRatio)}</td>
+2233:         <td class="${pnlAmountClass(fyBudgetRatio)}">${formatRatio(fyBudgetRatio)}</td>
+2234:         <td class="${pnlVarianceClass(remainingRatio)} ${pnlAmountClass(remainingRatio)}">${(remainingRatio*100).toFixed(1)} pp</td>
+2235:       </tr>` : `
+2236:       <tr class="${ratioRowClasses}">
+2237:         <td>${ratioLabel}</td>
+2238:         <td class="${pnlAmountClass(actualRatio)}">${formatRatio(actualRatio)}</td>
+2239:         <td class="${pnlAmountClass(budgetRatio)}">${formatRatio(budgetRatio)}</td>
+2240:         <td colspan="2"></td>
+2241:         <td class="${pnlAmountClass(lyRatio)}">${formatRatio(lyRatio)}</td>
+2242:         <td colspan="2"></td>
+2243:       </tr>`;
+2244:   });
+2245: 
+2246:   html += '</tbody>';
+2247:   table.innerHTML = html;
+2248:   table.querySelectorAll('[data-pnl-cogs-toggle]').forEach(button=>{
+2249:     button.addEventListener('click',()=>{
+2250:       pnlCogsExpanded=!pnlCogsExpanded;
+2251:       renderPnlVertical();
+2252:     });
+2253:   });
+2254:   table.querySelector('[data-pnl-return-toggle]')?.addEventListener('click',()=>{
+2255:     pnlReturnExpanded=!pnlReturnExpanded;
+2256:     renderPnlVertical();
+2257:   });
+2258:   setupResizableColumns(table);
+2259: 
+2260:   const comparisonTarget=pnlComparisonMode==='fyBudget'?fyBudget:budget;
+2261:   const comparisonLabel=pnlComparisonMode==='fyBudget'?'Remaining':'Vs Budget';
+2262:   const netSalesVar = pnlComparisonMode==='fyBudget'
+2263:     ?comparisonTarget.netSales-actual.netSales
+2264:     :actual.netSales-comparisonTarget.netSales;
+2265:   const gpVar = pnlComparisonMode==='fyBudget'
+2266:     ?comparisonTarget.grossProfit-actual.grossProfit
+2267:     :actual.grossProfit-comparisonTarget.grossProfit;
+2268:   const niVar = pnlComparisonMode==='fyBudget'
+2269:     ?comparisonTarget.netIncome-actual.netIncome
+2270:     :actual.netIncome-comparisonTarget.netIncome;
+2271:   const actualGpMargin = actual.netSales ? actual.grossProfit / actual.netSales : 0;
+2272:   const comparisonGpMargin = comparisonTarget.netSales
+2273:     ?comparisonTarget.grossProfit/comparisonTarget.netSales
+2274:     :0;
+2275: 
+2276:   const netSalesKpi = $('pnlNetSalesKpi');
+2277:   const grossProfitKpi = $('pnlGrossProfitKpi');
+2278:   const netIncomeKpi = $('pnlNetIncomeKpi');
+2279:   netSalesKpi.textContent = pnlFormat(actual.netSales);
+2280:   grossProfitKpi.textContent = pnlFormat(actual.grossProfit);
+2281:   netIncomeKpi.textContent = pnlFormat(actual.netIncome);
+2282:   [
+2283:     [netSalesKpi, actual.netSales],
+2284:     [grossProfitKpi, actual.grossProfit],
+2285:     [netIncomeKpi, actual.netIncome]
+2286:   ].forEach(([element,value])=>{
+2287:     element.classList.toggle('pnl-kpi-negative',value<0);
+2288:   });
+2289:   $('pnlGpMarginKpi').textContent = `${(actualGpMargin*100).toFixed(1)}%`;
+2290: 
+2291:   const netEl = $('pnlNetSalesVar');
+2292:   const gpEl = $('pnlGrossProfitVar');
+2293:   const niEl = $('pnlNetIncomeVar');
+2294:   const gmEl = $('pnlGpMarginVar');
+2295: 
+2296:   netEl.textContent = `${comparisonLabel} ${pnlFormat(netSalesVar)}`;
+2297:   gpEl.textContent = `${comparisonLabel} ${pnlFormat(gpVar)}`;
+2298:   niEl.textContent = `${comparisonLabel} ${pnlFormat(niVar)}`;
+2299:   gmEl.textContent = `${pnlComparisonMode==='fyBudget'?'FY Budget':'Budget'} ${(comparisonGpMargin*100).toFixed(1)}%`;
+2300: 
+2301:   [ [netEl,netSalesVar], [gpEl,gpVar], [niEl,niVar] ].forEach(([el,v]) => {
+2302:     el.classList.remove('positive','negative');
+2303:     if (v > 0) el.classList.add('positive');
+===== lines 2078-2327 =====
+2078:   );
+2079: }
+2080: 
+2081: function pnlScenarioTotals(rows, scenario) {
+2082:   const result = Object.fromEntries(pnlLineConfig.map(x => [x.key, 0]));
+2083:   rows.filter(r => r.scenario === scenario).forEach(r => {
+2084:     pnlLineConfig.forEach(line => result[line.key] += pnlNumber(r[line.key]));
+2085:   });
+2086:   return result;
+2087: }
+2088: 
+2089: function pnlConvertCurrency(totals) {
+2090:   const rate=pnlCurrency==='JOD'?PNL_USD_TO_JOD:1;
+2091:   return Object.fromEntries(
+2092:     Object.entries(totals).map(([key,value])=>[key,pnlNumber(value)*rate])
+2093:   );
+2094: }
+2095: 
+2096: function pnlVarianceClass(value) {
+2097:   return value > 0 ? 'pnl-positive' : value < 0 ? 'pnl-negative' : '';
+2098: }
+2099: 
+2100: function pnlAmountClass(value) {
+2101:   return value < 0 ? 'pnl-amount-negative' : '';
+2102: }
+2103: 
+2104: function pnlRatio(value, netSales) {
+2105:   return netSales ? value / netSales : 0;
+2106: }
+2107: 
+2108: function pnlLineValue(totals,line){
+2109:   if(line.key==='return'){
+2110:     return pnlNumber(totals.actualReturn)+pnlNumber(totals.expectedReturn);
+2111:   }
+2112:   return line.key==='cogs'
+2113:     ?pnlNumber(totals.actualCogs)+pnlNumber(totals.focCogs)
+2114:     :pnlNumber(totals[line.key]);
+2115: }
+2116: 
+2117: function renderPnlVertical() {
+2118:   const rows = pnlFilteredRows();
+2119:   const actual = pnlConvertCurrency(pnlScenarioTotals(rows, 'Actual'));
+2120:   const budget = pnlConvertCurrency(pnlScenarioTotals(rows, 'Budget'));
+2121:   const ly = pnlConvertCurrency(pnlScenarioTotals(rows, 'LY'));
+2122:   const fyBudget = pnlConvertCurrency(pnlScenarioTotals(rows, 'FY Budget'));
+2123: 
+2124:   const table = $('pnlTable');
+2125:   if (!table) return;
+2126:   const visibleLines = pnlVisibleLines();
+2127:   const count = $('pnlCount');
+2128:   if (count) count.textContent = `${visibleLines.length} P&L lines`;
+2129: 
+2130:   let html = pnlComparisonMode==='fyBudget' ? `
+2131:     <thead>
+2132:       <tr class="pnl-group-head pnl-fy-budget-head">
+2133:         <th>Consolidated P&amp;L</th>
+2134:         <th>Actual (${pnlCurrency})</th>
+2135:         <th>FY Budget (${pnlCurrency})</th>
+2136:         <th>Remaining (${pnlCurrency})</th>
+2137:       </tr>
+2138:     </thead>
+2139:     <tbody>` : `
+2140:     <thead>
+2141:       <tr class="pnl-group-head">
+2142:         <th rowspan="2">Consolidated P&amp;L</th>
+2143:         <th rowspan="2">Actual (${pnlCurrency})</th>
+2144:         <th rowspan="2">Budget (${pnlCurrency})</th>
+2145:         <th colspan="2">Vs Budget</th>
+2146:         <th rowspan="2">LY (${pnlCurrency})</th>
+2147:         <th colspan="2">Vs Last Year</th>
+2148:       </tr>
+2149:       <tr class="pnl-sub-head">
+2150:         <th>Value</th>
+2151:         <th>%</th>
+2152:         <th>Value</th>
+2153:         <th>%</th>
+2154:       </tr>
+2155:     </thead>
+2156:     <tbody>`;
+2157: 
+2158:   visibleLines.forEach(line => {
+2159:     const a = pnlLineValue(actual,line);
+2160:     const b = pnlLineValue(budget,line);
+2161:     const l = pnlLineValue(ly,line);
+2162:     const f = pnlLineValue(fyBudget,line);
+2163:     const vb = a - b;
+2164:     const vl = a - l;
+2165:     const remaining = f - a;
+2166:     const rowClasses = [
+2167:       `pnl-line-${line.key}`,
+2168:       line.subtotal ? 'pnl-subtotal pnl-statement-total' : '',
+2169:       ['cogs','actualCogs','focCogs'].includes(line.key) ? 'pnl-cost-row' : '',
+2170:       line.cogsDetail ? 'pnl-cogs-detail-row' : '',
+2171:       line.returnDetail ? 'pnl-return-detail-row' : ''
+2172:     ].filter(Boolean).join(' ');
+2173:     const lineLabel=line.cogsToggle
+2174:       ?`<button class="pnl-cogs-toggle" type="button" data-pnl-cogs-toggle aria-expanded="${pnlCogsExpanded}"><span aria-hidden="true">${pnlCogsExpanded?'⌄':'›'}</span> COGS</button>`
+2175:       :line.returnToggle
+2176:         ?`<button class="pnl-return-toggle" type="button" data-pnl-return-toggle aria-expanded="${pnlReturnExpanded}"><span aria-hidden="true">${pnlReturnExpanded?'⌄':'›'}</span> Return</button>`
+2177:         :line.label;
+2178: 
+2179:     html += pnlComparisonMode==='fyBudget' ? `
+2180:       <tr class="${rowClasses}">
+2181:         <td>${lineLabel}</td>
+2182:         <td class="${pnlAmountClass(a)}">${pnlFormat(a)}</td>
+2183:         <td class="${pnlAmountClass(f)}">${pnlFormat(f)}</td>
+2184:         <td class="${pnlVarianceClass(remaining)} ${pnlAmountClass(remaining)}">${pnlFormat(remaining)}</td>
+2185:       </tr>` : `
+2186:       <tr class="${rowClasses}">
+2187:         <td>${lineLabel}</td>
+2188:         <td class="${pnlAmountClass(a)}">${pnlFormat(a)}</td>
+2189:         <td class="${pnlAmountClass(b)}">${pnlFormat(b)}</td>
+2190:         <td class="${pnlVarianceClass(vb)} ${pnlAmountClass(vb)}">${pnlFormat(vb)}</td>
+2191:         <td class="pnl-percent ${pnlVarianceClass(vb)} ${pnlAmountClass(vb)}">${pnlPercent(vb,b)}</td>
+2192:         <td class="${pnlAmountClass(l)}">${pnlFormat(l)}</td>
+2193:         <td class="${pnlVarianceClass(vl)} ${pnlAmountClass(vl)}">${pnlFormat(vl)}</td>
+2194:         <td class="pnl-percent ${pnlVarianceClass(vl)} ${pnlAmountClass(vl)}">${pnlPercent(vl,l)}</td>
+2195:       </tr>`;
+2196:   });
+2197: 
+2198:   const ratioRows = [
+2199:     { label:'COGS / Gross Sales', numerator:'cogs', denominator:'grossSales', absolute:true, cogsToggle:true },
+2200:     ...(pnlCogsExpanded?[
+2201:       { label:'Goods COGS / Gross Sales', numerator:'actualCogs', denominator:'grossSales', absolute:true, cogsDetail:true },
+2202:       { label:'FOC COGS / Net Sales', numerator:'focCogs', denominator:'netSales', absolute:true, cogsDetail:true }
+2203:     ]:[]),
+2204:     { label:'Gross Profit', numerator:'grossProfit' },
+2205:     { label:'S&M', numerator:'sm', absolute:true },
+2206:     { label:'Net Income', numerator:'netIncome' }
+2207:   ];
+2208:   html += `<tr class="pnl-ratio-spacer"><td colspan="${pnlComparisonMode==='fyBudget'?4:8}"></td></tr>`;
+2209:   ratioRows.forEach(row=>{
+2210:     const ratioValue=(value,netSales)=>{
+2211:       const ratio=pnlRatio(value,netSales);
+2212:       return row.absolute?Math.abs(ratio):ratio;
+2213:     };
+2214:     const formatRatio=value=>`${(value*100).toFixed(1)}%`;
+2215:     const ratioNumerator=totals=>row.numerator==='cogs'
+2216:       ?pnlNumber(totals.actualCogs)+pnlNumber(totals.focCogs)
+2217:       :pnlNumber(totals[row.numerator]);
+2218:     const ratioDenominator=totals=>pnlNumber(totals[row.denominator||'netSales']);
+2219:     const actualRatio=ratioValue(ratioNumerator(actual),ratioDenominator(actual));
+2220:     const budgetRatio=ratioValue(ratioNumerator(budget),ratioDenominator(budget));
+2221:     const lyRatio=ratioValue(ratioNumerator(ly),ratioDenominator(ly));
+2222:     const fyBudgetRatio=ratioValue(ratioNumerator(fyBudget),ratioDenominator(fyBudget));
+2223:     const remainingRatio=fyBudgetRatio-actualRatio;
+2224:     const ratioLabel=row.cogsToggle
+2225:       ?`<button class="pnl-cogs-toggle" type="button" data-pnl-cogs-toggle aria-expanded="${pnlCogsExpanded}"><span aria-hidden="true">${pnlCogsExpanded?'⌄':'›'}</span> ${row.label}</button>`
+2226:       :row.label;
+2227:     const ratioRowClasses=['pnl-statement-ratio',row.cogsDetail?'pnl-cogs-detail-row':'']
+2228:       .filter(Boolean).join(' ');
+2229:     html += pnlComparisonMode==='fyBudget' ? `
+2230:       <tr class="${ratioRowClasses}">
+2231:         <td>${ratioLabel}</td>
+2232:         <td class="${pnlAmountClass(actualRatio)}">${formatRatio(actualRatio)}</td>
+2233:         <td class="${pnlAmountClass(fyBudgetRatio)}">${formatRatio(fyBudgetRatio)}</td>
+2234:         <td class="${pnlVarianceClass(remainingRatio)} ${pnlAmountClass(remainingRatio)}">${(remainingRatio*100).toFixed(1)} pp</td>
+2235:       </tr>` : `
+2236:       <tr class="${ratioRowClasses}">
+2237:         <td>${ratioLabel}</td>
+2238:         <td class="${pnlAmountClass(actualRatio)}">${formatRatio(actualRatio)}</td>
+2239:         <td class="${pnlAmountClass(budgetRatio)}">${formatRatio(budgetRatio)}</td>
+2240:         <td colspan="2"></td>
+2241:         <td class="${pnlAmountClass(lyRatio)}">${formatRatio(lyRatio)}</td>
+2242:         <td colspan="2"></td>
+2243:       </tr>`;
+2244:   });
+2245: 
+2246:   html += '</tbody>';
+2247:   table.innerHTML = html;
+2248:   table.querySelectorAll('[data-pnl-cogs-toggle]').forEach(button=>{
+2249:     button.addEventListener('click',()=>{
+2250:       pnlCogsExpanded=!pnlCogsExpanded;
+2251:       renderPnlVertical();
+2252:     });
+2253:   });
+2254:   table.querySelector('[data-pnl-return-toggle]')?.addEventListener('click',()=>{
+2255:     pnlReturnExpanded=!pnlReturnExpanded;
+2256:     renderPnlVertical();
+2257:   });
+2258:   setupResizableColumns(table);
+2259: 
+2260:   const comparisonTarget=pnlComparisonMode==='fyBudget'?fyBudget:budget;
+2261:   const comparisonLabel=pnlComparisonMode==='fyBudget'?'Remaining':'Vs Budget';
+2262:   const netSalesVar = pnlComparisonMode==='fyBudget'
+2263:     ?comparisonTarget.netSales-actual.netSales
+2264:     :actual.netSales-comparisonTarget.netSales;
+2265:   const gpVar = pnlComparisonMode==='fyBudget'
+2266:     ?comparisonTarget.grossProfit-actual.grossProfit
+2267:     :actual.grossProfit-comparisonTarget.grossProfit;
+2268:   const niVar = pnlComparisonMode==='fyBudget'
+2269:     ?comparisonTarget.netIncome-actual.netIncome
+2270:     :actual.netIncome-comparisonTarget.netIncome;
+2271:   const actualGpMargin = actual.netSales ? actual.grossProfit / actual.netSales : 0;
+2272:   const comparisonGpMargin = comparisonTarget.netSales
+2273:     ?comparisonTarget.grossProfit/comparisonTarget.netSales
+2274:     :0;
+2275: 
+2276:   const netSalesKpi = $('pnlNetSalesKpi');
+2277:   const grossProfitKpi = $('pnlGrossProfitKpi');
+2278:   const netIncomeKpi = $('pnlNetIncomeKpi');
+2279:   netSalesKpi.textContent = pnlFormat(actual.netSales);
+2280:   grossProfitKpi.textContent = pnlFormat(actual.grossProfit);
+2281:   netIncomeKpi.textContent = pnlFormat(actual.netIncome);
+2282:   [
+2283:     [netSalesKpi, actual.netSales],
+2284:     [grossProfitKpi, actual.grossProfit],
+2285:     [netIncomeKpi, actual.netIncome]
+2286:   ].forEach(([element,value])=>{
+2287:     element.classList.toggle('pnl-kpi-negative',value<0);
+2288:   });
+2289:   $('pnlGpMarginKpi').textContent = `${(actualGpMargin*100).toFixed(1)}%`;
+2290: 
+2291:   const netEl = $('pnlNetSalesVar');
+2292:   const gpEl = $('pnlGrossProfitVar');
+2293:   const niEl = $('pnlNetIncomeVar');
+2294:   const gmEl = $('pnlGpMarginVar');
+2295: 
+2296:   netEl.textContent = `${comparisonLabel} ${pnlFormat(netSalesVar)}`;
+2297:   gpEl.textContent = `${comparisonLabel} ${pnlFormat(gpVar)}`;
+2298:   niEl.textContent = `${comparisonLabel} ${pnlFormat(niVar)}`;
+2299:   gmEl.textContent = `${pnlComparisonMode==='fyBudget'?'FY Budget':'Budget'} ${(comparisonGpMargin*100).toFixed(1)}%`;
+2300: 
+2301:   [ [netEl,netSalesVar], [gpEl,gpVar], [niEl,niVar] ].forEach(([el,v]) => {
+2302:     el.classList.remove('positive','negative');
+2303:     if (v > 0) el.classList.add('positive');
+2304:     if (v < 0) el.classList.add('negative');
+2305:   });
+2306: 
+2307: }
+2308: 
+2309: 
+2310: function pnlNormalizeHeader(value) {
+2311:   return String(value || '')
+2312:     .trim()
+2313:     .toLowerCase()
+2314:     .replace(/&/g, 'and')
+2315:     .replace(/[^a-z0-9]+/g, '');
+2316: }
+2317: 
+2318: function pnlFindHeaderIndex(rows) {
+2319:   return rows.findIndex(row => {
+2320:     const normalized = row.map(pnlNormalizeHeader);
+2321:     return normalized.includes('salestype') &&
+2322:            normalized.includes('market') &&
+2323:            normalized.includes('agent') &&
+2324:            normalized.includes('scenario');
+2325:   });
+2326: }
+2327: 
+===== lines 2087-2336 =====
+2087: }
+2088: 
+2089: function pnlConvertCurrency(totals) {
+2090:   const rate=pnlCurrency==='JOD'?PNL_USD_TO_JOD:1;
+2091:   return Object.fromEntries(
+2092:     Object.entries(totals).map(([key,value])=>[key,pnlNumber(value)*rate])
+2093:   );
+2094: }
+2095: 
+2096: function pnlVarianceClass(value) {
+2097:   return value > 0 ? 'pnl-positive' : value < 0 ? 'pnl-negative' : '';
+2098: }
+2099: 
+2100: function pnlAmountClass(value) {
+2101:   return value < 0 ? 'pnl-amount-negative' : '';
+2102: }
+2103: 
+2104: function pnlRatio(value, netSales) {
+2105:   return netSales ? value / netSales : 0;
+2106: }
+2107: 
+2108: function pnlLineValue(totals,line){
+2109:   if(line.key==='return'){
+2110:     return pnlNumber(totals.actualReturn)+pnlNumber(totals.expectedReturn);
+2111:   }
+2112:   return line.key==='cogs'
+2113:     ?pnlNumber(totals.actualCogs)+pnlNumber(totals.focCogs)
+2114:     :pnlNumber(totals[line.key]);
+2115: }
+2116: 
+2117: function renderPnlVertical() {
+2118:   const rows = pnlFilteredRows();
+2119:   const actual = pnlConvertCurrency(pnlScenarioTotals(rows, 'Actual'));
+2120:   const budget = pnlConvertCurrency(pnlScenarioTotals(rows, 'Budget'));
+2121:   const ly = pnlConvertCurrency(pnlScenarioTotals(rows, 'LY'));
+2122:   const fyBudget = pnlConvertCurrency(pnlScenarioTotals(rows, 'FY Budget'));
+2123: 
+2124:   const table = $('pnlTable');
+2125:   if (!table) return;
+2126:   const visibleLines = pnlVisibleLines();
+2127:   const count = $('pnlCount');
+2128:   if (count) count.textContent = `${visibleLines.length} P&L lines`;
+2129: 
+2130:   let html = pnlComparisonMode==='fyBudget' ? `
+2131:     <thead>
+2132:       <tr class="pnl-group-head pnl-fy-budget-head">
+2133:         <th>Consolidated P&amp;L</th>
+2134:         <th>Actual (${pnlCurrency})</th>
+2135:         <th>FY Budget (${pnlCurrency})</th>
+2136:         <th>Remaining (${pnlCurrency})</th>
+2137:       </tr>
+2138:     </thead>
+2139:     <tbody>` : `
+2140:     <thead>
+2141:       <tr class="pnl-group-head">
+2142:         <th rowspan="2">Consolidated P&amp;L</th>
+2143:         <th rowspan="2">Actual (${pnlCurrency})</th>
+2144:         <th rowspan="2">Budget (${pnlCurrency})</th>
+2145:         <th colspan="2">Vs Budget</th>
+2146:         <th rowspan="2">LY (${pnlCurrency})</th>
+2147:         <th colspan="2">Vs Last Year</th>
+2148:       </tr>
+2149:       <tr class="pnl-sub-head">
+2150:         <th>Value</th>
+2151:         <th>%</th>
+2152:         <th>Value</th>
+2153:         <th>%</th>
+2154:       </tr>
+2155:     </thead>
+2156:     <tbody>`;
+2157: 
+2158:   visibleLines.forEach(line => {
+2159:     const a = pnlLineValue(actual,line);
+2160:     const b = pnlLineValue(budget,line);
+2161:     const l = pnlLineValue(ly,line);
+2162:     const f = pnlLineValue(fyBudget,line);
+2163:     const vb = a - b;
+2164:     const vl = a - l;
+2165:     const remaining = f - a;
+2166:     const rowClasses = [
+2167:       `pnl-line-${line.key}`,
+2168:       line.subtotal ? 'pnl-subtotal pnl-statement-total' : '',
+2169:       ['cogs','actualCogs','focCogs'].includes(line.key) ? 'pnl-cost-row' : '',
+2170:       line.cogsDetail ? 'pnl-cogs-detail-row' : '',
+2171:       line.returnDetail ? 'pnl-return-detail-row' : ''
+2172:     ].filter(Boolean).join(' ');
+2173:     const lineLabel=line.cogsToggle
+2174:       ?`<button class="pnl-cogs-toggle" type="button" data-pnl-cogs-toggle aria-expanded="${pnlCogsExpanded}"><span aria-hidden="true">${pnlCogsExpanded?'⌄':'›'}</span> COGS</button>`
+2175:       :line.returnToggle
+2176:         ?`<button class="pnl-return-toggle" type="button" data-pnl-return-toggle aria-expanded="${pnlReturnExpanded}"><span aria-hidden="true">${pnlReturnExpanded?'⌄':'›'}</span> Return</button>`
+2177:         :line.label;
+2178: 
+2179:     html += pnlComparisonMode==='fyBudget' ? `
+2180:       <tr class="${rowClasses}">
+2181:         <td>${lineLabel}</td>
+2182:         <td class="${pnlAmountClass(a)}">${pnlFormat(a)}</td>
+2183:         <td class="${pnlAmountClass(f)}">${pnlFormat(f)}</td>
+2184:         <td class="${pnlVarianceClass(remaining)} ${pnlAmountClass(remaining)}">${pnlFormat(remaining)}</td>
+2185:       </tr>` : `
+2186:       <tr class="${rowClasses}">
+2187:         <td>${lineLabel}</td>
+2188:         <td class="${pnlAmountClass(a)}">${pnlFormat(a)}</td>
+2189:         <td class="${pnlAmountClass(b)}">${pnlFormat(b)}</td>
+2190:         <td class="${pnlVarianceClass(vb)} ${pnlAmountClass(vb)}">${pnlFormat(vb)}</td>
+2191:         <td class="pnl-percent ${pnlVarianceClass(vb)} ${pnlAmountClass(vb)}">${pnlPercent(vb,b)}</td>
+2192:         <td class="${pnlAmountClass(l)}">${pnlFormat(l)}</td>
+2193:         <td class="${pnlVarianceClass(vl)} ${pnlAmountClass(vl)}">${pnlFormat(vl)}</td>
+2194:         <td class="pnl-percent ${pnlVarianceClass(vl)} ${pnlAmountClass(vl)}">${pnlPercent(vl,l)}</td>
+2195:       </tr>`;
+2196:   });
+2197: 
+2198:   const ratioRows = [
+2199:     { label:'COGS / Gross Sales', numerator:'cogs', denominator:'grossSales', absolute:true, cogsToggle:true },
+2200:     ...(pnlCogsExpanded?[
+2201:       { label:'Goods COGS / Gross Sales', numerator:'actualCogs', denominator:'grossSales', absolute:true, cogsDetail:true },
+2202:       { label:'FOC COGS / Net Sales', numerator:'focCogs', denominator:'netSales', absolute:true, cogsDetail:true }
+2203:     ]:[]),
+2204:     { label:'Gross Profit', numerator:'grossProfit' },
+2205:     { label:'S&M', numerator:'sm', absolute:true },
+2206:     { label:'Net Income', numerator:'netIncome' }
+2207:   ];
+2208:   html += `<tr class="pnl-ratio-spacer"><td colspan="${pnlComparisonMode==='fyBudget'?4:8}"></td></tr>`;
+2209:   ratioRows.forEach(row=>{
+2210:     const ratioValue=(value,netSales)=>{
+2211:       const ratio=pnlRatio(value,netSales);
+2212:       return row.absolute?Math.abs(ratio):ratio;
+2213:     };
+2214:     const formatRatio=value=>`${(value*100).toFixed(1)}%`;
+2215:     const ratioNumerator=totals=>row.numerator==='cogs'
+2216:       ?pnlNumber(totals.actualCogs)+pnlNumber(totals.focCogs)
+2217:       :pnlNumber(totals[row.numerator]);
+2218:     const ratioDenominator=totals=>pnlNumber(totals[row.denominator||'netSales']);
+2219:     const actualRatio=ratioValue(ratioNumerator(actual),ratioDenominator(actual));
+2220:     const budgetRatio=ratioValue(ratioNumerator(budget),ratioDenominator(budget));
+2221:     const lyRatio=ratioValue(ratioNumerator(ly),ratioDenominator(ly));
+2222:     const fyBudgetRatio=ratioValue(ratioNumerator(fyBudget),ratioDenominator(fyBudget));
+2223:     const remainingRatio=fyBudgetRatio-actualRatio;
+2224:     const ratioLabel=row.cogsToggle
+2225:       ?`<button class="pnl-cogs-toggle" type="button" data-pnl-cogs-toggle aria-expanded="${pnlCogsExpanded}"><span aria-hidden="true">${pnlCogsExpanded?'⌄':'›'}</span> ${row.label}</button>`
+2226:       :row.label;
+2227:     const ratioRowClasses=['pnl-statement-ratio',row.cogsDetail?'pnl-cogs-detail-row':'']
+2228:       .filter(Boolean).join(' ');
+2229:     html += pnlComparisonMode==='fyBudget' ? `
+2230:       <tr class="${ratioRowClasses}">
+2231:         <td>${ratioLabel}</td>
+2232:         <td class="${pnlAmountClass(actualRatio)}">${formatRatio(actualRatio)}</td>
+2233:         <td class="${pnlAmountClass(fyBudgetRatio)}">${formatRatio(fyBudgetRatio)}</td>
+2234:         <td class="${pnlVarianceClass(remainingRatio)} ${pnlAmountClass(remainingRatio)}">${(remainingRatio*100).toFixed(1)} pp</td>
+2235:       </tr>` : `
+2236:       <tr class="${ratioRowClasses}">
+2237:         <td>${ratioLabel}</td>
+2238:         <td class="${pnlAmountClass(actualRatio)}">${formatRatio(actualRatio)}</td>
+2239:         <td class="${pnlAmountClass(budgetRatio)}">${formatRatio(budgetRatio)}</td>
+2240:         <td colspan="2"></td>
+2241:         <td class="${pnlAmountClass(lyRatio)}">${formatRatio(lyRatio)}</td>
+2242:         <td colspan="2"></td>
+2243:       </tr>`;
+2244:   });
+2245: 
+2246:   html += '</tbody>';
+2247:   table.innerHTML = html;
+2248:   table.querySelectorAll('[data-pnl-cogs-toggle]').forEach(button=>{
+2249:     button.addEventListener('click',()=>{
+2250:       pnlCogsExpanded=!pnlCogsExpanded;
+2251:       renderPnlVertical();
+2252:     });
+2253:   });
+2254:   table.querySelector('[data-pnl-return-toggle]')?.addEventListener('click',()=>{
+2255:     pnlReturnExpanded=!pnlReturnExpanded;
+2256:     renderPnlVertical();
+2257:   });
+2258:   setupResizableColumns(table);
+2259: 
+2260:   const comparisonTarget=pnlComparisonMode==='fyBudget'?fyBudget:budget;
+2261:   const comparisonLabel=pnlComparisonMode==='fyBudget'?'Remaining':'Vs Budget';
+2262:   const netSalesVar = pnlComparisonMode==='fyBudget'
+2263:     ?comparisonTarget.netSales-actual.netSales
+2264:     :actual.netSales-comparisonTarget.netSales;
+2265:   const gpVar = pnlComparisonMode==='fyBudget'
+2266:     ?comparisonTarget.grossProfit-actual.grossProfit
+2267:     :actual.grossProfit-comparisonTarget.grossProfit;
+2268:   const niVar = pnlComparisonMode==='fyBudget'
+2269:     ?comparisonTarget.netIncome-actual.netIncome
+2270:     :actual.netIncome-comparisonTarget.netIncome;
+2271:   const actualGpMargin = actual.netSales ? actual.grossProfit / actual.netSales : 0;
+2272:   const comparisonGpMargin = comparisonTarget.netSales
+2273:     ?comparisonTarget.grossProfit/comparisonTarget.netSales
+2274:     :0;
+2275: 
+2276:   const netSalesKpi = $('pnlNetSalesKpi');
+2277:   const grossProfitKpi = $('pnlGrossProfitKpi');
+2278:   const netIncomeKpi = $('pnlNetIncomeKpi');
+2279:   netSalesKpi.textContent = pnlFormat(actual.netSales);
+2280:   grossProfitKpi.textContent = pnlFormat(actual.grossProfit);
+2281:   netIncomeKpi.textContent = pnlFormat(actual.netIncome);
+2282:   [
+2283:     [netSalesKpi, actual.netSales],
+2284:     [grossProfitKpi, actual.grossProfit],
+2285:     [netIncomeKpi, actual.netIncome]
+2286:   ].forEach(([element,value])=>{
+2287:     element.classList.toggle('pnl-kpi-negative',value<0);
+2288:   });
+2289:   $('pnlGpMarginKpi').textContent = `${(actualGpMargin*100).toFixed(1)}%`;
+2290: 
+2291:   const netEl = $('pnlNetSalesVar');
+2292:   const gpEl = $('pnlGrossProfitVar');
+2293:   const niEl = $('pnlNetIncomeVar');
+2294:   const gmEl = $('pnlGpMarginVar');
+2295: 
+2296:   netEl.textContent = `${comparisonLabel} ${pnlFormat(netSalesVar)}`;
+2297:   gpEl.textContent = `${comparisonLabel} ${pnlFormat(gpVar)}`;
+2298:   niEl.textContent = `${comparisonLabel} ${pnlFormat(niVar)}`;
+2299:   gmEl.textContent = `${pnlComparisonMode==='fyBudget'?'FY Budget':'Budget'} ${(comparisonGpMargin*100).toFixed(1)}%`;
+2300: 
+2301:   [ [netEl,netSalesVar], [gpEl,gpVar], [niEl,niVar] ].forEach(([el,v]) => {
+2302:     el.classList.remove('positive','negative');
+2303:     if (v > 0) el.classList.add('positive');
+2304:     if (v < 0) el.classList.add('negative');
+2305:   });
+2306: 
+2307: }
+2308: 
+2309: 
+2310: function pnlNormalizeHeader(value) {
+2311:   return String(value || '')
+2312:     .trim()
+2313:     .toLowerCase()
+2314:     .replace(/&/g, 'and')
+2315:     .replace(/[^a-z0-9]+/g, '');
+2316: }
+2317: 
+2318: function pnlFindHeaderIndex(rows) {
+2319:   return rows.findIndex(row => {
+2320:     const normalized = row.map(pnlNormalizeHeader);
+2321:     return normalized.includes('salestype') &&
+2322:            normalized.includes('market') &&
+2323:            normalized.includes('agent') &&
+2324:            normalized.includes('scenario');
+2325:   });
+2326: }
+2327: 
+2328: function pnlReadNumber(value) {
+2329:   if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+2330:   if (value === null || value === undefined || value === '') return 0;
+2331: 
+2332:   let text = String(value).trim();
+2333:   let negative = false;
+2334: 
+2335:   if (/^\(.*\)$/.test(text)) {
+2336:     negative = true;
+===== lines 2094-2343 =====
+2094: }
+2095: 
+2096: function pnlVarianceClass(value) {
+2097:   return value > 0 ? 'pnl-positive' : value < 0 ? 'pnl-negative' : '';
+2098: }
+2099: 
+2100: function pnlAmountClass(value) {
+2101:   return value < 0 ? 'pnl-amount-negative' : '';
+2102: }
+2103: 
+2104: function pnlRatio(value, netSales) {
+2105:   return netSales ? value / netSales : 0;
+2106: }
+2107: 
+2108: function pnlLineValue(totals,line){
+2109:   if(line.key==='return'){
+2110:     return pnlNumber(totals.actualReturn)+pnlNumber(totals.expectedReturn);
+2111:   }
+2112:   return line.key==='cogs'
+2113:     ?pnlNumber(totals.actualCogs)+pnlNumber(totals.focCogs)
+2114:     :pnlNumber(totals[line.key]);
+2115: }
+2116: 
+2117: function renderPnlVertical() {
+2118:   const rows = pnlFilteredRows();
+2119:   const actual = pnlConvertCurrency(pnlScenarioTotals(rows, 'Actual'));
+2120:   const budget = pnlConvertCurrency(pnlScenarioTotals(rows, 'Budget'));
+2121:   const ly = pnlConvertCurrency(pnlScenarioTotals(rows, 'LY'));
+2122:   const fyBudget = pnlConvertCurrency(pnlScenarioTotals(rows, 'FY Budget'));
+2123: 
+2124:   const table = $('pnlTable');
+2125:   if (!table) return;
+2126:   const visibleLines = pnlVisibleLines();
+2127:   const count = $('pnlCount');
+2128:   if (count) count.textContent = `${visibleLines.length} P&L lines`;
+2129: 
+2130:   let html = pnlComparisonMode==='fyBudget' ? `
+2131:     <thead>
+2132:       <tr class="pnl-group-head pnl-fy-budget-head">
+2133:         <th>Consolidated P&amp;L</th>
+2134:         <th>Actual (${pnlCurrency})</th>
+2135:         <th>FY Budget (${pnlCurrency})</th>
+2136:         <th>Remaining (${pnlCurrency})</th>
+2137:       </tr>
+2138:     </thead>
+2139:     <tbody>` : `
+2140:     <thead>
+2141:       <tr class="pnl-group-head">
+2142:         <th rowspan="2">Consolidated P&amp;L</th>
+2143:         <th rowspan="2">Actual (${pnlCurrency})</th>
+2144:         <th rowspan="2">Budget (${pnlCurrency})</th>
+2145:         <th colspan="2">Vs Budget</th>
+2146:         <th rowspan="2">LY (${pnlCurrency})</th>
+2147:         <th colspan="2">Vs Last Year</th>
+2148:       </tr>
+2149:       <tr class="pnl-sub-head">
+2150:         <th>Value</th>
+2151:         <th>%</th>
+2152:         <th>Value</th>
+2153:         <th>%</th>
+2154:       </tr>
+2155:     </thead>
+2156:     <tbody>`;
+2157: 
+2158:   visibleLines.forEach(line => {
+2159:     const a = pnlLineValue(actual,line);
+2160:     const b = pnlLineValue(budget,line);
+2161:     const l = pnlLineValue(ly,line);
+2162:     const f = pnlLineValue(fyBudget,line);
+2163:     const vb = a - b;
+2164:     const vl = a - l;
+2165:     const remaining = f - a;
+2166:     const rowClasses = [
+2167:       `pnl-line-${line.key}`,
+2168:       line.subtotal ? 'pnl-subtotal pnl-statement-total' : '',
+2169:       ['cogs','actualCogs','focCogs'].includes(line.key) ? 'pnl-cost-row' : '',
+2170:       line.cogsDetail ? 'pnl-cogs-detail-row' : '',
+2171:       line.returnDetail ? 'pnl-return-detail-row' : ''
+2172:     ].filter(Boolean).join(' ');
+2173:     const lineLabel=line.cogsToggle
+2174:       ?`<button class="pnl-cogs-toggle" type="button" data-pnl-cogs-toggle aria-expanded="${pnlCogsExpanded}"><span aria-hidden="true">${pnlCogsExpanded?'⌄':'›'}</span> COGS</button>`
+2175:       :line.returnToggle
+2176:         ?`<button class="pnl-return-toggle" type="button" data-pnl-return-toggle aria-expanded="${pnlReturnExpanded}"><span aria-hidden="true">${pnlReturnExpanded?'⌄':'›'}</span> Return</button>`
+2177:         :line.label;
+2178: 
+2179:     html += pnlComparisonMode==='fyBudget' ? `
+2180:       <tr class="${rowClasses}">
+2181:         <td>${lineLabel}</td>
+2182:         <td class="${pnlAmountClass(a)}">${pnlFormat(a)}</td>
+2183:         <td class="${pnlAmountClass(f)}">${pnlFormat(f)}</td>
+2184:         <td class="${pnlVarianceClass(remaining)} ${pnlAmountClass(remaining)}">${pnlFormat(remaining)}</td>
+2185:       </tr>` : `
+2186:       <tr class="${rowClasses}">
+2187:         <td>${lineLabel}</td>
+2188:         <td class="${pnlAmountClass(a)}">${pnlFormat(a)}</td>
+2189:         <td class="${pnlAmountClass(b)}">${pnlFormat(b)}</td>
+2190:         <td class="${pnlVarianceClass(vb)} ${pnlAmountClass(vb)}">${pnlFormat(vb)}</td>
+2191:         <td class="pnl-percent ${pnlVarianceClass(vb)} ${pnlAmountClass(vb)}">${pnlPercent(vb,b)}</td>
+2192:         <td class="${pnlAmountClass(l)}">${pnlFormat(l)}</td>
+2193:         <td class="${pnlVarianceClass(vl)} ${pnlAmountClass(vl)}">${pnlFormat(vl)}</td>
+2194:         <td class="pnl-percent ${pnlVarianceClass(vl)} ${pnlAmountClass(vl)}">${pnlPercent(vl,l)}</td>
+2195:       </tr>`;
+2196:   });
+2197: 
+2198:   const ratioRows = [
+2199:     { label:'COGS / Gross Sales', numerator:'cogs', denominator:'grossSales', absolute:true, cogsToggle:true },
+2200:     ...(pnlCogsExpanded?[
+2201:       { label:'Goods COGS / Gross Sales', numerator:'actualCogs', denominator:'grossSales', absolute:true, cogsDetail:true },
+2202:       { label:'FOC COGS / Net Sales', numerator:'focCogs', denominator:'netSales', absolute:true, cogsDetail:true }
+2203:     ]:[]),
+2204:     { label:'Gross Profit', numerator:'grossProfit' },
+2205:     { label:'S&M', numerator:'sm', absolute:true },
+2206:     { label:'Net Income', numerator:'netIncome' }
+2207:   ];
+2208:   html += `<tr class="pnl-ratio-spacer"><td colspan="${pnlComparisonMode==='fyBudget'?4:8}"></td></tr>`;
+2209:   ratioRows.forEach(row=>{
+2210:     const ratioValue=(value,netSales)=>{
+2211:       const ratio=pnlRatio(value,netSales);
+2212:       return row.absolute?Math.abs(ratio):ratio;
+2213:     };
+2214:     const formatRatio=value=>`${(value*100).toFixed(1)}%`;
+2215:     const ratioNumerator=totals=>row.numerator==='cogs'
+2216:       ?pnlNumber(totals.actualCogs)+pnlNumber(totals.focCogs)
+2217:       :pnlNumber(totals[row.numerator]);
+2218:     const ratioDenominator=totals=>pnlNumber(totals[row.denominator||'netSales']);
+2219:     const actualRatio=ratioValue(ratioNumerator(actual),ratioDenominator(actual));
+2220:     const budgetRatio=ratioValue(ratioNumerator(budget),ratioDenominator(budget));
+2221:     const lyRatio=ratioValue(ratioNumerator(ly),ratioDenominator(ly));
+2222:     const fyBudgetRatio=ratioValue(ratioNumerator(fyBudget),ratioDenominator(fyBudget));
+2223:     const remainingRatio=fyBudgetRatio-actualRatio;
+2224:     const ratioLabel=row.cogsToggle
+2225:       ?`<button class="pnl-cogs-toggle" type="button" data-pnl-cogs-toggle aria-expanded="${pnlCogsExpanded}"><span aria-hidden="true">${pnlCogsExpanded?'⌄':'›'}</span> ${row.label}</button>`
+2226:       :row.label;
+2227:     const ratioRowClasses=['pnl-statement-ratio',row.cogsDetail?'pnl-cogs-detail-row':'']
+2228:       .filter(Boolean).join(' ');
+2229:     html += pnlComparisonMode==='fyBudget' ? `
+2230:       <tr class="${ratioRowClasses}">
+2231:         <td>${ratioLabel}</td>
+2232:         <td class="${pnlAmountClass(actualRatio)}">${formatRatio(actualRatio)}</td>
+2233:         <td class="${pnlAmountClass(fyBudgetRatio)}">${formatRatio(fyBudgetRatio)}</td>
+2234:         <td class="${pnlVarianceClass(remainingRatio)} ${pnlAmountClass(remainingRatio)}">${(remainingRatio*100).toFixed(1)} pp</td>
+2235:       </tr>` : `
+2236:       <tr class="${ratioRowClasses}">
+2237:         <td>${ratioLabel}</td>
+2238:         <td class="${pnlAmountClass(actualRatio)}">${formatRatio(actualRatio)}</td>
+2239:         <td class="${pnlAmountClass(budgetRatio)}">${formatRatio(budgetRatio)}</td>
+2240:         <td colspan="2"></td>
+2241:         <td class="${pnlAmountClass(lyRatio)}">${formatRatio(lyRatio)}</td>
+2242:         <td colspan="2"></td>
+2243:       </tr>`;
+2244:   });
+2245: 
+2246:   html += '</tbody>';
+2247:   table.innerHTML = html;
+2248:   table.querySelectorAll('[data-pnl-cogs-toggle]').forEach(button=>{
+2249:     button.addEventListener('click',()=>{
+2250:       pnlCogsExpanded=!pnlCogsExpanded;
+2251:       renderPnlVertical();
+2252:     });
+2253:   });
+2254:   table.querySelector('[data-pnl-return-toggle]')?.addEventListener('click',()=>{
+2255:     pnlReturnExpanded=!pnlReturnExpanded;
+2256:     renderPnlVertical();
+2257:   });
+2258:   setupResizableColumns(table);
+2259: 
+2260:   const comparisonTarget=pnlComparisonMode==='fyBudget'?fyBudget:budget;
+2261:   const comparisonLabel=pnlComparisonMode==='fyBudget'?'Remaining':'Vs Budget';
+2262:   const netSalesVar = pnlComparisonMode==='fyBudget'
+2263:     ?comparisonTarget.netSales-actual.netSales
+2264:     :actual.netSales-comparisonTarget.netSales;
+2265:   const gpVar = pnlComparisonMode==='fyBudget'
+2266:     ?comparisonTarget.grossProfit-actual.grossProfit
+2267:     :actual.grossProfit-comparisonTarget.grossProfit;
+2268:   const niVar = pnlComparisonMode==='fyBudget'
+2269:     ?comparisonTarget.netIncome-actual.netIncome
+2270:     :actual.netIncome-comparisonTarget.netIncome;
+2271:   const actualGpMargin = actual.netSales ? actual.grossProfit / actual.netSales : 0;
+2272:   const comparisonGpMargin = comparisonTarget.netSales
+2273:     ?comparisonTarget.grossProfit/comparisonTarget.netSales
+2274:     :0;
+2275: 
+2276:   const netSalesKpi = $('pnlNetSalesKpi');
+2277:   const grossProfitKpi = $('pnlGrossProfitKpi');
+2278:   const netIncomeKpi = $('pnlNetIncomeKpi');
+2279:   netSalesKpi.textContent = pnlFormat(actual.netSales);
+2280:   grossProfitKpi.textContent = pnlFormat(actual.grossProfit);
+2281:   netIncomeKpi.textContent = pnlFormat(actual.netIncome);
+2282:   [
+2283:     [netSalesKpi, actual.netSales],
+2284:     [grossProfitKpi, actual.grossProfit],
+2285:     [netIncomeKpi, actual.netIncome]
+2286:   ].forEach(([element,value])=>{
+2287:     element.classList.toggle('pnl-kpi-negative',value<0);
+2288:   });
+2289:   $('pnlGpMarginKpi').textContent = `${(actualGpMargin*100).toFixed(1)}%`;
+2290: 
+2291:   const netEl = $('pnlNetSalesVar');
+2292:   const gpEl = $('pnlGrossProfitVar');
+2293:   const niEl = $('pnlNetIncomeVar');
+2294:   const gmEl = $('pnlGpMarginVar');
+2295: 
+2296:   netEl.textContent = `${comparisonLabel} ${pnlFormat(netSalesVar)}`;
+2297:   gpEl.textContent = `${comparisonLabel} ${pnlFormat(gpVar)}`;
+2298:   niEl.textContent = `${comparisonLabel} ${pnlFormat(niVar)}`;
+2299:   gmEl.textContent = `${pnlComparisonMode==='fyBudget'?'FY Budget':'Budget'} ${(comparisonGpMargin*100).toFixed(1)}%`;
+2300: 
+2301:   [ [netEl,netSalesVar], [gpEl,gpVar], [niEl,niVar] ].forEach(([el,v]) => {
+2302:     el.classList.remove('positive','negative');
+2303:     if (v > 0) el.classList.add('positive');
+2304:     if (v < 0) el.classList.add('negative');
+2305:   });
+2306: 
+2307: }
+2308: 
+2309: 
+2310: function pnlNormalizeHeader(value) {
+2311:   return String(value || '')
+2312:     .trim()
+2313:     .toLowerCase()
+2314:     .replace(/&/g, 'and')
+2315:     .replace(/[^a-z0-9]+/g, '');
+2316: }
+2317: 
+2318: function pnlFindHeaderIndex(rows) {
+2319:   return rows.findIndex(row => {
+2320:     const normalized = row.map(pnlNormalizeHeader);
+2321:     return normalized.includes('salestype') &&
+2322:            normalized.includes('market') &&
+2323:            normalized.includes('agent') &&
+2324:            normalized.includes('scenario');
+2325:   });
+2326: }
+2327: 
+2328: function pnlReadNumber(value) {
+2329:   if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+2330:   if (value === null || value === undefined || value === '') return 0;
+2331: 
+2332:   let text = String(value).trim();
+2333:   let negative = false;
+2334: 
+2335:   if (/^\(.*\)$/.test(text)) {
+2336:     negative = true;
+2337:     text = text.slice(1, -1);
+2338:   }
+2339: 
+2340:   text = text.replace(/,/g, '').replace(/[^\d.-]/g, '');
+2341:   const number = Number(text);
+2342:   if (!Number.isFinite(number)) return 0;
+2343:   return negative ? -Math.abs(number) : number;
+===== lines 2129-2378 =====
+2129: 
+2130:   let html = pnlComparisonMode==='fyBudget' ? `
+2131:     <thead>
+2132:       <tr class="pnl-group-head pnl-fy-budget-head">
+2133:         <th>Consolidated P&amp;L</th>
+2134:         <th>Actual (${pnlCurrency})</th>
+2135:         <th>FY Budget (${pnlCurrency})</th>
+2136:         <th>Remaining (${pnlCurrency})</th>
+2137:       </tr>
+2138:     </thead>
+2139:     <tbody>` : `
+2140:     <thead>
+2141:       <tr class="pnl-group-head">
+2142:         <th rowspan="2">Consolidated P&amp;L</th>
+2143:         <th rowspan="2">Actual (${pnlCurrency})</th>
+2144:         <th rowspan="2">Budget (${pnlCurrency})</th>
+2145:         <th colspan="2">Vs Budget</th>
+2146:         <th rowspan="2">LY (${pnlCurrency})</th>
+2147:         <th colspan="2">Vs Last Year</th>
+2148:       </tr>
+2149:       <tr class="pnl-sub-head">
+2150:         <th>Value</th>
+2151:         <th>%</th>
+2152:         <th>Value</th>
+2153:         <th>%</th>
+2154:       </tr>
+2155:     </thead>
+2156:     <tbody>`;
+2157: 
+2158:   visibleLines.forEach(line => {
+2159:     const a = pnlLineValue(actual,line);
+2160:     const b = pnlLineValue(budget,line);
+2161:     const l = pnlLineValue(ly,line);
+2162:     const f = pnlLineValue(fyBudget,line);
+2163:     const vb = a - b;
+2164:     const vl = a - l;
+2165:     const remaining = f - a;
+2166:     const rowClasses = [
+2167:       `pnl-line-${line.key}`,
+2168:       line.subtotal ? 'pnl-subtotal pnl-statement-total' : '',
+2169:       ['cogs','actualCogs','focCogs'].includes(line.key) ? 'pnl-cost-row' : '',
+2170:       line.cogsDetail ? 'pnl-cogs-detail-row' : '',
+2171:       line.returnDetail ? 'pnl-return-detail-row' : ''
+2172:     ].filter(Boolean).join(' ');
+2173:     const lineLabel=line.cogsToggle
+2174:       ?`<button class="pnl-cogs-toggle" type="button" data-pnl-cogs-toggle aria-expanded="${pnlCogsExpanded}"><span aria-hidden="true">${pnlCogsExpanded?'⌄':'›'}</span> COGS</button>`
+2175:       :line.returnToggle
+2176:         ?`<button class="pnl-return-toggle" type="button" data-pnl-return-toggle aria-expanded="${pnlReturnExpanded}"><span aria-hidden="true">${pnlReturnExpanded?'⌄':'›'}</span> Return</button>`
+2177:         :line.label;
+2178: 
+2179:     html += pnlComparisonMode==='fyBudget' ? `
+2180:       <tr class="${rowClasses}">
+2181:         <td>${lineLabel}</td>
+2182:         <td class="${pnlAmountClass(a)}">${pnlFormat(a)}</td>
+2183:         <td class="${pnlAmountClass(f)}">${pnlFormat(f)}</td>
+2184:         <td class="${pnlVarianceClass(remaining)} ${pnlAmountClass(remaining)}">${pnlFormat(remaining)}</td>
+2185:       </tr>` : `
+2186:       <tr class="${rowClasses}">
+2187:         <td>${lineLabel}</td>
+2188:         <td class="${pnlAmountClass(a)}">${pnlFormat(a)}</td>
+2189:         <td class="${pnlAmountClass(b)}">${pnlFormat(b)}</td>
+2190:         <td class="${pnlVarianceClass(vb)} ${pnlAmountClass(vb)}">${pnlFormat(vb)}</td>
+2191:         <td class="pnl-percent ${pnlVarianceClass(vb)} ${pnlAmountClass(vb)}">${pnlPercent(vb,b)}</td>
+2192:         <td class="${pnlAmountClass(l)}">${pnlFormat(l)}</td>
+2193:         <td class="${pnlVarianceClass(vl)} ${pnlAmountClass(vl)}">${pnlFormat(vl)}</td>
+2194:         <td class="pnl-percent ${pnlVarianceClass(vl)} ${pnlAmountClass(vl)}">${pnlPercent(vl,l)}</td>
+2195:       </tr>`;
+2196:   });
+2197: 
+2198:   const ratioRows = [
+2199:     { label:'COGS / Gross Sales', numerator:'cogs', denominator:'grossSales', absolute:true, cogsToggle:true },
+2200:     ...(pnlCogsExpanded?[
+2201:       { label:'Goods COGS / Gross Sales', numerator:'actualCogs', denominator:'grossSales', absolute:true, cogsDetail:true },
+2202:       { label:'FOC COGS / Net Sales', numerator:'focCogs', denominator:'netSales', absolute:true, cogsDetail:true }
+2203:     ]:[]),
+2204:     { label:'Gross Profit', numerator:'grossProfit' },
+2205:     { label:'S&M', numerator:'sm', absolute:true },
+2206:     { label:'Net Income', numerator:'netIncome' }
+2207:   ];
+2208:   html += `<tr class="pnl-ratio-spacer"><td colspan="${pnlComparisonMode==='fyBudget'?4:8}"></td></tr>`;
+2209:   ratioRows.forEach(row=>{
+2210:     const ratioValue=(value,netSales)=>{
+2211:       const ratio=pnlRatio(value,netSales);
+2212:       return row.absolute?Math.abs(ratio):ratio;
+2213:     };
+2214:     const formatRatio=value=>`${(value*100).toFixed(1)}%`;
+2215:     const ratioNumerator=totals=>row.numerator==='cogs'
+2216:       ?pnlNumber(totals.actualCogs)+pnlNumber(totals.focCogs)
+2217:       :pnlNumber(totals[row.numerator]);
+2218:     const ratioDenominator=totals=>pnlNumber(totals[row.denominator||'netSales']);
+2219:     const actualRatio=ratioValue(ratioNumerator(actual),ratioDenominator(actual));
+2220:     const budgetRatio=ratioValue(ratioNumerator(budget),ratioDenominator(budget));
+2221:     const lyRatio=ratioValue(ratioNumerator(ly),ratioDenominator(ly));
+2222:     const fyBudgetRatio=ratioValue(ratioNumerator(fyBudget),ratioDenominator(fyBudget));
+2223:     const remainingRatio=fyBudgetRatio-actualRatio;
+2224:     const ratioLabel=row.cogsToggle
+2225:       ?`<button class="pnl-cogs-toggle" type="button" data-pnl-cogs-toggle aria-expanded="${pnlCogsExpanded}"><span aria-hidden="true">${pnlCogsExpanded?'⌄':'›'}</span> ${row.label}</button>`
+2226:       :row.label;
+2227:     const ratioRowClasses=['pnl-statement-ratio',row.cogsDetail?'pnl-cogs-detail-row':'']
+2228:       .filter(Boolean).join(' ');
+2229:     html += pnlComparisonMode==='fyBudget' ? `
+2230:       <tr class="${ratioRowClasses}">
+2231:         <td>${ratioLabel}</td>
+2232:         <td class="${pnlAmountClass(actualRatio)}">${formatRatio(actualRatio)}</td>
+2233:         <td class="${pnlAmountClass(fyBudgetRatio)}">${formatRatio(fyBudgetRatio)}</td>
+2234:         <td class="${pnlVarianceClass(remainingRatio)} ${pnlAmountClass(remainingRatio)}">${(remainingRatio*100).toFixed(1)} pp</td>
+2235:       </tr>` : `
+2236:       <tr class="${ratioRowClasses}">
+2237:         <td>${ratioLabel}</td>
+2238:         <td class="${pnlAmountClass(actualRatio)}">${formatRatio(actualRatio)}</td>
+2239:         <td class="${pnlAmountClass(budgetRatio)}">${formatRatio(budgetRatio)}</td>
+2240:         <td colspan="2"></td>
+2241:         <td class="${pnlAmountClass(lyRatio)}">${formatRatio(lyRatio)}</td>
+2242:         <td colspan="2"></td>
+2243:       </tr>`;
+2244:   });
+2245: 
+2246:   html += '</tbody>';
+2247:   table.innerHTML = html;
+2248:   table.querySelectorAll('[data-pnl-cogs-toggle]').forEach(button=>{
+2249:     button.addEventListener('click',()=>{
+2250:       pnlCogsExpanded=!pnlCogsExpanded;
+2251:       renderPnlVertical();
+2252:     });
+2253:   });
+2254:   table.querySelector('[data-pnl-return-toggle]')?.addEventListener('click',()=>{
+2255:     pnlReturnExpanded=!pnlReturnExpanded;
+2256:     renderPnlVertical();
+2257:   });
+2258:   setupResizableColumns(table);
+2259: 
+2260:   const comparisonTarget=pnlComparisonMode==='fyBudget'?fyBudget:budget;
+2261:   const comparisonLabel=pnlComparisonMode==='fyBudget'?'Remaining':'Vs Budget';
+2262:   const netSalesVar = pnlComparisonMode==='fyBudget'
+2263:     ?comparisonTarget.netSales-actual.netSales
+2264:     :actual.netSales-comparisonTarget.netSales;
+2265:   const gpVar = pnlComparisonMode==='fyBudget'
+2266:     ?comparisonTarget.grossProfit-actual.grossProfit
+2267:     :actual.grossProfit-comparisonTarget.grossProfit;
+2268:   const niVar = pnlComparisonMode==='fyBudget'
+2269:     ?comparisonTarget.netIncome-actual.netIncome
+2270:     :actual.netIncome-comparisonTarget.netIncome;
+2271:   const actualGpMargin = actual.netSales ? actual.grossProfit / actual.netSales : 0;
+2272:   const comparisonGpMargin = comparisonTarget.netSales
+2273:     ?comparisonTarget.grossProfit/comparisonTarget.netSales
+2274:     :0;
+2275: 
+2276:   const netSalesKpi = $('pnlNetSalesKpi');
+2277:   const grossProfitKpi = $('pnlGrossProfitKpi');
+2278:   const netIncomeKpi = $('pnlNetIncomeKpi');
+2279:   netSalesKpi.textContent = pnlFormat(actual.netSales);
+2280:   grossProfitKpi.textContent = pnlFormat(actual.grossProfit);
+2281:   netIncomeKpi.textContent = pnlFormat(actual.netIncome);
+2282:   [
+2283:     [netSalesKpi, actual.netSales],
+2284:     [grossProfitKpi, actual.grossProfit],
+2285:     [netIncomeKpi, actual.netIncome]
+2286:   ].forEach(([element,value])=>{
+2287:     element.classList.toggle('pnl-kpi-negative',value<0);
+2288:   });
+2289:   $('pnlGpMarginKpi').textContent = `${(actualGpMargin*100).toFixed(1)}%`;
+2290: 
+2291:   const netEl = $('pnlNetSalesVar');
+2292:   const gpEl = $('pnlGrossProfitVar');
+2293:   const niEl = $('pnlNetIncomeVar');
+2294:   const gmEl = $('pnlGpMarginVar');
+2295: 
+2296:   netEl.textContent = `${comparisonLabel} ${pnlFormat(netSalesVar)}`;
+2297:   gpEl.textContent = `${comparisonLabel} ${pnlFormat(gpVar)}`;
+2298:   niEl.textContent = `${comparisonLabel} ${pnlFormat(niVar)}`;
+2299:   gmEl.textContent = `${pnlComparisonMode==='fyBudget'?'FY Budget':'Budget'} ${(comparisonGpMargin*100).toFixed(1)}%`;
+2300: 
+2301:   [ [netEl,netSalesVar], [gpEl,gpVar], [niEl,niVar] ].forEach(([el,v]) => {
+2302:     el.classList.remove('positive','negative');
+2303:     if (v > 0) el.classList.add('positive');
+2304:     if (v < 0) el.classList.add('negative');
+2305:   });
+2306: 
+2307: }
+2308: 
+2309: 
+2310: function pnlNormalizeHeader(value) {
+2311:   return String(value || '')
+2312:     .trim()
+2313:     .toLowerCase()
+2314:     .replace(/&/g, 'and')
+2315:     .replace(/[^a-z0-9]+/g, '');
+2316: }
+2317: 
+2318: function pnlFindHeaderIndex(rows) {
+2319:   return rows.findIndex(row => {
+2320:     const normalized = row.map(pnlNormalizeHeader);
+2321:     return normalized.includes('salestype') &&
+2322:            normalized.includes('market') &&
+2323:            normalized.includes('agent') &&
+2324:            normalized.includes('scenario');
+2325:   });
+2326: }
+2327: 
+2328: function pnlReadNumber(value) {
+2329:   if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+2330:   if (value === null || value === undefined || value === '') return 0;
+2331: 
+2332:   let text = String(value).trim();
+2333:   let negative = false;
+2334: 
+2335:   if (/^\(.*\)$/.test(text)) {
+2336:     negative = true;
+2337:     text = text.slice(1, -1);
+2338:   }
+2339: 
+2340:   text = text.replace(/,/g, '').replace(/[^\d.-]/g, '');
+2341:   const number = Number(text);
+2342:   if (!Number.isFinite(number)) return 0;
+2343:   return negative ? -Math.abs(number) : number;
+2344: }
+2345: 
+2346: function pnlMapWorkbookRows(rows, headerIndex) {
+2347:   const header = rows[headerIndex].map(pnlNormalizeHeader);
+2348:   const col = name => header.indexOf(pnlNormalizeHeader(name));
+2349:   const colAny = names => {
+2350:     for (const name of names) {
+2351:       const index = col(name);
+2352:       if (index >= 0) return index;
+2353:     }
+2354:     return -1;
+2355:   };
+2356: 
+2357:   const required = ['Sales Type', 'Market', 'Agent', 'Scenario'];
+2358:   const missing = required.filter(name => col(name) < 0);
+2359:   if (missing.length) {
+2360:     throw new Error(`Missing required columns: ${missing.join(', ')}`);
+2361:   }
+2362: 
+2363:   const numericColumns = {
+2364:     grossSales: 'Gross Sales',
+2365:     discounts: 'Discounts',
+2366:     commissions: 'Commissions',
+2367:     restoun: 'Restoun',
+2368:     netSales: 'Net Sales',
+2369:     grossProfit: 'Gross Profit',
+2370:     sm: 'S&M',
+2371:     netIncome: 'Net Income'
+2372:   };
+2373: 
+2374:   const mapped = rows.slice(headerIndex + 1)
+2375:     .filter(row => row && row.some(cell => String(cell ?? '').trim() !== ''))
+2376:     .map(row => {
+2377:       const record = {
+2378:         salesType: String(row[col('Sales Type')] || '').trim(),
+===== lines 2130-2379 =====
+2130:   let html = pnlComparisonMode==='fyBudget' ? `
+2131:     <thead>
+2132:       <tr class="pnl-group-head pnl-fy-budget-head">
+2133:         <th>Consolidated P&amp;L</th>
+2134:         <th>Actual (${pnlCurrency})</th>
+2135:         <th>FY Budget (${pnlCurrency})</th>
+2136:         <th>Remaining (${pnlCurrency})</th>
+2137:       </tr>
+2138:     </thead>
+2139:     <tbody>` : `
+2140:     <thead>
+2141:       <tr class="pnl-group-head">
+2142:         <th rowspan="2">Consolidated P&amp;L</th>
+2143:         <th rowspan="2">Actual (${pnlCurrency})</th>
+2144:         <th rowspan="2">Budget (${pnlCurrency})</th>
+2145:         <th colspan="2">Vs Budget</th>
+2146:         <th rowspan="2">LY (${pnlCurrency})</th>
+2147:         <th colspan="2">Vs Last Year</th>
+2148:       </tr>
+2149:       <tr class="pnl-sub-head">
+2150:         <th>Value</th>
+2151:         <th>%</th>
+2152:         <th>Value</th>
+2153:         <th>%</th>
+2154:       </tr>
+2155:     </thead>
+2156:     <tbody>`;
+2157: 
+2158:   visibleLines.forEach(line => {
+2159:     const a = pnlLineValue(actual,line);
+2160:     const b = pnlLineValue(budget,line);
+2161:     const l = pnlLineValue(ly,line);
+2162:     const f = pnlLineValue(fyBudget,line);
+2163:     const vb = a - b;
+2164:     const vl = a - l;
+2165:     const remaining = f - a;
+2166:     const rowClasses = [
+2167:       `pnl-line-${line.key}`,
+2168:       line.subtotal ? 'pnl-subtotal pnl-statement-total' : '',
+2169:       ['cogs','actualCogs','focCogs'].includes(line.key) ? 'pnl-cost-row' : '',
+2170:       line.cogsDetail ? 'pnl-cogs-detail-row' : '',
+2171:       line.returnDetail ? 'pnl-return-detail-row' : ''
+2172:     ].filter(Boolean).join(' ');
+2173:     const lineLabel=line.cogsToggle
+2174:       ?`<button class="pnl-cogs-toggle" type="button" data-pnl-cogs-toggle aria-expanded="${pnlCogsExpanded}"><span aria-hidden="true">${pnlCogsExpanded?'⌄':'›'}</span> COGS</button>`
+2175:       :line.returnToggle
+2176:         ?`<button class="pnl-return-toggle" type="button" data-pnl-return-toggle aria-expanded="${pnlReturnExpanded}"><span aria-hidden="true">${pnlReturnExpanded?'⌄':'›'}</span> Return</button>`
+2177:         :line.label;
+2178: 
+2179:     html += pnlComparisonMode==='fyBudget' ? `
+2180:       <tr class="${rowClasses}">
+2181:         <td>${lineLabel}</td>
+2182:         <td class="${pnlAmountClass(a)}">${pnlFormat(a)}</td>
+2183:         <td class="${pnlAmountClass(f)}">${pnlFormat(f)}</td>
+2184:         <td class="${pnlVarianceClass(remaining)} ${pnlAmountClass(remaining)}">${pnlFormat(remaining)}</td>
+2185:       </tr>` : `
+2186:       <tr class="${rowClasses}">
+2187:         <td>${lineLabel}</td>
+2188:         <td class="${pnlAmountClass(a)}">${pnlFormat(a)}</td>
+2189:         <td class="${pnlAmountClass(b)}">${pnlFormat(b)}</td>
+2190:         <td class="${pnlVarianceClass(vb)} ${pnlAmountClass(vb)}">${pnlFormat(vb)}</td>
+2191:         <td class="pnl-percent ${pnlVarianceClass(vb)} ${pnlAmountClass(vb)}">${pnlPercent(vb,b)}</td>
+2192:         <td class="${pnlAmountClass(l)}">${pnlFormat(l)}</td>
+2193:         <td class="${pnlVarianceClass(vl)} ${pnlAmountClass(vl)}">${pnlFormat(vl)}</td>
+2194:         <td class="pnl-percent ${pnlVarianceClass(vl)} ${pnlAmountClass(vl)}">${pnlPercent(vl,l)}</td>
+2195:       </tr>`;
+2196:   });
+2197: 
+2198:   const ratioRows = [
+2199:     { label:'COGS / Gross Sales', numerator:'cogs', denominator:'grossSales', absolute:true, cogsToggle:true },
+2200:     ...(pnlCogsExpanded?[
+2201:       { label:'Goods COGS / Gross Sales', numerator:'actualCogs', denominator:'grossSales', absolute:true, cogsDetail:true },
+2202:       { label:'FOC COGS / Net Sales', numerator:'focCogs', denominator:'netSales', absolute:true, cogsDetail:true }
+2203:     ]:[]),
+2204:     { label:'Gross Profit', numerator:'grossProfit' },
+2205:     { label:'S&M', numerator:'sm', absolute:true },
+2206:     { label:'Net Income', numerator:'netIncome' }
+2207:   ];
+2208:   html += `<tr class="pnl-ratio-spacer"><td colspan="${pnlComparisonMode==='fyBudget'?4:8}"></td></tr>`;
+2209:   ratioRows.forEach(row=>{
+2210:     const ratioValue=(value,netSales)=>{
+2211:       const ratio=pnlRatio(value,netSales);
+2212:       return row.absolute?Math.abs(ratio):ratio;
+2213:     };
+2214:     const formatRatio=value=>`${(value*100).toFixed(1)}%`;
+2215:     const ratioNumerator=totals=>row.numerator==='cogs'
+2216:       ?pnlNumber(totals.actualCogs)+pnlNumber(totals.focCogs)
+2217:       :pnlNumber(totals[row.numerator]);
+2218:     const ratioDenominator=totals=>pnlNumber(totals[row.denominator||'netSales']);
+2219:     const actualRatio=ratioValue(ratioNumerator(actual),ratioDenominator(actual));
+2220:     const budgetRatio=ratioValue(ratioNumerator(budget),ratioDenominator(budget));
+2221:     const lyRatio=ratioValue(ratioNumerator(ly),ratioDenominator(ly));
+2222:     const fyBudgetRatio=ratioValue(ratioNumerator(fyBudget),ratioDenominator(fyBudget));
+2223:     const remainingRatio=fyBudgetRatio-actualRatio;
+2224:     const ratioLabel=row.cogsToggle
+2225:       ?`<button class="pnl-cogs-toggle" type="button" data-pnl-cogs-toggle aria-expanded="${pnlCogsExpanded}"><span aria-hidden="true">${pnlCogsExpanded?'⌄':'›'}</span> ${row.label}</button>`
+2226:       :row.label;
+2227:     const ratioRowClasses=['pnl-statement-ratio',row.cogsDetail?'pnl-cogs-detail-row':'']
+2228:       .filter(Boolean).join(' ');
+2229:     html += pnlComparisonMode==='fyBudget' ? `
+2230:       <tr class="${ratioRowClasses}">
+2231:         <td>${ratioLabel}</td>
+2232:         <td class="${pnlAmountClass(actualRatio)}">${formatRatio(actualRatio)}</td>
+2233:         <td class="${pnlAmountClass(fyBudgetRatio)}">${formatRatio(fyBudgetRatio)}</td>
+2234:         <td class="${pnlVarianceClass(remainingRatio)} ${pnlAmountClass(remainingRatio)}">${(remainingRatio*100).toFixed(1)} pp</td>
+2235:       </tr>` : `
+2236:       <tr class="${ratioRowClasses}">
+2237:         <td>${ratioLabel}</td>
+2238:         <td class="${pnlAmountClass(actualRatio)}">${formatRatio(actualRatio)}</td>
+2239:         <td class="${pnlAmountClass(budgetRatio)}">${formatRatio(budgetRatio)}</td>
+2240:         <td colspan="2"></td>
+2241:         <td class="${pnlAmountClass(lyRatio)}">${formatRatio(lyRatio)}</td>
+2242:         <td colspan="2"></td>
+2243:       </tr>`;
+2244:   });
+2245: 
+2246:   html += '</tbody>';
+2247:   table.innerHTML = html;
+2248:   table.querySelectorAll('[data-pnl-cogs-toggle]').forEach(button=>{
+2249:     button.addEventListener('click',()=>{
+2250:       pnlCogsExpanded=!pnlCogsExpanded;
+2251:       renderPnlVertical();
+2252:     });
+2253:   });
+2254:   table.querySelector('[data-pnl-return-toggle]')?.addEventListener('click',()=>{
+2255:     pnlReturnExpanded=!pnlReturnExpanded;
+2256:     renderPnlVertical();
+2257:   });
+2258:   setupResizableColumns(table);
+2259: 
+2260:   const comparisonTarget=pnlComparisonMode==='fyBudget'?fyBudget:budget;
+2261:   const comparisonLabel=pnlComparisonMode==='fyBudget'?'Remaining':'Vs Budget';
+2262:   const netSalesVar = pnlComparisonMode==='fyBudget'
+2263:     ?comparisonTarget.netSales-actual.netSales
+2264:     :actual.netSales-comparisonTarget.netSales;
+2265:   const gpVar = pnlComparisonMode==='fyBudget'
+2266:     ?comparisonTarget.grossProfit-actual.grossProfit
+2267:     :actual.grossProfit-comparisonTarget.grossProfit;
+2268:   const niVar = pnlComparisonMode==='fyBudget'
+2269:     ?comparisonTarget.netIncome-actual.netIncome
+2270:     :actual.netIncome-comparisonTarget.netIncome;
+2271:   const actualGpMargin = actual.netSales ? actual.grossProfit / actual.netSales : 0;
+2272:   const comparisonGpMargin = comparisonTarget.netSales
+2273:     ?comparisonTarget.grossProfit/comparisonTarget.netSales
+2274:     :0;
+2275: 
+2276:   const netSalesKpi = $('pnlNetSalesKpi');
+2277:   const grossProfitKpi = $('pnlGrossProfitKpi');
+2278:   const netIncomeKpi = $('pnlNetIncomeKpi');
+2279:   netSalesKpi.textContent = pnlFormat(actual.netSales);
+2280:   grossProfitKpi.textContent = pnlFormat(actual.grossProfit);
+2281:   netIncomeKpi.textContent = pnlFormat(actual.netIncome);
+2282:   [
+2283:     [netSalesKpi, actual.netSales],
+2284:     [grossProfitKpi, actual.grossProfit],
+2285:     [netIncomeKpi, actual.netIncome]
+2286:   ].forEach(([element,value])=>{
+2287:     element.classList.toggle('pnl-kpi-negative',value<0);
+2288:   });
+2289:   $('pnlGpMarginKpi').textContent = `${(actualGpMargin*100).toFixed(1)}%`;
+2290: 
+2291:   const netEl = $('pnlNetSalesVar');
+2292:   const gpEl = $('pnlGrossProfitVar');
+2293:   const niEl = $('pnlNetIncomeVar');
+2294:   const gmEl = $('pnlGpMarginVar');
+2295: 
+2296:   netEl.textContent = `${comparisonLabel} ${pnlFormat(netSalesVar)}`;
+2297:   gpEl.textContent = `${comparisonLabel} ${pnlFormat(gpVar)}`;
+2298:   niEl.textContent = `${comparisonLabel} ${pnlFormat(niVar)}`;
+2299:   gmEl.textContent = `${pnlComparisonMode==='fyBudget'?'FY Budget':'Budget'} ${(comparisonGpMargin*100).toFixed(1)}%`;
+2300: 
+2301:   [ [netEl,netSalesVar], [gpEl,gpVar], [niEl,niVar] ].forEach(([el,v]) => {
+2302:     el.classList.remove('positive','negative');
+2303:     if (v > 0) el.classList.add('positive');
+2304:     if (v < 0) el.classList.add('negative');
+2305:   });
+2306: 
+2307: }
+2308: 
+2309: 
+2310: function pnlNormalizeHeader(value) {
+2311:   return String(value || '')
+2312:     .trim()
+2313:     .toLowerCase()
+2314:     .replace(/&/g, 'and')
+2315:     .replace(/[^a-z0-9]+/g, '');
+2316: }
+2317: 
+2318: function pnlFindHeaderIndex(rows) {
+2319:   return rows.findIndex(row => {
+2320:     const normalized = row.map(pnlNormalizeHeader);
+2321:     return normalized.includes('salestype') &&
+2322:            normalized.includes('market') &&
+2323:            normalized.includes('agent') &&
+2324:            normalized.includes('scenario');
+2325:   });
+2326: }
+2327: 
+2328: function pnlReadNumber(value) {
+2329:   if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+2330:   if (value === null || value === undefined || value === '') return 0;
+2331: 
+2332:   let text = String(value).trim();
+2333:   let negative = false;
+2334: 
+2335:   if (/^\(.*\)$/.test(text)) {
+2336:     negative = true;
+2337:     text = text.slice(1, -1);
+2338:   }
+2339: 
+2340:   text = text.replace(/,/g, '').replace(/[^\d.-]/g, '');
+2341:   const number = Number(text);
+2342:   if (!Number.isFinite(number)) return 0;
+2343:   return negative ? -Math.abs(number) : number;
+2344: }
+2345: 
+2346: function pnlMapWorkbookRows(rows, headerIndex) {
+2347:   const header = rows[headerIndex].map(pnlNormalizeHeader);
+2348:   const col = name => header.indexOf(pnlNormalizeHeader(name));
+2349:   const colAny = names => {
+2350:     for (const name of names) {
+2351:       const index = col(name);
+2352:       if (index >= 0) return index;
+2353:     }
+2354:     return -1;
+2355:   };
+2356: 
+2357:   const required = ['Sales Type', 'Market', 'Agent', 'Scenario'];
+2358:   const missing = required.filter(name => col(name) < 0);
+2359:   if (missing.length) {
+2360:     throw new Error(`Missing required columns: ${missing.join(', ')}`);
+2361:   }
+2362: 
+2363:   const numericColumns = {
+2364:     grossSales: 'Gross Sales',
+2365:     discounts: 'Discounts',
+2366:     commissions: 'Commissions',
+2367:     restoun: 'Restoun',
+2368:     netSales: 'Net Sales',
+2369:     grossProfit: 'Gross Profit',
+2370:     sm: 'S&M',
+2371:     netIncome: 'Net Income'
+2372:   };
+2373: 
+2374:   const mapped = rows.slice(headerIndex + 1)
+2375:     .filter(row => row && row.some(cell => String(cell ?? '').trim() !== ''))
+2376:     .map(row => {
+2377:       const record = {
+2378:         salesType: String(row[col('Sales Type')] || '').trim(),
+2379:         market: String(row[col('Market')] || '').trim(),
+===== lines 2131-2380 =====
+2131:     <thead>
+2132:       <tr class="pnl-group-head pnl-fy-budget-head">
+2133:         <th>Consolidated P&amp;L</th>
+2134:         <th>Actual (${pnlCurrency})</th>
+2135:         <th>FY Budget (${pnlCurrency})</th>
+2136:         <th>Remaining (${pnlCurrency})</th>
+2137:       </tr>
+2138:     </thead>
+2139:     <tbody>` : `
+2140:     <thead>
+2141:       <tr class="pnl-group-head">
+2142:         <th rowspan="2">Consolidated P&amp;L</th>
+2143:         <th rowspan="2">Actual (${pnlCurrency})</th>
+2144:         <th rowspan="2">Budget (${pnlCurrency})</th>
+2145:         <th colspan="2">Vs Budget</th>
+2146:         <th rowspan="2">LY (${pnlCurrency})</th>
+2147:         <th colspan="2">Vs Last Year</th>
+2148:       </tr>
+2149:       <tr class="pnl-sub-head">
+2150:         <th>Value</th>
+2151:         <th>%</th>
+2152:         <th>Value</th>
+2153:         <th>%</th>
+2154:       </tr>
+2155:     </thead>
+2156:     <tbody>`;
+2157: 
+2158:   visibleLines.forEach(line => {
+2159:     const a = pnlLineValue(actual,line);
+2160:     const b = pnlLineValue(budget,line);
+2161:     const l = pnlLineValue(ly,line);
+2162:     const f = pnlLineValue(fyBudget,line);
+2163:     const vb = a - b;
+2164:     const vl = a - l;
+2165:     const remaining = f - a;
+2166:     const rowClasses = [
+2167:       `pnl-line-${line.key}`,
+2168:       line.subtotal ? 'pnl-subtotal pnl-statement-total' : '',
+2169:       ['cogs','actualCogs','focCogs'].includes(line.key) ? 'pnl-cost-row' : '',
+2170:       line.cogsDetail ? 'pnl-cogs-detail-row' : '',
+2171:       line.returnDetail ? 'pnl-return-detail-row' : ''
+2172:     ].filter(Boolean).join(' ');
+2173:     const lineLabel=line.cogsToggle
+2174:       ?`<button class="pnl-cogs-toggle" type="button" data-pnl-cogs-toggle aria-expanded="${pnlCogsExpanded}"><span aria-hidden="true">${pnlCogsExpanded?'⌄':'›'}</span> COGS</button>`
+2175:       :line.returnToggle
+2176:         ?`<button class="pnl-return-toggle" type="button" data-pnl-return-toggle aria-expanded="${pnlReturnExpanded}"><span aria-hidden="true">${pnlReturnExpanded?'⌄':'›'}</span> Return</button>`
+2177:         :line.label;
+2178: 
+2179:     html += pnlComparisonMode==='fyBudget' ? `
+2180:       <tr class="${rowClasses}">
+2181:         <td>${lineLabel}</td>
+2182:         <td class="${pnlAmountClass(a)}">${pnlFormat(a)}</td>
+2183:         <td class="${pnlAmountClass(f)}">${pnlFormat(f)}</td>
+2184:         <td class="${pnlVarianceClass(remaining)} ${pnlAmountClass(remaining)}">${pnlFormat(remaining)}</td>
+2185:       </tr>` : `
+2186:       <tr class="${rowClasses}">
+2187:         <td>${lineLabel}</td>
+2188:         <td class="${pnlAmountClass(a)}">${pnlFormat(a)}</td>
+2189:         <td class="${pnlAmountClass(b)}">${pnlFormat(b)}</td>
+2190:         <td class="${pnlVarianceClass(vb)} ${pnlAmountClass(vb)}">${pnlFormat(vb)}</td>
+2191:         <td class="pnl-percent ${pnlVarianceClass(vb)} ${pnlAmountClass(vb)}">${pnlPercent(vb,b)}</td>
+2192:         <td class="${pnlAmountClass(l)}">${pnlFormat(l)}</td>
+2193:         <td class="${pnlVarianceClass(vl)} ${pnlAmountClass(vl)}">${pnlFormat(vl)}</td>
+2194:         <td class="pnl-percent ${pnlVarianceClass(vl)} ${pnlAmountClass(vl)}">${pnlPercent(vl,l)}</td>
+2195:       </tr>`;
+2196:   });
+2197: 
+2198:   const ratioRows = [
+2199:     { label:'COGS / Gross Sales', numerator:'cogs', denominator:'grossSales', absolute:true, cogsToggle:true },
+2200:     ...(pnlCogsExpanded?[
+2201:       { label:'Goods COGS / Gross Sales', numerator:'actualCogs', denominator:'grossSales', absolute:true, cogsDetail:true },
+2202:       { label:'FOC COGS / Net Sales', numerator:'focCogs', denominator:'netSales', absolute:true, cogsDetail:true }
+2203:     ]:[]),
+2204:     { label:'Gross Profit', numerator:'grossProfit' },
+2205:     { label:'S&M', numerator:'sm', absolute:true },
+2206:     { label:'Net Income', numerator:'netIncome' }
+2207:   ];
+2208:   html += `<tr class="pnl-ratio-spacer"><td colspan="${pnlComparisonMode==='fyBudget'?4:8}"></td></tr>`;
+2209:   ratioRows.forEach(row=>{
+2210:     const ratioValue=(value,netSales)=>{
+2211:       const ratio=pnlRatio(value,netSales);
+2212:       return row.absolute?Math.abs(ratio):ratio;
+2213:     };
+2214:     const formatRatio=value=>`${(value*100).toFixed(1)}%`;
+2215:     const ratioNumerator=totals=>row.numerator==='cogs'
+2216:       ?pnlNumber(totals.actualCogs)+pnlNumber(totals.focCogs)
+2217:       :pnlNumber(totals[row.numerator]);
+2218:     const ratioDenominator=totals=>pnlNumber(totals[row.denominator||'netSales']);
+2219:     const actualRatio=ratioValue(ratioNumerator(actual),ratioDenominator(actual));
+2220:     const budgetRatio=ratioValue(ratioNumerator(budget),ratioDenominator(budget));
+2221:     const lyRatio=ratioValue(ratioNumerator(ly),ratioDenominator(ly));
+2222:     const fyBudgetRatio=ratioValue(ratioNumerator(fyBudget),ratioDenominator(fyBudget));
+2223:     const remainingRatio=fyBudgetRatio-actualRatio;
+2224:     const ratioLabel=row.cogsToggle
+2225:       ?`<button class="pnl-cogs-toggle" type="button" data-pnl-cogs-toggle aria-expanded="${pnlCogsExpanded}"><span aria-hidden="true">${pnlCogsExpanded?'⌄':'›'}</span> ${row.label}</button>`
+2226:       :row.label;
+2227:     const ratioRowClasses=['pnl-statement-ratio',row.cogsDetail?'pnl-cogs-detail-row':'']
+2228:       .filter(Boolean).join(' ');
+2229:     html += pnlComparisonMode==='fyBudget' ? `
+2230:       <tr class="${ratioRowClasses}">
+2231:         <td>${ratioLabel}</td>
+2232:         <td class="${pnlAmountClass(actualRatio)}">${formatRatio(actualRatio)}</td>
+2233:         <td class="${pnlAmountClass(fyBudgetRatio)}">${formatRatio(fyBudgetRatio)}</td>
+2234:         <td class="${pnlVarianceClass(remainingRatio)} ${pnlAmountClass(remainingRatio)}">${(remainingRatio*100).toFixed(1)} pp</td>
+2235:       </tr>` : `
+2236:       <tr class="${ratioRowClasses}">
+2237:         <td>${ratioLabel}</td>
+2238:         <td class="${pnlAmountClass(actualRatio)}">${formatRatio(actualRatio)}</td>
+2239:         <td class="${pnlAmountClass(budgetRatio)}">${formatRatio(budgetRatio)}</td>
+2240:         <td colspan="2"></td>
+2241:         <td class="${pnlAmountClass(lyRatio)}">${formatRatio(lyRatio)}</td>
+2242:         <td colspan="2"></td>
+2243:       </tr>`;
+2244:   });
+2245: 
+2246:   html += '</tbody>';
+2247:   table.innerHTML = html;
+2248:   table.querySelectorAll('[data-pnl-cogs-toggle]').forEach(button=>{
+2249:     button.addEventListener('click',()=>{
+2250:       pnlCogsExpanded=!pnlCogsExpanded;
+2251:       renderPnlVertical();
+2252:     });
+2253:   });
+2254:   table.querySelector('[data-pnl-return-toggle]')?.addEventListener('click',()=>{
+2255:     pnlReturnExpanded=!pnlReturnExpanded;
+2256:     renderPnlVertical();
+2257:   });
+2258:   setupResizableColumns(table);
+2259: 
+2260:   const comparisonTarget=pnlComparisonMode==='fyBudget'?fyBudget:budget;
+2261:   const comparisonLabel=pnlComparisonMode==='fyBudget'?'Remaining':'Vs Budget';
+2262:   const netSalesVar = pnlComparisonMode==='fyBudget'
+2263:     ?comparisonTarget.netSales-actual.netSales
+2264:     :actual.netSales-comparisonTarget.netSales;
+2265:   const gpVar = pnlComparisonMode==='fyBudget'
+2266:     ?comparisonTarget.grossProfit-actual.grossProfit
+2267:     :actual.grossProfit-comparisonTarget.grossProfit;
+2268:   const niVar = pnlComparisonMode==='fyBudget'
+2269:     ?comparisonTarget.netIncome-actual.netIncome
+2270:     :actual.netIncome-comparisonTarget.netIncome;
+2271:   const actualGpMargin = actual.netSales ? actual.grossProfit / actual.netSales : 0;
+2272:   const comparisonGpMargin = comparisonTarget.netSales
+2273:     ?comparisonTarget.grossProfit/comparisonTarget.netSales
+2274:     :0;
+2275: 
+2276:   const netSalesKpi = $('pnlNetSalesKpi');
+2277:   const grossProfitKpi = $('pnlGrossProfitKpi');
+2278:   const netIncomeKpi = $('pnlNetIncomeKpi');
+2279:   netSalesKpi.textContent = pnlFormat(actual.netSales);
+2280:   grossProfitKpi.textContent = pnlFormat(actual.grossProfit);
+2281:   netIncomeKpi.textContent = pnlFormat(actual.netIncome);
+2282:   [
+2283:     [netSalesKpi, actual.netSales],
+2284:     [grossProfitKpi, actual.grossProfit],
+2285:     [netIncomeKpi, actual.netIncome]
+2286:   ].forEach(([element,value])=>{
+2287:     element.classList.toggle('pnl-kpi-negative',value<0);
+2288:   });
+2289:   $('pnlGpMarginKpi').textContent = `${(actualGpMargin*100).toFixed(1)}%`;
+2290: 
+2291:   const netEl = $('pnlNetSalesVar');
+2292:   const gpEl = $('pnlGrossProfitVar');
+2293:   const niEl = $('pnlNetIncomeVar');
+2294:   const gmEl = $('pnlGpMarginVar');
+2295: 
+2296:   netEl.textContent = `${comparisonLabel} ${pnlFormat(netSalesVar)}`;
+2297:   gpEl.textContent = `${comparisonLabel} ${pnlFormat(gpVar)}`;
+2298:   niEl.textContent = `${comparisonLabel} ${pnlFormat(niVar)}`;
+2299:   gmEl.textContent = `${pnlComparisonMode==='fyBudget'?'FY Budget':'Budget'} ${(comparisonGpMargin*100).toFixed(1)}%`;
+2300: 
+2301:   [ [netEl,netSalesVar], [gpEl,gpVar], [niEl,niVar] ].forEach(([el,v]) => {
+2302:     el.classList.remove('positive','negative');
+2303:     if (v > 0) el.classList.add('positive');
+2304:     if (v < 0) el.classList.add('negative');
+2305:   });
+2306: 
+2307: }
+2308: 
+2309: 
+2310: function pnlNormalizeHeader(value) {
+2311:   return String(value || '')
+2312:     .trim()
+2313:     .toLowerCase()
+2314:     .replace(/&/g, 'and')
+2315:     .replace(/[^a-z0-9]+/g, '');
+2316: }
+2317: 
+2318: function pnlFindHeaderIndex(rows) {
+2319:   return rows.findIndex(row => {
+2320:     const normalized = row.map(pnlNormalizeHeader);
+2321:     return normalized.includes('salestype') &&
+2322:            normalized.includes('market') &&
+2323:            normalized.includes('agent') &&
+2324:            normalized.includes('scenario');
+2325:   });
+2326: }
+2327: 
+2328: function pnlReadNumber(value) {
+2329:   if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+2330:   if (value === null || value === undefined || value === '') return 0;
+2331: 
+2332:   let text = String(value).trim();
+2333:   let negative = false;
+2334: 
+2335:   if (/^\(.*\)$/.test(text)) {
+2336:     negative = true;
+2337:     text = text.slice(1, -1);
+2338:   }
+2339: 
+2340:   text = text.replace(/,/g, '').replace(/[^\d.-]/g, '');
+2341:   const number = Number(text);
+2342:   if (!Number.isFinite(number)) return 0;
+2343:   return negative ? -Math.abs(number) : number;
+2344: }
+2345: 
+2346: function pnlMapWorkbookRows(rows, headerIndex) {
+2347:   const header = rows[headerIndex].map(pnlNormalizeHeader);
+2348:   const col = name => header.indexOf(pnlNormalizeHeader(name));
+2349:   const colAny = names => {
+2350:     for (const name of names) {
+2351:       const index = col(name);
+2352:       if (index >= 0) return index;
+2353:     }
+2354:     return -1;
+2355:   };
+2356: 
+2357:   const required = ['Sales Type', 'Market', 'Agent', 'Scenario'];
+2358:   const missing = required.filter(name => col(name) < 0);
+2359:   if (missing.length) {
+2360:     throw new Error(`Missing required columns: ${missing.join(', ')}`);
+2361:   }
+2362: 
+2363:   const numericColumns = {
+2364:     grossSales: 'Gross Sales',
+2365:     discounts: 'Discounts',
+2366:     commissions: 'Commissions',
+2367:     restoun: 'Restoun',
+2368:     netSales: 'Net Sales',
+2369:     grossProfit: 'Gross Profit',
+2370:     sm: 'S&M',
+2371:     netIncome: 'Net Income'
+2372:   };
+2373: 
+2374:   const mapped = rows.slice(headerIndex + 1)
+2375:     .filter(row => row && row.some(cell => String(cell ?? '').trim() !== ''))
+2376:     .map(row => {
+2377:       const record = {
+2378:         salesType: String(row[col('Sales Type')] || '').trim(),
+2379:         market: String(row[col('Market')] || '').trim(),
+2380:         agent: String(row[col('Agent')] || '').trim(),
+===== lines 2132-2381 =====
+2132:       <tr class="pnl-group-head pnl-fy-budget-head">
+2133:         <th>Consolidated P&amp;L</th>
+2134:         <th>Actual (${pnlCurrency})</th>
+2135:         <th>FY Budget (${pnlCurrency})</th>
+2136:         <th>Remaining (${pnlCurrency})</th>
+2137:       </tr>
+2138:     </thead>
+2139:     <tbody>` : `
+2140:     <thead>
+2141:       <tr class="pnl-group-head">
+2142:         <th rowspan="2">Consolidated P&amp;L</th>
+2143:         <th rowspan="2">Actual (${pnlCurrency})</th>
+2144:         <th rowspan="2">Budget (${pnlCurrency})</th>
+2145:         <th colspan="2">Vs Budget</th>
+2146:         <th rowspan="2">LY (${pnlCurrency})</th>
+2147:         <th colspan="2">Vs Last Year</th>
+2148:       </tr>
+2149:       <tr class="pnl-sub-head">
+2150:         <th>Value</th>
+2151:         <th>%</th>
+2152:         <th>Value</th>
+2153:         <th>%</th>
+2154:       </tr>
+2155:     </thead>
+2156:     <tbody>`;
+2157: 
+2158:   visibleLines.forEach(line => {
+2159:     const a = pnlLineValue(actual,line);
+2160:     const b = pnlLineValue(budget,line);
+2161:     const l = pnlLineValue(ly,line);
+2162:     const f = pnlLineValue(fyBudget,line);
+2163:     const vb = a - b;
+2164:     const vl = a - l;
+2165:     const remaining = f - a;
+2166:     const rowClasses = [
+2167:       `pnl-line-${line.key}`,
+2168:       line.subtotal ? 'pnl-subtotal pnl-statement-total' : '',
+2169:       ['cogs','actualCogs','focCogs'].includes(line.key) ? 'pnl-cost-row' : '',
+2170:       line.cogsDetail ? 'pnl-cogs-detail-row' : '',
+2171:       line.returnDetail ? 'pnl-return-detail-row' : ''
+2172:     ].filter(Boolean).join(' ');
+2173:     const lineLabel=line.cogsToggle
+2174:       ?`<button class="pnl-cogs-toggle" type="button" data-pnl-cogs-toggle aria-expanded="${pnlCogsExpanded}"><span aria-hidden="true">${pnlCogsExpanded?'⌄':'›'}</span> COGS</button>`
+2175:       :line.returnToggle
+2176:         ?`<button class="pnl-return-toggle" type="button" data-pnl-return-toggle aria-expanded="${pnlReturnExpanded}"><span aria-hidden="true">${pnlReturnExpanded?'⌄':'›'}</span> Return</button>`
+2177:         :line.label;
+2178: 
+2179:     html += pnlComparisonMode==='fyBudget' ? `
+2180:       <tr class="${rowClasses}">
+2181:         <td>${lineLabel}</td>
+2182:         <td class="${pnlAmountClass(a)}">${pnlFormat(a)}</td>
+2183:         <td class="${pnlAmountClass(f)}">${pnlFormat(f)}</td>
+2184:         <td class="${pnlVarianceClass(remaining)} ${pnlAmountClass(remaining)}">${pnlFormat(remaining)}</td>
+2185:       </tr>` : `
+2186:       <tr class="${rowClasses}">
+2187:         <td>${lineLabel}</td>
+2188:         <td class="${pnlAmountClass(a)}">${pnlFormat(a)}</td>
+2189:         <td class="${pnlAmountClass(b)}">${pnlFormat(b)}</td>
+2190:         <td class="${pnlVarianceClass(vb)} ${pnlAmountClass(vb)}">${pnlFormat(vb)}</td>
+2191:         <td class="pnl-percent ${pnlVarianceClass(vb)} ${pnlAmountClass(vb)}">${pnlPercent(vb,b)}</td>
+2192:         <td class="${pnlAmountClass(l)}">${pnlFormat(l)}</td>
+2193:         <td class="${pnlVarianceClass(vl)} ${pnlAmountClass(vl)}">${pnlFormat(vl)}</td>
+2194:         <td class="pnl-percent ${pnlVarianceClass(vl)} ${pnlAmountClass(vl)}">${pnlPercent(vl,l)}</td>
+2195:       </tr>`;
+2196:   });
+2197: 
+2198:   const ratioRows = [
+2199:     { label:'COGS / Gross Sales', numerator:'cogs', denominator:'grossSales', absolute:true, cogsToggle:true },
+2200:     ...(pnlCogsExpanded?[
+2201:       { label:'Goods COGS / Gross Sales', numerator:'actualCogs', denominator:'grossSales', absolute:true, cogsDetail:true },
+2202:       { label:'FOC COGS / Net Sales', numerator:'focCogs', denominator:'netSales', absolute:true, cogsDetail:true }
+2203:     ]:[]),
+2204:     { label:'Gross Profit', numerator:'grossProfit' },
+2205:     { label:'S&M', numerator:'sm', absolute:true },
+2206:     { label:'Net Income', numerator:'netIncome' }
+2207:   ];
+2208:   html += `<tr class="pnl-ratio-spacer"><td colspan="${pnlComparisonMode==='fyBudget'?4:8}"></td></tr>`;
+2209:   ratioRows.forEach(row=>{
+2210:     const ratioValue=(value,netSales)=>{
+2211:       const ratio=pnlRatio(value,netSales);
+2212:       return row.absolute?Math.abs(ratio):ratio;
+2213:     };
+2214:     const formatRatio=value=>`${(value*100).toFixed(1)}%`;
+2215:     const ratioNumerator=totals=>row.numerator==='cogs'
+2216:       ?pnlNumber(totals.actualCogs)+pnlNumber(totals.focCogs)
+2217:       :pnlNumber(totals[row.numerator]);
+2218:     const ratioDenominator=totals=>pnlNumber(totals[row.denominator||'netSales']);
+2219:     const actualRatio=ratioValue(ratioNumerator(actual),ratioDenominator(actual));
+2220:     const budgetRatio=ratioValue(ratioNumerator(budget),ratioDenominator(budget));
+2221:     const lyRatio=ratioValue(ratioNumerator(ly),ratioDenominator(ly));
+2222:     const fyBudgetRatio=ratioValue(ratioNumerator(fyBudget),ratioDenominator(fyBudget));
+2223:     const remainingRatio=fyBudgetRatio-actualRatio;
+2224:     const ratioLabel=row.cogsToggle
+2225:       ?`<button class="pnl-cogs-toggle" type="button" data-pnl-cogs-toggle aria-expanded="${pnlCogsExpanded}"><span aria-hidden="true">${pnlCogsExpanded?'⌄':'›'}</span> ${row.label}</button>`
+2226:       :row.label;
+2227:     const ratioRowClasses=['pnl-statement-ratio',row.cogsDetail?'pnl-cogs-detail-row':'']
+2228:       .filter(Boolean).join(' ');
+2229:     html += pnlComparisonMode==='fyBudget' ? `
+2230:       <tr class="${ratioRowClasses}">
+2231:         <td>${ratioLabel}</td>
+2232:         <td class="${pnlAmountClass(actualRatio)}">${formatRatio(actualRatio)}</td>
+2233:         <td class="${pnlAmountClass(fyBudgetRatio)}">${formatRatio(fyBudgetRatio)}</td>
+2234:         <td class="${pnlVarianceClass(remainingRatio)} ${pnlAmountClass(remainingRatio)}">${(remainingRatio*100).toFixed(1)} pp</td>
+2235:       </tr>` : `
+2236:       <tr class="${ratioRowClasses}">
+2237:         <td>${ratioLabel}</td>
+2238:         <td class="${pnlAmountClass(actualRatio)}">${formatRatio(actualRatio)}</td>
+2239:         <td class="${pnlAmountClass(budgetRatio)}">${formatRatio(budgetRatio)}</td>
+2240:         <td colspan="2"></td>
+2241:         <td class="${pnlAmountClass(lyRatio)}">${formatRatio(lyRatio)}</td>
+2242:         <td colspan="2"></td>
+2243:       </tr>`;
+2244:   });
+2245: 
+2246:   html += '</tbody>';
+2247:   table.innerHTML = html;
+2248:   table.querySelectorAll('[data-pnl-cogs-toggle]').forEach(button=>{
+2249:     button.addEventListener('click',()=>{
+2250:       pnlCogsExpanded=!pnlCogsExpanded;
+2251:       renderPnlVertical();
+2252:     });
+2253:   });
+2254:   table.querySelector('[data-pnl-return-toggle]')?.addEventListener('click',()=>{
+2255:     pnlReturnExpanded=!pnlReturnExpanded;
+2256:     renderPnlVertical();
+2257:   });
+2258:   setupResizableColumns(table);
+2259: 
+2260:   const comparisonTarget=pnlComparisonMode==='fyBudget'?fyBudget:budget;
+2261:   const comparisonLabel=pnlComparisonMode==='fyBudget'?'Remaining':'Vs Budget';
+2262:   const netSalesVar = pnlComparisonMode==='fyBudget'
+2263:     ?comparisonTarget.netSales-actual.netSales
+2264:     :actual.netSales-comparisonTarget.netSales;
+2265:   const gpVar = pnlComparisonMode==='fyBudget'
+2266:     ?comparisonTarget.grossProfit-actual.grossProfit
+2267:     :actual.grossProfit-comparisonTarget.grossProfit;
+2268:   const niVar = pnlComparisonMode==='fyBudget'
+2269:     ?comparisonTarget.netIncome-actual.netIncome
+2270:     :actual.netIncome-comparisonTarget.netIncome;
+2271:   const actualGpMargin = actual.netSales ? actual.grossProfit / actual.netSales : 0;
+2272:   const comparisonGpMargin = comparisonTarget.netSales
+2273:     ?comparisonTarget.grossProfit/comparisonTarget.netSales
+2274:     :0;
+2275: 
+2276:   const netSalesKpi = $('pnlNetSalesKpi');
+2277:   const grossProfitKpi = $('pnlGrossProfitKpi');
+2278:   const netIncomeKpi = $('pnlNetIncomeKpi');
+2279:   netSalesKpi.textContent = pnlFormat(actual.netSales);
+2280:   grossProfitKpi.textContent = pnlFormat(actual.grossProfit);
+2281:   netIncomeKpi.textContent = pnlFormat(actual.netIncome);
+2282:   [
+2283:     [netSalesKpi, actual.netSales],
+2284:     [grossProfitKpi, actual.grossProfit],
+2285:     [netIncomeKpi, actual.netIncome]
+2286:   ].forEach(([element,value])=>{
+2287:     element.classList.toggle('pnl-kpi-negative',value<0);
+2288:   });
+2289:   $('pnlGpMarginKpi').textContent = `${(actualGpMargin*100).toFixed(1)}%`;
+2290: 
+2291:   const netEl = $('pnlNetSalesVar');
+2292:   const gpEl = $('pnlGrossProfitVar');
+2293:   const niEl = $('pnlNetIncomeVar');
+2294:   const gmEl = $('pnlGpMarginVar');
+2295: 
+2296:   netEl.textContent = `${comparisonLabel} ${pnlFormat(netSalesVar)}`;
+2297:   gpEl.textContent = `${comparisonLabel} ${pnlFormat(gpVar)}`;
+2298:   niEl.textContent = `${comparisonLabel} ${pnlFormat(niVar)}`;
+2299:   gmEl.textContent = `${pnlComparisonMode==='fyBudget'?'FY Budget':'Budget'} ${(comparisonGpMargin*100).toFixed(1)}%`;
+2300: 
+2301:   [ [netEl,netSalesVar], [gpEl,gpVar], [niEl,niVar] ].forEach(([el,v]) => {
+2302:     el.classList.remove('positive','negative');
+2303:     if (v > 0) el.classList.add('positive');
+2304:     if (v < 0) el.classList.add('negative');
+2305:   });
+2306: 
+2307: }
+2308: 
+2309: 
+2310: function pnlNormalizeHeader(value) {
+2311:   return String(value || '')
+2312:     .trim()
+2313:     .toLowerCase()
+2314:     .replace(/&/g, 'and')
+2315:     .replace(/[^a-z0-9]+/g, '');
+2316: }
+2317: 
+2318: function pnlFindHeaderIndex(rows) {
+2319:   return rows.findIndex(row => {
+2320:     const normalized = row.map(pnlNormalizeHeader);
+2321:     return normalized.includes('salestype') &&
+2322:            normalized.includes('market') &&
+2323:            normalized.includes('agent') &&
+2324:            normalized.includes('scenario');
+2325:   });
+2326: }
+2327: 
+2328: function pnlReadNumber(value) {
+2329:   if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+2330:   if (value === null || value === undefined || value === '') return 0;
+2331: 
+2332:   let text = String(value).trim();
+2333:   let negative = false;
+2334: 
+2335:   if (/^\(.*\)$/.test(text)) {
+2336:     negative = true;
+2337:     text = text.slice(1, -1);
+2338:   }
+2339: 
+2340:   text = text.replace(/,/g, '').replace(/[^\d.-]/g, '');
+2341:   const number = Number(text);
+2342:   if (!Number.isFinite(number)) return 0;
+2343:   return negative ? -Math.abs(number) : number;
+2344: }
+2345: 
+2346: function pnlMapWorkbookRows(rows, headerIndex) {
+2347:   const header = rows[headerIndex].map(pnlNormalizeHeader);
+2348:   const col = name => header.indexOf(pnlNormalizeHeader(name));
+2349:   const colAny = names => {
+2350:     for (const name of names) {
+2351:       const index = col(name);
+2352:       if (index >= 0) return index;
+2353:     }
+2354:     return -1;
+2355:   };
+2356: 
+2357:   const required = ['Sales Type', 'Market', 'Agent', 'Scenario'];
+2358:   const missing = required.filter(name => col(name) < 0);
+2359:   if (missing.length) {
+2360:     throw new Error(`Missing required columns: ${missing.join(', ')}`);
+2361:   }
+2362: 
+2363:   const numericColumns = {
+2364:     grossSales: 'Gross Sales',
+2365:     discounts: 'Discounts',
+2366:     commissions: 'Commissions',
+2367:     restoun: 'Restoun',
+2368:     netSales: 'Net Sales',
+2369:     grossProfit: 'Gross Profit',
+2370:     sm: 'S&M',
+2371:     netIncome: 'Net Income'
+2372:   };
+2373: 
+2374:   const mapped = rows.slice(headerIndex + 1)
+2375:     .filter(row => row && row.some(cell => String(cell ?? '').trim() !== ''))
+2376:     .map(row => {
+2377:       const record = {
+2378:         salesType: String(row[col('Sales Type')] || '').trim(),
+2379:         market: String(row[col('Market')] || '').trim(),
+2380:         agent: String(row[col('Agent')] || '').trim(),
+2381:         scenario: String(row[col('Scenario')] || '').trim()
+===== lines 2621-2870 =====
+2621: 
+2622: const globalCountryResetSources={
+2623:   resetBtn:'countryFilter',
+2624:   stockResetBtn:'stockCountryFilter',
+2625:   nearExpiryResetBtn:'nearExpiryCountryFilter',
+2626:   smSimpleFilterResetBtn:'smSimpleCountryFilter',
+2627:   pnlResetBtn:'pnlMarketFilter'
+2628: };
+2629: 
+2630: document.addEventListener('click',event=>{
+2631:   const resetButton=event.target.closest(
+2632:     '#resetBtn,#stockResetBtn,#nearExpiryResetBtn,#smSimpleFilterResetBtn,#pnlResetBtn'
+2633:   );
+2634:   if(!resetButton) return;
+2635:   setTimeout(()=>syncGlobalCountryFilters(
+2636:     globalCountryResetSources[resetButton.id]||'',
+2637:     []
+2638:   ),0);
+2639: });
+2640: 
+2641: /* Universal sortable tables */
+2642: (function () {
+2643:   const sortState = new WeakMap();
+2644:   const sortableHeaderSelector = [
+2645:     '#salesTable thead th',
+2646:     '#focTable thead th',
+2647:     '#stockSection table thead th',
+2648:     '#stockDetailModal table thead th',
+2649:     '#nearExpiryDetailModal table thead th',
+2650:     '#countryDetailTable thead th',
+2651:     '#pnlTable thead th'
+2652:   ].join(', ');
+2653: 
+2654:   function parseSortableValue(cell) {
+2655:     const raw = (cell?.textContent || '').trim();
+2656:     if (!raw) return { type: 'text', value: '' };
+2657: 
+2658:     let text = raw.replace(/,/g, '').replace(/\s+/g, ' ').trim();
+2659:     let negative = false;
+2660: 
+2661:     if (/^\(.*\)$/.test(text)) {
+2662:       negative = true;
+2663:       text = text.slice(1, -1);
+2664:     }
+2665: 
+2666:     const isPercent = text.endsWith('%');
+2667:     if (isPercent) text = text.slice(0, -1);
+2668: 
+2669:     if (/^[<>]\s*200$/.test(text)) {
+2670:       return {
+2671:         type: 'number',
+2672:         value: text.startsWith('<') ? -200 : 200
+2673:       };
+2674:     }
+2675: 
+2676:     const numeric = Number(text.replace(/[^\d.-]/g, ''));
+2677:     if (Number.isFinite(numeric) && /[\d]/.test(text)) {
+2678:       return {
+2679:         type: 'number',
+2680:         value: negative ? -Math.abs(numeric) : numeric
+2681:       };
+2682:     }
+2683: 
+2684:     return {
+2685:       type: 'text',
+2686:       value: raw.toLocaleLowerCase()
+2687:     };
+2688:   }
+2689: 
+2690:   function clearSortIndicators(table) {
+2691:     table.querySelectorAll('thead th').forEach(th => {
+2692:       th.classList.remove('sort-asc', 'sort-desc');
+2693:       th.removeAttribute('aria-sort');
+2694:     });
+2695:   }
+2696: 
+2697:   function sortTable(table, columnIndex) {
+2698:     const tbody = table.tBodies?.[0];
+2699:     if (!tbody) return;
+2700: 
+2701:     const previous = sortState.get(table) || { column: -1, direction: 'desc' };
+2702:     const direction =
+2703:       previous.column === columnIndex && previous.direction === 'asc'
+2704:         ? 'desc'
+2705:         : 'asc';
+2706: 
+2707:     const rows = [...tbody.rows];
+2708:     const totalRows = rows.filter(row => row.classList.contains('total-row'));
+2709:     const dataRows = rows.filter(row => !row.classList.contains('total-row'));
+2710: 
+2711:     dataRows.sort((rowA, rowB) => {
+2712:       const a = parseSortableValue(rowA.cells[columnIndex]);
+2713:       const b = parseSortableValue(rowB.cells[columnIndex]);
+2714: 
+2715:       let result;
+2716:       if (a.type === 'number' && b.type === 'number') {
+2717:         result = a.value - b.value;
+2718:       } else {
+2719:         result = String(a.value).localeCompare(String(b.value), undefined, {
+2720:           numeric: true,
+2721:           sensitivity: 'base'
+2722:         });
+2723:       }
+2724: 
+2725:       return direction === 'asc' ? result : -result;
+2726:     });
+2727: 
+2728:     dataRows.forEach(row => tbody.appendChild(row));
+2729:     totalRows.forEach(row => tbody.appendChild(row));
+2730: 
+2731:     clearSortIndicators(table);
+2732:     const header =
+2733:       table.querySelector(`thead th[data-sort-index="${columnIndex}"]`) ||
+2734:       table.tHead?.rows?.[0]?.cells?.[columnIndex];
+2735:     if (header) {
+2736:       header.classList.add(direction === 'asc' ? 'sort-asc' : 'sort-desc');
+2737:       header.setAttribute(
+2738:         'aria-sort',
+2739:         direction === 'asc' ? 'ascending' : 'descending'
+2740:       );
+2741:     }
+2742: 
+2743:     sortState.set(table, { column: columnIndex, direction });
+2744:   }
+2745: 
+2746:   document.addEventListener('click', event => {
+2747:     const header = event.target.closest(sortableHeaderSelector);
+2748: 
+2749:     if (!header || header.dataset.noSort === 'true') return;
+2750: 
+2751:     const table = header.closest('table');
+2752:     if (!table) return;
+2753: 
+2754:     const sortIndex=Number(header.dataset.sortIndex ?? header.cellIndex);
+2755:     sortTable(table, sortIndex);
+2756:   });
+2757: 
+2758:   document.addEventListener('keydown', event => {
+2759:     const header = event.target instanceof Element
+2760:       ? event.target.closest(sortableHeaderSelector)
+2761:       : null;
+2762: 
+2763:     if (
+2764:       !header ||
+2765:       header.dataset.noSort === 'true' ||
+2766:       !['Enter', ' '].includes(event.key)
+2767:     ) return;
+2768:     event.preventDefault();
+2769: 
+2770:     const table = header.closest('table');
+2771:     const sortIndex=Number(header.dataset.sortIndex ?? header.cellIndex);
+2772:     if (table) sortTable(table, sortIndex);
+2773:   });
+2774: 
+2775:   function makeHeadersAccessible() {
+2776:     document
+2777:       .querySelectorAll(sortableHeaderSelector)
+2778:       .forEach(th => {
+2779:         if (th.dataset.noSort === 'true') {
+2780:           th.removeAttribute('tabindex');
+2781:           th.removeAttribute('title');
+2782:           return;
+2783:         }
+2784:         if (!th.hasAttribute('tabindex')) th.setAttribute('tabindex', '0');
+2785:         if (!th.title) th.title = 'Click to sort';
+2786:       });
+2787:   }
+2788: 
+2789:   const observer = new MutationObserver(makeHeadersAccessible);
+2790:   observer.observe(document.body, { childList: true, subtree: true });
+2791:   makeHeadersAccessible();
+2792: })();
+2793: 
+2794: 
+2795: // ============================================================
+2796: // Selling & Marketing Expenses — uploaded workbook structure:
+2797: // Expense | Country | Period | Date | Amount
+2798: // Actual for the selected year, Budget for selected year,
+2799: // and LY = Actual for the prior year.
+2800: // ============================================================
+2801: let smSimpleRows = [];
+2802: let smSimpleCurrency = 'JOD';
+2803: const SM_JOD_PER_USD = 0.709;
+2804: 
+2805: function smSimpleDate(value){
+2806:   if(value instanceof Date && !Number.isNaN(value.getTime())) return value;
+2807:   if(typeof value === 'number'){
+2808:     const epoch = new Date(Date.UTC(1899,11,30));
+2809:     return new Date(epoch.getTime() + value * 86400000);
+2810:   }
+2811:   const parsed = new Date(value);
+2812:   return Number.isNaN(parsed.getTime()) ? null : parsed;
+2813: }
+2814: 
+2815: function smSimpleAmount(value){
+2816:   if(typeof value === 'number') return Number.isFinite(value) ? value : 0;
+2817:   let text = String(value ?? '').trim();
+2818:   const negative = /^\(.*\)$/.test(text);
+2819:   text = text.replace(/[(),]/g,'').replace(/[^0-9.-]/g,'');
+2820:   const amount = Number(text);
+2821:   return Number.isFinite(amount) ? (negative ? -Math.abs(amount) : amount) : 0;
+2822: }
+2823: 
+2824: function smSimplePeriod(value){
+2825:   const normalized=String(value || '')
+2826:     .trim()
+2827:     .toLowerCase()
+2828:     .replace(/&/g,'and')
+2829:     .replace(/[^a-z0-9]+/g,'');
+2830:   if(
+2831:     normalized==='ly' ||
+2832:     normalized==='py' ||
+2833:     normalized.startsWith('ly') ||
+2834:     normalized.includes('lastyear') ||
+2835:     normalized.includes('previousyear') ||
+2836:     normalized.includes('prioryear')
+2837:   ) return 'ly';
+2838:   if(normalized.includes('budget') || normalized==='bud' || normalized==='bdg') return 'budget';
+2839:   if(normalized.includes('actual') || normalized==='act') return 'actual';
+2840:   return normalized;
+2841: }
+2842: 
+2843: function smSimpleNormalize(raw){
+2844:   const get = name => {
+2845:     const key = Object.keys(raw).find(k => String(k).trim().toLowerCase() === name.toLowerCase());
+2846:     return key === undefined ? '' : raw[key];
+2847:   };
+2848:   const date = smSimpleDate(get('Date'));
+2849:   return {
+2850:     Expense: String(get('Expense') || '').trim(),
+2851:     Country: String(get('Country') || '').trim(),
+2852:     Period: String(get('Period') || '').trim(),
+2853:     Date: date ? date.toISOString().slice(0,10) : '',
+2854:     Amount: smSimpleAmount(get('Amount'))
+2855:   };
+2856: }
+2857: 
+2858: function smSimpleMonthKey(row){
+2859:   const d = smSimpleDate(row.Date);
+2860:   return d ? `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}` : '';
+2861: }
+2862: 
+2863: function smSimpleMonthLabel(key){
+2864:   const [year,month] = key.split('-').map(Number);
+2865:   return new Intl.DateTimeFormat('en-US',{month:'long',year:'numeric',timeZone:'UTC'})
+2866:     .format(new Date(Date.UTC(year,month-1,1)));
+2867: }
+2868: 
+2869: function smSimpleFormat(value){
+2870:   const amount=Number(value)||0;
+===== lines 4253-4367 =====
+4253:   oldRender();
+4254:   bindSmSort();
+4255: };
+4256: })();
+4257: 
+4258: // Export the currently displayed, permission-filtered report tables to Excel.
+4259: (function(){
+4260:   const exports = {
+4261:     sales:{
+4262:       file:"Sales_Analysis",
+4263:       sheets:[{tableId:"salesTable",name:"Sales Analysis"}]
+4264:     },
+4265:     foc:{
+4266:       file:"IMS_FOC_Analysis",
+4267:       sheets:[{tableId:"focTable",name:"IMS FOC"}]
+4268:     },
+4269:     stock:{
+4270:       file:"Stock_Level",
+4271:       sheets:[{tableId:"stockTable",name:"Stock Level"}]
+4272:     },
+4273:     nearlyExpired:{
+4274:       file:"Nearly_Expired",
+4275:       sheets:[{tableId:"nearExpiryTable",name:"Nearly Expired"}]
+4276:     },
+4277:     sm:{
+4278:       file:"Selling_Marketing_Expenses",
+4279:       sheets:[{tableId:"smSimpleTable",name:"S&M Expenses"}]
+4280:     },
+4281:     pnl:{
+4282:       file:"Profit_and_Loss",
+4283:       sheets:[{tableId:"pnlTable",name:"P&L"}]
+4284:     }
+4285:   };
+4286: 
+4287:   function makeNumericCellsUsable(worksheet){
+4288:     if (!worksheet?.["!ref"]) return;
+4289:     const range=XLSX.utils.decode_range(worksheet["!ref"]);
+4290:     for (let row=range.s.r + 1; row<=range.e.r; row+=1) {
+4291:       for (let column=range.s.c; column<=range.e.c; column+=1) {
+4292:         const address=XLSX.utils.encode_cell({r:row,c:column});
+4293:         const cell=worksheet[address];
+4294:         if (!cell || typeof cell.v !== "string") continue;
+4295:         const source=cell.v.trim();
+4296:         if (!source || source === "—" || !/[0-9]/.test(source)) continue;
+4297:         const percentage=/%$/.test(source);
+4298:         const accounting=/^\(.*\)$/.test(source);
+4299:         const cleaned=source
+4300:           .replace(/[(),%$]/g,"")
+4301:           .replace(/,/g,"")
+4302:           .trim();
+4303:         if (!/^-?\d+(?:\.\d+)?$/.test(cleaned)) continue;
+4304:         let number=Number(cleaned);
+4305:         if (!Number.isFinite(number)) continue;
+4306:         if (accounting) number=-Math.abs(number);
+4307:         if (percentage) number/=100;
+4308:         cell.v=number;
+4309:         cell.t="n";
+4310:         cell.z=percentage
+4311:           ? "0.0%"
+4312:           : "#,##0;[Red](#,##0)";
+4313:       }
+4314:     }
+4315:   }
+4316: 
+4317:   function setUsefulColumnWidths(worksheet,table){
+4318:     const rows=[...table.rows];
+4319:     const columnCount=Math.max(0,...rows.map(row=>row.cells.length));
+4320:     worksheet["!cols"]=Array.from({length:columnCount},(_,column)=>{
+4321:       const width=Math.max(10,...rows.map(row=>
+4322:         String(row.cells[column]?.textContent || "").trim().length
+4323:       ));
+4324:       return {wch:Math.min(width + 2,38)};
+4325:     });
+4326:   }
+4327: 
+4328:   function exportReport(reportKey,button){
+4329:     const config=exports[reportKey];
+4330:     if (!config) return;
+4331:     if (typeof XLSX === "undefined") {
+4332:       window.alert("Excel export is unavailable. Refresh the page and try again.");
+4333:       return;
+4334:     }
+4335: 
+4336:     button.disabled=true;
+4337:     try {
+4338:       const workbook=XLSX.utils.book_new();
+4339:       config.sheets.forEach(sheetConfig=>{
+4340:         const table=document.getElementById(sheetConfig.tableId);
+4341:         if (!table || !table.rows.length) return;
+4342:         const worksheet=XLSX.utils.table_to_sheet(table,{raw:false});
+4343:         makeNumericCellsUsable(worksheet);
+4344:         setUsefulColumnWidths(worksheet,table);
+4345:         worksheet["!autofilter"]={ref:worksheet["!ref"]};
+4346:         XLSX.utils.book_append_sheet(workbook,worksheet,sheetConfig.name);
+4347:       });
+4348: 
+4349:       if (!workbook.SheetNames.length) {
+4350:         window.alert("There is no displayed data to export.");
+4351:         return;
+4352:       }
+4353: 
+4354:       const date=new Date().toISOString().slice(0,10);
+4355:       XLSX.writeFile(workbook,`${config.file}_${date}.xlsx`,{compression:true});
+4356:     } catch (error) {
+4357:       console.error(error);
+4358:       window.alert(error.message || "Could not export the report to Excel.");
+4359:     } finally {
+4360:       button.disabled=false;
+4361:     }
+4362:   }
+4363: 
+4364:   document.querySelectorAll("[data-export-report]").forEach(button=>{
+4365:     button.addEventListener("click",()=>exportReport(button.dataset.exportReport,button));
+4366:   });
+4367: })();
