@@ -1,0 +1,24 @@
+name: Run KSA FOC compensation patch
+
+on:
+  push:
+    paths:
+      - '.github/workflows/run-ksa-foc-compensation-patch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - run: python patch_ksa_foc_compensation.py
+      - run: |
+          git config user.name "BusinessReview Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add script.js index.html
+          git commit -m "Show KSA FOC compensation note in P&L"
+          git push origin HEAD:main
