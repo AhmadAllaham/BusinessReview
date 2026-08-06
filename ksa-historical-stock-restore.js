@@ -113,3 +113,114 @@
 
   window.BRKsaHistoricalRestoreReady = loadHistoricalGroups();
 })();
+
+(() => {
+  'use strict';
+
+  if (window.__BR_KSA_PNL_COMPENSATION_NOTE__) return;
+  window.__BR_KSA_PNL_COMPENSATION_NOTE__ = true;
+
+  const NOTE_LABEL = 'FOC ( COMPASATION)';
+  const NOTE_VALUE = 174;
+
+  const normalizeMarket = value => String(value ?? '')
+    .normalize('NFKC')
+    .trim()
+    .toLocaleLowerCase('en-US')
+    .replace(/[^\p{L}\p{N}]+/gu, '');
+
+  function isSaudiMarket(value) {
+    const market = normalizeMarket(value);
+    return market === 'ksa' ||
+      market === 'saudi' ||
+      market === 'saudiarabia' ||
+      market === 'kingdomofsaudiarabia' ||
+      market.startsWith('ksa') ||
+      market.includes('saudiarabia');
+  }
+
+  function selectedPnlMarkets() {
+    const filter = document.getElementById('pnlMarketFilter');
+    if (!filter) return [];
+
+    if (typeof filter._getSelected === 'function') {
+      return filter._getSelected().map(String).filter(Boolean);
+    }
+
+    if (typeof window.getSelected === 'function') {
+      return (window.getSelected('pnlMarketFilter') || [])
+        .map(String)
+        .filter(Boolean);
+    }
+
+    return [...filter.querySelectorAll('.multi-options input:checked')]
+      .map(input => String(input.value || ''))
+      .filter(value => value && value !== '__ALL__');
+  }
+
+  function shouldShowNote() {
+    const markets = selectedPnlMarkets();
+    return markets.length === 1 && isSaudiMarket(markets[0]);
+  }
+
+  function addCompensationNote() {
+    const table = document.getElementById('pnlTable');
+    const body = table?.tBodies?.[0];
+    if (!body) return;
+
+    body.querySelectorAll('[data-ksa-pnl-compensation-note]')
+      .forEach(row => row.remove());
+
+    if (!shouldShowNote()) return;
+
+    const isFyBudgetView = Boolean(
+      table.querySelector('thead .pnl-fy-budget-head')
+    );
+    const totalColumns = isFyBudgetView ? 4 : 8;
+    const row = document.createElement('tr');
+    row.className = 'pnl-ksa-compensation-note';
+    row.dataset.ksaPnlCompensationNote = 'true';
+    row.title = 'Informational note only. Excluded from all P&L calculations, totals, ratios and KPIs.';
+
+    const labelCell = document.createElement('td');
+    labelCell.textContent = NOTE_LABEL;
+    labelCell.style.fontStyle = 'italic';
+    labelCell.style.fontWeight = '700';
+    row.appendChild(labelCell);
+
+    const actualCell = document.createElement('td');
+    actualCell.textContent = NOTE_VALUE.toLocaleString('en-US');
+    actualCell.style.fontWeight = '700';
+    row.appendChild(actualCell);
+
+    for (let index = 2; index < totalColumns; index += 1) {
+      row.appendChild(document.createElement('td'));
+    }
+
+    const ratioSpacer = body.querySelector('.pnl-ratio-spacer');
+    if (ratioSpacer) {
+      body.insertBefore(row, ratioSpacer);
+    } else {
+      body.appendChild(row);
+    }
+  }
+
+  const originalRenderPnlVertical = window.renderPnlVertical;
+  if (typeof originalRenderPnlVertical === 'function') {
+    window.renderPnlVertical = function (...args) {
+      const result = originalRenderPnlVertical.apply(this, args);
+      addCompensationNote();
+      return result;
+    };
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener(
+      'DOMContentLoaded',
+      () => setTimeout(addCompensationNote, 0),
+      {once:true}
+    );
+  } else {
+    setTimeout(addCompensationNote, 0);
+  }
+})();
