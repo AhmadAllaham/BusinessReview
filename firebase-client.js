@@ -36,7 +36,7 @@
   const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(config);
   const auth = app.auth();
   const db = app.firestore();
-  const ASSET_VERSION = '20260806-9';
+  const ASSET_VERSION = '20260806-10';
 
   const persistenceReady = auth
     .setPersistence(firebase.auth.Auth.Persistence.SESSION)
@@ -199,6 +199,7 @@
       await loadCachedScript('light-comparison-headers.js','data-br-light-comparison-headers');
       await loadCachedScript('light-soft-glow.js','data-br-light-soft-glow');
       await loadCachedScript('light-header-card-glow.js','data-br-light-header-card-glow');
+      await loadCachedScript('ksa-pnl-expected-return.js','data-br-ksa-pnl-expected-return');
     } catch (themeError) {
       console.error('Unable to load dashboard formatting.',themeError);
     }
