@@ -1,0 +1,46 @@
+name: Diagnose Stock Level runtime
+
+on:
+  push:
+    paths:
+      - '.github/workflows/diagnose-stock-runtime.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Capture stock functions
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('script.js').read_text(encoding='utf-8').splitlines()
+          needles = [
+              'function stockAggregateRows',
+              'function stockStatementTableHtml',
+              'function renderStockLevel',
+              'window.stockStatementTableHtml',
+              'window.renderStockLevel'
+          ]
+          out=[]
+          for i,line in enumerate(text):
+              if any(n in line for n in needles):
+                  start=max(0,i-15); end=min(len(text),i+140)
+                  out.append(f'===== lines {start+1}-{end} =====')
+                  out.extend(f'{j+1}: {text[j]}' for j in range(start,end))
+          Path('stock-runtime-diagnostic.txt').write_text('\n'.join(out),encoding='utf-8')
+          PY
+      - name: Commit diagnostic
+        shell: bash
+        run: |
+          git config user.name "BusinessReview Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add stock-runtime-diagnostic.txt
+          git commit -m "Capture Stock Level runtime functions"
+          git push origin HEAD:main
