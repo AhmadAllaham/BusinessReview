@@ -3655,6 +3655,22 @@ function renderStockLevel(){
   const rows=filteredStockRows();
   const {data:countries,totals}=stockAggregateRows(rows,'Country','Unassigned Market');
 
+  const ksaRow=countries.find(row=>{
+    const identity=textIdentity(row?.name).replace(/[^a-z0-9]+/g,'');
+    return identity==='ksa'||identity.includes('saudi');
+  });
+  if(ksaRow){
+    const previousHistorical=Number(ksaRow.historical)||0;
+    const restoredHistorical=typeof window.BRGetKsaHistoricalStockSales==='function'
+      ?Number(window.BRGetKsaHistoricalStockSales())
+      :38954560.27027098;
+    const replacementHistorical=Number.isFinite(restoredHistorical)&&restoredHistorical>0
+      ?restoredHistorical
+      :38954560.27027098;
+    ksaRow.historical=replacementHistorical;
+    totals.historical=(Number(totals.historical)||0)-previousHistorical+replacementHistorical;
+  }
+
   $('stockCount').textContent=`${countries.length.toLocaleString('en-US')} markets`;
   table.innerHTML=stockStatementTableHtml(countries,totals,'Market',true,{type:'stock'});
   table.querySelectorAll('.stock-drill-button').forEach(button=>{
