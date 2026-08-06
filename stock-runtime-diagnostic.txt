@@ -1,0 +1,468 @@
+===== lines 3365-3519 =====
+3365: function setStockViewMode(mode){
+3366:   stockViewMode=mode==='dashboard'?'dashboard':'table';
+3367:   const dashboard=$('stockDashboard');
+3368:   const tableWrap=$('stockSection')?.querySelector('.stock-table-scroll');
+3369:   if(dashboard) dashboard.hidden=stockReportMode!=='stock'||stockViewMode!=='dashboard';
+3370:   if(tableWrap) tableWrap.hidden=stockReportMode!=='stock'||stockViewMode!=='table';
+3371:   if($('stockSpotlightBtn')) $('stockSpotlightBtn').hidden=stockReportMode!=='stock'||stockViewMode!=='table';
+3372:   document.querySelectorAll('[data-stock-view]').forEach(button=>{
+3373:     const active=button.dataset.stockView===stockViewMode;
+3374:     button.classList.toggle('active',active);
+3375:     button.setAttribute('aria-pressed',String(active));
+3376:   });
+3377:   if(stockViewMode==='dashboard') renderStockDashboard();
+3378: }
+3379: 
+3380: function stockStatementTableHtml(rows,totals,dimension='Brand',clickable=false,profitabilityScope={type:'stock'}){
+3381:   const makeRow=(row,total=false)=>{
+3382:     const gpClass=profitabilityVisible
+3383:       ?profitabilityClass(total?'':dimension,total?'':row.name,profitabilityScope)
+3384:       :'';
+3385:     return `<tr${total?' class="total-row"':''}>
+3386:     <td>${clickable&&!total
+3387:       ?`<button class="stock-drill-button" type="button" data-stock-drill-value="${esc(row.name)}">${esc(row.name)}</button>`
+3388:       :esc(row.name)}</td>
+3389:     <td>${fmt(stockCurrencyValue(row.stock))}</td>
+3390:     <td>${fmt(stockCurrencyValue(row.historical))}</td>
+3391:     <td>${fmt(stockCurrencyValue(row.forecast))}</td>
+3392:     <td>${stockCoverageFormat(stockHistoricalAverage(row.stock,row.historical))}</td>
+3393:     <td>${stockCoverageFormat(stockForecastAverage(row.stock,row.forecast))}</td>
+3394:     ${profitabilityVisible?profitabilityCell(gpClass):''}
+3395:   </tr>`;
+3396:   };
+3397: 
+3398:   return `<colgroup>
+3399:     <col style="width:250px"><col style="width:145px"><col style="width:180px">
+3400:     <col style="width:180px"><col style="width:180px"><col style="width:180px">
+3401:     ${profitabilityVisible?'<col style="width:95px">':''}
+3402:   </colgroup>
+3403:   <thead>
+3404:     <tr class="stock-statement-group-head">
+3405:       <th rowspan="2" data-sort-index="0" data-resize-column="0">${esc(dimension)}</th>
+3406:       <th rowspan="2" data-sort-index="1" data-resize-column="1">Stock (${stockCurrency})</th>
+3407:       <th rowspan="2" data-sort-index="2" data-resize-column="2">Historical Sales (${stockCurrency})</th>
+3408:       <th rowspan="2" data-sort-index="3" data-resize-column="3">Forecast Sales (${stockCurrency})</th>
+3409:       <th colspan="2" data-no-sort="true">Monthly Coverage</th>
+3410:       ${profitabilityVisible?'<th rowspan="2" data-no-sort="true">GP%</th>':''}
+3411:     </tr>
+3412:     <tr class="stock-statement-sub-head">
+3413:       <th data-sort-index="4" data-resize-column="4">Historical average</th>
+3414:       <th data-sort-index="5" data-resize-column="5">Forecasted average</th>
+3415:     </tr>
+3416:   </thead>
+3417:   <tbody>${rows.map(row=>makeRow(row)).join('')}${rows.length
+3418:     ?makeRow({name:'Total',...totals},true)
+3419:     :`<tr><td colspan="${profitabilityVisible?7:6}" class="stock-empty">No stock data matches the selected filters.</td></tr>`}
+3420:   </tbody>`;
+3421: }
+3422: 
+3423: function refreshStickyHeaderOffsets(table){
+3424:   if(!table?.tHead) return;
+3425:   let stickyTop=0;
+3426:   [...table.tHead.rows].forEach((row,rowIndex)=>{
+3427:     [...row.cells].forEach(header=>{
+3428:       header.style.setProperty('--table-sticky-top',`${stickyTop}px`);
+3429:       header.style.setProperty('--table-sticky-z',String(14-rowIndex));
+3430:     });
+3431:     stickyTop+=row.getBoundingClientRect().height;
+3432:   });
+3433: }
+3434: 
+3435: function setupResizableColumns(table){
+3436:   if(!table) return;
+3437: 
+3438:   const rowColumnCount=row=>[...row.cells]
+3439:     .reduce((count,cell)=>count+(Number(cell.colSpan)||1),0);
+3440:   const columnCount=Math.max(
+3441:     0,
+3442:     ...[...table.rows].map(rowColumnCount)
+3443:   );
+3444:   if(!columnCount) return;
+3445: 
+3446:   let colgroup=table.querySelector(':scope > colgroup');
+3447:   if(!colgroup){
+3448:     const measurementRow=[...table.tBodies]
+3449:       .flatMap(body=>[...body.rows])
+3450:       .find(row=>row.cells.length===columnCount&&[...row.cells].every(cell=>cell.colSpan===1));
+3451:     const tableIsVisible=table.getBoundingClientRect().width>0;
+3452:     const measuredWidths=measurementRow&&tableIsVisible
+3453:       ?[...measurementRow.cells].map(cell=>Math.max(80,Math.round(cell.getBoundingClientRect().width)))
+3454:       :Array.from({length:columnCount},(_,index)=>index===0?230:125);
+3455: 
+3456:     colgroup=document.createElement('colgroup');
+3457:     measuredWidths.forEach(width=>{
+3458:       const column=document.createElement('col');
+3459:       column.style.width=`${width}px`;
+3460:       colgroup.appendChild(column);
+3461:     });
+3462:     table.insertBefore(colgroup,table.firstChild);
+3463:   }
+3464: 
+3465:   const columns=[...colgroup.querySelectorAll('col')];
+3466:   while(columns.length<columnCount){
+3467:     const column=document.createElement('col');
+3468:     column.style.width='125px';
+3469:     colgroup.appendChild(column);
+3470:     columns.push(column);
+3471:   }
+3472: 
+3473:   table.classList.add('resizable-report-table');
+3474:   const storageKey=`br-column-widths:${table.id}:${columnCount}`;
+3475:   try{
+3476:     const saved=JSON.parse(localStorage.getItem(storageKey)||'[]');
+3477:     saved.forEach((width,index)=>{
+3478:       if(columns[index]&&Number(width)>=80) columns[index].style.width=`${Number(width)}px`;
+3479:     });
+3480:   }catch(error){ /* Ignore unavailable or invalid local preferences. */ }
+3481: 
+3482:   const syncTableWidth=()=>{
+3483:     const width=columns.reduce((sum,column)=>sum+(parseFloat(column.style.width)||column.getBoundingClientRect().width||120),0);
+3484:     table.style.width=`${Math.max(width,640)}px`;
+3485:     table.style.minWidth='100%';
+3486:   };
+3487: 
+3488:   const headerByColumn=new Map();
+3489:   const occupied=[];
+3490:   [...(table.tHead?.rows||[])].forEach((row,rowIndex)=>{
+3491:     let columnIndex=0;
+3492:     [...row.cells].forEach(header=>{
+3493:       while(occupied[rowIndex]?.[columnIndex]) columnIndex++;
+3494:       const colspan=Number(header.colSpan)||1;
+3495:       const rowspan=Number(header.rowSpan)||1;
+3496:       for(let r=rowIndex;r<rowIndex+rowspan;r++){
+3497:         occupied[r]??=[];
+3498:         for(let c=columnIndex;c<columnIndex+colspan;c++) occupied[r][c]=true;
+3499:       }
+3500:       if(colspan===1) headerByColumn.set(columnIndex,header);
+3501:       columnIndex+=colspan;
+3502:     });
+3503:   });
+3504: 
+3505:   refreshStickyHeaderOffsets(table);
+3506: 
+3507:   headerByColumn.forEach((header,index)=>{
+3508:     header.dataset.resizeColumn=String(index);
+3509:     header.querySelector('.column-resize-handle')?.remove();
+3510:     const handle=document.createElement('span');
+3511:     handle.className='column-resize-handle';
+3512:     handle.title='Drag to resize column';
+3513:     handle.setAttribute('aria-hidden','true');
+3514:     header.appendChild(handle);
+3515:     handle.addEventListener('click',event=>event.stopPropagation());
+3516:     handle.addEventListener('pointerdown',event=>{
+3517:       event.preventDefault();
+3518:       event.stopPropagation();
+3519:       const index=Number(header.dataset.resizeColumn);
+===== lines 3549-3703 =====
+3549:   syncTableWidth();
+3550: }
+3551: 
+3552: let stickyHeaderResizeFrame=0;
+3553: window.addEventListener('resize',()=>{
+3554:   window.cancelAnimationFrame(stickyHeaderResizeFrame);
+3555:   stickyHeaderResizeFrame=window.requestAnimationFrame(()=>{
+3556:     document.querySelectorAll('.resizable-report-table')
+3557:       .forEach(refreshStickyHeaderOffsets);
+3558:   });
+3559: },{passive:true});
+3560: 
+3561: let activeStockCountry='';
+3562: let activeStockBrand='';
+3563: 
+3564: function stockAggregateRows(rows,key,fallback){
+3565:   const grouped=new Map();
+3566:   rows.forEach(row=>{
+3567:     const name=String(row[key]||fallback).trim()||fallback;
+3568:     if(!grouped.has(name)) grouped.set(name,{name,stock:0,historical:0,forecast:0});
+3569:     const item=grouped.get(name);
+3570:     item.stock+=row.__stock;
+3571:     item.historical+=row.__historical;
+3572:     item.forecast+=row.__forecast;
+3573:   });
+3574:   const data=[...grouped.values()].sort((a,b)=>b.stock-a.stock);
+3575:   const totals=data.reduce((total,row)=>({
+3576:     stock:total.stock+row.stock,
+3577:     historical:total.historical+row.historical,
+3578:     forecast:total.forecast+row.forecast
+3579:   }),{stock:0,historical:0,forecast:0});
+3580:   return {data,totals};
+3581: }
+3582: 
+3583: function updateStockDetailFlag(){
+3584:   const flag=$('stockDetailCountryFlag');
+3585:   if(!flag) return;
+3586:   const code=countryFlagCode(activeStockCountry);
+3587:   flag.hidden=!code;
+3588:   flag.src=code?countryFlagDataUri(code):'';
+3589:   flag.alt=code?`${activeStockCountry} flag`:'';
+3590:   flag.title=activeStockCountry;
+3591:   flag.onerror=()=>{ flag.hidden=true; };
+3592: }
+3593: 
+3594: function renderStockCountryBrands(){
+3595:   activeStockBrand='';
+3596:   const rows=filteredStockRows().filter(row=>row.Country===activeStockCountry);
+3597:   const {data:brands,totals}=stockAggregateRows(rows,'Brand','Unassigned Brand');
+3598: 
+3599:   updateStockDetailFlag();
+3600:   $('stockDetailModalTitle').textContent=activeStockCountry;
+3601:   $('stockDetailModalSubtitle').textContent='Brand totals — click a brand to view its related SKUs.';
+3602:   $('stockDetailCount').textContent=`${brands.length.toLocaleString('en-US')} brands`;
+3603:   $('stockDetailBackButton').hidden=true;
+3604:   $('stockDetailTable').innerHTML=stockStatementTableHtml(
+3605:     brands,totals,'Brand',true,{type:'stock',country:activeStockCountry}
+3606:   );
+3607:   $('stockDetailTable').querySelectorAll('.stock-drill-button').forEach(button=>{
+3608:     button.addEventListener('click',()=>openStockBrandDetails(button.dataset.stockDrillValue));
+3609:   });
+3610:   setupResizableColumns($('stockDetailTable'));
+3611: }
+3612: 
+3613: function openStockCountryDetails(country){
+3614:   activeStockCountry=country;
+3615:   renderStockCountryBrands();
+3616:   $('stockDetailModal').classList.add('open');
+3617:   $('stockDetailModal').setAttribute('aria-hidden','false');
+3618:   window.requestAnimationFrame(()=>refreshStickyHeaderOffsets($('stockDetailTable')));
+3619:   $('closeStockDetailModal').focus();
+3620: }
+3621: 
+3622: function openStockBrandDetails(brand){
+3623:   activeStockBrand=brand;
+3624:   const rows=filteredStockRows().filter(row=>
+3625:     row.Country===activeStockCountry&&row.Brand===activeStockBrand
+3626:   );
+3627:   const {data:products,totals}=stockAggregateRows(rows,'SKU','Unassigned SKU');
+3628: 
+3629:   updateStockDetailFlag();
+3630:   $('stockDetailModalTitle').textContent=`${activeStockCountry} · ${activeStockBrand}`;
+3631:   $('stockDetailModalSubtitle').textContent='Related SKU detail within the currently selected Stock Level filters.';
+3632:   $('stockDetailCount').textContent=`${products.length.toLocaleString('en-US')} products`;
+3633:   $('stockDetailBackButton').hidden=false;
+3634:   $('stockDetailTable').innerHTML=stockStatementTableHtml(
+3635:     products,totals,'SKU',false,
+3636:     {type:'stock',country:activeStockCountry,brand:activeStockBrand}
+3637:   );
+3638:   setupResizableColumns($('stockDetailTable'));
+3639: }
+3640: 
+3641: function closeStockDetailModal(){
+3642:   $('stockDetailModal')?.classList.remove('open');
+3643:   $('stockDetailModal')?.setAttribute('aria-hidden','true');
+3644: }
+3645: 
+3646: function rerenderOpenStockDetail(){
+3647:   if(!$('stockDetailModal')?.classList.contains('open')) return;
+3648:   if(activeStockBrand) openStockBrandDetails(activeStockBrand);
+3649:   else renderStockCountryBrands();
+3650: }
+3651: 
+3652: function renderStockLevel(){
+3653:   const table=$('stockTable');
+3654:   if(!table) return;
+3655:   const rows=filteredStockRows();
+3656:   const {data:countries,totals}=stockAggregateRows(rows,'Country','Unassigned Market');
+3657: 
+3658:   $('stockCount').textContent=`${countries.length.toLocaleString('en-US')} markets`;
+3659:   table.innerHTML=stockStatementTableHtml(countries,totals,'Market',true,{type:'stock'});
+3660:   table.querySelectorAll('.stock-drill-button').forEach(button=>{
+3661:     button.addEventListener('click',()=>openStockCountryDetails(button.dataset.stockDrillValue));
+3662:   });
+3663:   setupResizableColumns(table);
+3664:   renderStockDashboard();
+3665: }
+3666: 
+3667: $('stockResetBtn')?.addEventListener('click',()=>{
+3668:   buildStockFilters(true);
+3669:   renderStockLevel();
+3670: });
+3671: $('closeStockDetailModal')?.addEventListener('click',closeStockDetailModal);
+3672: $('stockDetailBackButton')?.addEventListener('click',renderStockCountryBrands);
+3673: document.querySelectorAll('[data-stock-currency]').forEach(button=>{
+3674:   button.addEventListener('click',()=>{
+3675:     stockCurrency=button.dataset.stockCurrency==='JOD'?'JOD':'USD';
+3676:     document.querySelectorAll('[data-stock-currency]').forEach(option=>{
+3677:       const active=option.dataset.stockCurrency===stockCurrency;
+3678:       option.classList.toggle('active',active);
+3679:       option.setAttribute('aria-pressed',String(active));
+3680:     });
+3681:     renderStockLevel();
+3682:     rerenderOpenStockDetail();
+3683:   });
+3684: });
+3685: document.querySelector('[data-close-stock-modal]')?.addEventListener('click',closeStockDetailModal);
+3686: document.addEventListener('keydown',event=>{
+3687:   if(event.key==='Escape'&&$('stockDetailModal')?.classList.contains('open')){
+3688:     closeStockDetailModal();
+3689:   }
+3690: });
+3691: buildStockFilters(true);
+3692: renderStockLevel();
+3693: setStockViewMode(stockViewMode);
+3694: 
+3695: // ============================================================
+3696: // Nearly Expired — uploaded workbook columns:
+3697: // Country | Party Name | Item Description | Unit Price | Agent Stock
+3698: // Nearly Expired Goods 6 Month | Nearly Expired 6M+
+3699: // Values are always recalculated as Quantity × Unit Price.
+3700: // ============================================================
+3701: let nearExpiryRows=[];
+3702: let nearExpiryCurrency='USD';
+3703: let activeNearExpiryCountry='';
+===== lines 3637-3791 =====
+3637:   );
+3638:   setupResizableColumns($('stockDetailTable'));
+3639: }
+3640: 
+3641: function closeStockDetailModal(){
+3642:   $('stockDetailModal')?.classList.remove('open');
+3643:   $('stockDetailModal')?.setAttribute('aria-hidden','true');
+3644: }
+3645: 
+3646: function rerenderOpenStockDetail(){
+3647:   if(!$('stockDetailModal')?.classList.contains('open')) return;
+3648:   if(activeStockBrand) openStockBrandDetails(activeStockBrand);
+3649:   else renderStockCountryBrands();
+3650: }
+3651: 
+3652: function renderStockLevel(){
+3653:   const table=$('stockTable');
+3654:   if(!table) return;
+3655:   const rows=filteredStockRows();
+3656:   const {data:countries,totals}=stockAggregateRows(rows,'Country','Unassigned Market');
+3657: 
+3658:   $('stockCount').textContent=`${countries.length.toLocaleString('en-US')} markets`;
+3659:   table.innerHTML=stockStatementTableHtml(countries,totals,'Market',true,{type:'stock'});
+3660:   table.querySelectorAll('.stock-drill-button').forEach(button=>{
+3661:     button.addEventListener('click',()=>openStockCountryDetails(button.dataset.stockDrillValue));
+3662:   });
+3663:   setupResizableColumns(table);
+3664:   renderStockDashboard();
+3665: }
+3666: 
+3667: $('stockResetBtn')?.addEventListener('click',()=>{
+3668:   buildStockFilters(true);
+3669:   renderStockLevel();
+3670: });
+3671: $('closeStockDetailModal')?.addEventListener('click',closeStockDetailModal);
+3672: $('stockDetailBackButton')?.addEventListener('click',renderStockCountryBrands);
+3673: document.querySelectorAll('[data-stock-currency]').forEach(button=>{
+3674:   button.addEventListener('click',()=>{
+3675:     stockCurrency=button.dataset.stockCurrency==='JOD'?'JOD':'USD';
+3676:     document.querySelectorAll('[data-stock-currency]').forEach(option=>{
+3677:       const active=option.dataset.stockCurrency===stockCurrency;
+3678:       option.classList.toggle('active',active);
+3679:       option.setAttribute('aria-pressed',String(active));
+3680:     });
+3681:     renderStockLevel();
+3682:     rerenderOpenStockDetail();
+3683:   });
+3684: });
+3685: document.querySelector('[data-close-stock-modal]')?.addEventListener('click',closeStockDetailModal);
+3686: document.addEventListener('keydown',event=>{
+3687:   if(event.key==='Escape'&&$('stockDetailModal')?.classList.contains('open')){
+3688:     closeStockDetailModal();
+3689:   }
+3690: });
+3691: buildStockFilters(true);
+3692: renderStockLevel();
+3693: setStockViewMode(stockViewMode);
+3694: 
+3695: // ============================================================
+3696: // Nearly Expired — uploaded workbook columns:
+3697: // Country | Party Name | Item Description | Unit Price | Agent Stock
+3698: // Nearly Expired Goods 6 Month | Nearly Expired 6M+
+3699: // Values are always recalculated as Quantity × Unit Price.
+3700: // ============================================================
+3701: let nearExpiryRows=[];
+3702: let nearExpiryCurrency='USD';
+3703: let activeNearExpiryCountry='';
+3704: let activeNearExpiryAgent='';
+3705: const nearExpiryFilterIds=[
+3706:   'nearExpiryCountryFilter','nearExpiryAgentFilter','nearExpiryItemFilter'
+3707: ];
+3708: 
+3709: function nearExpiryNormalize(row){
+3710:   const unitPrice=stockNumber(stockField(row,['unitprice','price']));
+3711:   const withinSixQty=stockNumber(stockField(row,[
+3712:     'nearlyexpiredwithin6mqty','nearlyexpiredgoods6month','nearlyexpiredgoods6months'
+3713:   ]));
+3714:   const sixPlusQty=stockNumber(stockField(row,[
+3715:     'nearlyexpired6mqty','nearlyexpired6monthsqty','nearlyexpired6m'
+3716:   ]));
+3717:   return {
+3718:     ...row,
+3719:     Country:String(stockField(row,['country','countryname','market']) || '').trim(),
+3720:     Agent:String(stockField(row,['agent','partyname','customer','distributor']) || '').trim(),
+3721:     Item:String(stockField(row,['item','itemdescription','product','productname','sku']) || '').trim(),
+3722:     __unitPrice:unitPrice,
+3723:     __agentStockQty:stockNumber(stockField(row,[
+3724:       'agentstockqty','juneagentstock','agentstock','stockquantity'
+3725:     ])),
+3726:     __withinSixQty:withinSixQty,
+3727:     __sixPlusQty:sixPlusQty,
+3728:     __withinSixValue:withinSixQty*unitPrice,
+3729:     __sixPlusValue:sixPlusQty*unitPrice
+3730:   };
+3731: }
+3732: 
+3733: function nearExpiryHasExposure(row){
+3734:   return Boolean(row&&(
+3735:     Number(row.__withinSixQty)||Number(row.__sixPlusQty)
+3736:   ));
+3737: }
+3738: 
+3739: function buildNearExpiryFilters(reset=false,changedId=''){
+3740:   const exposedRows=nearExpiryRows.filter(nearExpiryHasExposure);
+3741:   const selections=reset
+3742:     ?Object.fromEntries(nearExpiryFilterIds.map(id=>[id,[]]))
+3743:     :captureSelections(nearExpiryFilterIds);
+3744:   if(changedId==='nearExpiryCountryFilter'){
+3745:     constrainChildrenToParent(exposedRows,selections,'nearExpiryCountryFilter',[
+3746:       'nearExpiryAgentFilter','nearExpiryItemFilter'
+3747:     ]);
+3748:   }
+3749:   rebuildDependentFilters(exposedRows,nearExpiryFilterIds,selections,nextChangedId=>{
+3750:     buildNearExpiryFilters(false,nextChangedId);
+3751:     renderNearlyExpired();
+3752:   });
+3753: }
+3754: 
+3755: function filteredNearExpiryRows(){
+3756:   return nearExpiryRows.filter(row=>nearExpiryFilterIds.every(id=>{
+3757:     const selected=getSelected(id);
+3758:     const column=$(id)?.dataset.column;
+3759:     return !selected.length||selected.includes(String(row[column]??''));
+3760:   }));
+3761: }
+3762: 
+3763: function nearExpiryCurrencyValue(value){
+3764:   const amount=Number(value)||0;
+3765:   return nearExpiryCurrency==='JOD'?amount*STOCK_USD_TO_JOD:amount;
+3766: }
+3767: 
+3768: function nearExpiryMoney(value,decimals=0){
+3769:   return nearExpiryCurrencyValue(value).toLocaleString('en-US',{
+3770:     minimumFractionDigits:decimals,
+3771:     maximumFractionDigits:decimals
+3772:   });
+3773: }
+3774: 
+3775: function nearExpiryQty(value){
+3776:   const number=Number(value)||0;
+3777:   return number?Math.round(number).toLocaleString('en-US'):'—';
+3778: }
+3779: 
+3780: function nearExpiryAggregateRows(rows,key,fallback){
+3781:   const grouped=new Map();
+3782:   rows.forEach(row=>{
+3783:     const name=String(row[key]||fallback).trim()||fallback;
+3784:     if(!grouped.has(name)) grouped.set(name,{
+3785:       name,agentStockQty:0,withinSixQty:0,sixPlusQty:0,
+3786:       withinSixValue:0,sixPlusValue:0
+3787:     });
+3788:     const item=grouped.get(name);
+3789:     item.agentStockQty+=row.__agentStockQty;
+3790:     item.withinSixQty+=row.__withinSixQty;
+3791:     item.sixPlusQty+=row.__sixPlusQty;
