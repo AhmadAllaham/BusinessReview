@@ -1,0 +1,95 @@
+name: Patch KSA Historical Sales directly
+
+on:
+  push:
+    paths:
+      - '.github/workflows/patch-ksa-historical-direct.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Patch Stock Level renderer
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('script.js')
+          text = path.read_text(encoding='utf-8')
+          old = """function renderStockLevel(){
+  const table=$('stockTable');
+  if(!table) return;
+  const rows=filteredStockRows();
+  const {data:countries,totals}=stockAggregateRows(rows,'Country','Unassigned Market');
+
+  $('stockCount').textContent=`${countries.length.toLocaleString('en-US')} markets`;
+"""
+          new = """function renderStockLevel(){
+  const table=$('stockTable');
+  if(!table) return;
+  const rows=filteredStockRows();
+  const {data:countries,totals}=stockAggregateRows(rows,'Country','Unassigned Market');
+
+  const ksaRow=countries.find(row=>{
+    const identity=textIdentity(row?.name).replace(/[^a-z0-9]+/g,'');
+    return identity==='ksa'||identity.includes('saudi');
+  });
+  if(ksaRow){
+    const previousHistorical=Number(ksaRow.historical)||0;
+    const restoredHistorical=typeof window.BRGetKsaHistoricalStockSales==='function'
+      ?Number(window.BRGetKsaHistoricalStockSales())
+      :38954560.27027098;
+    const replacementHistorical=Number.isFinite(restoredHistorical)&&restoredHistorical>0
+      ?restoredHistorical
+      :38954560.27027098;
+    ksaRow.historical=replacementHistorical;
+    totals.historical=(Number(totals.historical)||0)-previousHistorical+replacementHistorical;
+  }
+
+  $('stockCount').textContent=`${countries.length.toLocaleString('en-US')} markets`;
+"""
+          if old not in text:
+              raise SystemExit('renderStockLevel target block not found')
+          text = text.replace(old,new,1)
+          path.write_text(text,encoding='utf-8')
+
+          index = Path('index.html')
+          html = index.read_text(encoding='utf-8')
+          html = re.sub(
+              r'script\.js(?:\?v=[^"\']+)?',
+              'script.js?v=20260806-26',
+              html,
+              count=1
+          )
+          html = re.sub(
+              r'ksa-historical-stock-restore\.js(?:\?v=[^"\']+)?',
+              'ksa-historical-stock-restore.js?v=20260806-3',
+              html,
+              count=1
+          )
+          html = re.sub(
+              r'firebase-client\.js(?:\?v=[^"\']+)?',
+              'firebase-client.js?v=20260806-16',
+              html,
+              count=1
+          )
+          index.write_text(html,encoding='utf-8')
+          PY
+
+      - name: Commit direct fix
+        shell: bash
+        run: |
+          git config user.name "BusinessReview Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add script.js index.html
+          git commit -m "Apply KSA Historical Sales directly in Stock Level"
+          git push origin HEAD:main
