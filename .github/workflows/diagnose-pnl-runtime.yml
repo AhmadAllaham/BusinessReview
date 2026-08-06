@@ -1,0 +1,46 @@
+name: Diagnose P&L runtime
+
+on:
+  push:
+    paths:
+      - '.github/workflows/diagnose-pnl-runtime.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Capture P&L functions
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('script.js').read_text(encoding='utf-8').splitlines()
+          needles = [
+              'function renderPnlVertical',
+              'pnlTable',
+              'pnlRows',
+              'pnlLine',
+              'pnlDisplay'
+          ]
+          out=[]
+          for i,line in enumerate(text):
+              if any(n in line for n in needles):
+                  start=max(0,i-30); end=min(len(text),i+220)
+                  out.append(f'===== lines {start+1}-{end} =====')
+                  out.extend(f'{j+1}: {text[j]}' for j in range(start,end))
+          Path('pnl-runtime-diagnostic.txt').write_text('\n'.join(out),encoding='utf-8')
+          PY
+      - name: Commit diagnostic
+        shell: bash
+        run: |
+          git config user.name "BusinessReview Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add pnl-runtime-diagnostic.txt
+          git commit -m "Capture P&L runtime functions"
+          git push origin HEAD:main
