@@ -261,40 +261,6 @@
     renderRatios();
   }
 
-  async function uploadWorkbook(file){
-    const status=byId('algeriaUploadStatus');
-    if(!file) return;
-    if(typeof XLSX==='undefined'){
-      status.textContent='Excel reader is unavailable. Refresh the page and try again.';
-      status.classList.add('error');
-      return;
-    }
-    status.classList.remove('error','success');
-    status.textContent='Reading the Algeria workbook…';
-    try{
-      const workbook=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true});
-      const sheets={pnl:findSheet(workbook,'pnl'),sm:findSheet(workbook,'sm'),ga:findSheet(workbook,'ga')};
-      if(!sheets.pnl) throw new Error('The Algeria P&L sheet was not found.');
-      state.pnl=parseStatementSheet(workbook,sheets.pnl);
-      state.sm=parseStatementSheet(workbook,sheets.sm);
-      state.ga=parseStatementSheet(workbook,sheets.ga);
-      state.fileName=file.name;
-      if(!state.pnl.length) throw new Error('No P&L lines were read from the Algeria sheet.');
-      renderAll();
-      const loaded=[
-        `${state.pnl.length} P&L`,
-        `${state.sm.length} S&M`,
-        `${state.ga.length} G&A`
-      ].join(' · ');
-      const missing=[!sheets.sm?'S&M':'',!sheets.ga?'G&A':''].filter(Boolean);
-      status.classList.add('success');
-      status.innerHTML=`Loaded <strong>${escapeHtml(file.name)}</strong> · ${loaded} · Source: USD '000${missing.length?` · Missing sheet: ${missing.join(', ')}`:''}`;
-    }catch(error){
-      status.classList.add('error');
-      status.textContent=error?.message||'Unable to read the Algeria workbook.';
-    }
-  }
-
   function setTab(panelId){
     document.querySelectorAll('.algeria-tab-btn').forEach(button=>{
       button.classList.toggle('active',button.dataset.algeriaTab===panelId);
@@ -323,11 +289,31 @@
     });
   });
 
-  byId('algeriaWorkbookInput')?.addEventListener('change',event=>{
-    const file=event.target.files?.[0];
-    uploadWorkbook(file);
-    event.target.value='';
-  });
+  window.loadDadAlgeriaRowsFromDatabase=function(rows){
+    const normalized=(rows||[]).map((row,index)=>({
+      label:String(row.Line??row.line??'').trim(),
+      actual:readNumber(row.Actual??row.actual),
+      budget:readNumber(row.Budget??row.budget),
+      ly:readNumber(row.LY??row.ly),
+      key:normalizeText(row.Line??row.line),
+      order:readNumber(row['Display Order']??row.displayOrder??index+1),
+      report:compact(row.Report??row.report)
+    })).filter(row=>row.label).sort((a,b)=>a.order-b.order);
+    state.pnl=normalized.filter(row=>row.report==='pnl');
+    state.sm=normalized.filter(row=>row.report==='sm');
+    state.ga=normalized.filter(row=>row.report==='ga');
+    renderAll();
+    const status=byId('algeriaUploadStatus');
+    if(!status) return;
+    status.classList.remove('error');
+    if(!normalized.length){
+      status.classList.remove('success');
+      status.textContent='No active DAD Algeria dataset. Upload it from Data Admin.';
+      return;
+    }
+    status.classList.add('success');
+    status.textContent=`Source: Data Admin · ${state.pnl.length} P&L · ${state.sm.length} S&M · ${state.ga.length} G&A · USD '000`;
+  };
 
   window.renderAlgeriaReports=renderAll;
   renderAll();

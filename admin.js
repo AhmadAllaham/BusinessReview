@@ -19,7 +19,8 @@
     stock:"Stock Level",
     nearlyExpired:"Stock Level · Nearly Expired",
     sm:"Selling & Marketing Expenses",
-    pnl:"P&L"
+    pnl:"P&L",
+    dadAlgeria:"DAD Algeria · P&L + S&M + G&A"
   };
 
   function show(id,message,type="") {
@@ -199,6 +200,76 @@
     };
   }
 
+  function dadAlgeriaRows(matrix,sheetName,report) {
+    const headerIndex = matrix.findIndex(row => {
+      const headers = row.map(normalizeHeader);
+      return headers.includes("actual") && headers.includes("budget") && headers.includes("ly");
+    });
+    if (headerIndex < 0) return [];
+
+    const headers = matrix[headerIndex].map(normalizeHeader);
+    const actualIndex = headers.indexOf("actual");
+    const budgetIndex = headers.indexOf("budget");
+    const lyIndex = headers.indexOf("ly");
+    let labelIndex = headers.indexOf("expensescategory");
+    if (labelIndex < 0) {
+      labelIndex = matrix[headerIndex].findIndex((value,index) =>
+        index < Math.min(actualIndex,budgetIndex,lyIndex) && String(value ?? "").trim()
+      );
+    }
+    if (labelIndex < 0) labelIndex = Math.max(0,actualIndex - 1);
+
+    return matrix.slice(headerIndex + 1).map((values,index) => {
+      const line = String(values[labelIndex] ?? "").trim();
+      if (!line) return null;
+      return {
+        sheetName,
+        rowNumber:headerIndex + index + 2,
+        country:"Algeria",
+        payload:{
+          Country:"Algeria",
+          Report:report,
+          Line:line,
+          Actual:numberValue(values[actualIndex]),
+          Budget:numberValue(values[budgetIndex]),
+          LY:numberValue(values[lyIndex]),
+          "Display Order":index + 1
+        }
+      };
+    }).filter(Boolean);
+  }
+
+  function parseDadAlgeriaWorkbook(workbook) {
+    const parsedSheets = [];
+    const rows = [];
+    workbook.SheetNames.forEach(sheetName => {
+      const matrix = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName],{
+        header:1,defval:"",raw:true,cellDates:true
+      });
+      const name = normalizeHeader(sheetName);
+      let report = "";
+      if (name.includes("plalgeria") || name.includes("pandlalgeria")) report = "pnl";
+      else if (name.includes("smexpenses") || name.includes("sandmexpenses")) report = "sm";
+      else if (name.includes("gaexpenses") || name.includes("gandaexpenses")) report = "ga";
+      if (!report) return;
+
+      const sheetRows = dadAlgeriaRows(matrix,sheetName,report);
+      if (!sheetRows.length) return;
+      parsedSheets.push({
+        name:sheetName,
+        rowCount:sheetRows.length,
+        headers:Object.keys(sheetRows[0].payload)
+      });
+      rows.push(...sheetRows);
+    });
+
+    const reports = new Set(rows.map(row => row.payload.Report));
+    if (!reports.has("pnl") || !reports.has("sm") || !reports.has("ga")) {
+      throw new Error("DAD Algeria requires P&L- Algeria, S&M Expenses, and G&A Expenses sheets.");
+    }
+    return {sheets:parsedSheets,rows,countries:["Algeria"]};
+  }
+
   function headerValue(row,names) {
     const key = Object.keys(row).find(item =>
       names.map(normalizeHeader).includes(normalizeHeader(item))
@@ -207,6 +278,7 @@
   }
 
   function parseWorkbook(workbook,reportType) {
+    if (reportType === "dadAlgeria") return parseDadAlgeriaWorkbook(workbook);
     const parsedSheets = [];
     const allRows = [];
     const countrySet = new Set();

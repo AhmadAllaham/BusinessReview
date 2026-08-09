@@ -146,6 +146,7 @@
     stock:null,
     nearlyExpired:null,
     profitability:null,
+    dadAlgeria:null,
     analysisCost:null
   };
   const mounted = new Set();
@@ -281,6 +282,15 @@
       mounted.add('profitability');
     }
     return rows;
+  }
+
+  async function mountDadAlgeria() {
+    if (!data.dadAlgeria) data.dadAlgeria = await loadDataset(active.dadAlgeria);
+    if (!mounted.has('dadAlgeria')) {
+      window.loadDadAlgeriaRowsFromDatabase?.(data.dadAlgeria);
+      mounted.add('dadAlgeria');
+    }
+    return data.dadAlgeria;
   }
 
   async function getAnalysisCost() {
@@ -436,6 +446,13 @@
   }
 
   document.addEventListener('click',event => {
+    const workspace = event.target instanceof Element
+      ? event.target.closest('[data-workspace="algeriaWorkspace"]')
+      : null;
+    if (workspace) {
+      setTimeout(() => mountDadAlgeria().catch(console.error),0);
+      return;
+    }
     const tab = event.target instanceof Element
       ? event.target.closest('[data-tab]')
       : null;
