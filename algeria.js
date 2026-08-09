@@ -3,7 +3,7 @@
 
   const byId=id=>document.getElementById(id);
   const USD_TO_JOD=0.709;
-  const state={currency:'USD',pnl:[],sm:[],ga:[],fileName:''};
+  const state={currency:'USD',pnl:[],sm:[],ga:[],stock:[],stockBrand:'',fileName:''};
 
   function normalizeText(value){
     return String(value??'')
@@ -130,6 +130,7 @@
 
   function amountClass(value){return value<0?'pnl-amount-negative':'';}
   function varianceClass(value){return value>0?'pnl-positive positive':value<0?'pnl-negative negative':'';}
+  function expenseVarianceClass(value){return value>0?'sm-good':value<0?'sm-bad':'sm-zero';}
 
   function isTotalRow(row){
     return /(^total\b|gross sales|net sales|gross profit|operating profit|net income|profit before)/.test(row.key);
@@ -183,11 +184,11 @@
         <td>${escapeHtml(row.label)}</td>
         <td class="${amountClass(row.actual)}">${formatAmount(row.actual)}</td>
         <td class="${amountClass(row.budget)}">${formatAmount(row.budget)}</td>
-        <td class="${varianceClass(vb)} ${amountClass(vb)}">${formatAmount(vb)}</td>
-        <td class="${varianceClass(vb)}">${variancePercent(vb,row.budget)}</td>
+        <td class="${expenseFormat?expenseVarianceClass(vb):varianceClass(vb)} ${amountClass(vb)}">${formatAmount(vb)}</td>
+        <td class="${expenseFormat?expenseVarianceClass(vb):varianceClass(vb)}">${variancePercent(vb,row.budget)}</td>
         <td class="${amountClass(row.ly)}">${formatAmount(row.ly)}</td>
-        <td class="${varianceClass(vl)} ${amountClass(vl)}">${formatAmount(vl)}</td>
-        <td class="${varianceClass(vl)}">${variancePercent(vl,row.ly)}</td>
+        <td class="${expenseFormat?expenseVarianceClass(vl):varianceClass(vl)} ${amountClass(vl)}">${formatAmount(vl)}</td>
+        <td class="${expenseFormat?expenseVarianceClass(vl):varianceClass(vl)}">${variancePercent(vl,row.ly)}</td>
       </tr>`;
     }).join('');
     table.innerHTML=`${statementHeader(firstLabel,expenseFormat)}<tbody>${body}</tbody>`;
@@ -254,11 +255,96 @@
     table.innerHTML=`${header}<tbody>${body}</tbody>`;
   }
 
+  function stockCoverage(stock,sales,multiplier){
+    return sales?stock/sales*multiplier:0;
+  }
+
+  function aggregateStock(rows,key,fallback){
+    const grouped=new Map();
+    rows.forEach(row=>{
+      const name=String(row[key]||fallback).trim()||fallback;
+      if(!grouped.has(name)) grouped.set(name,{name,stock:0,historical:0,forecast:0});
+      const item=grouped.get(name);
+      item.stock+=row.stock;
+      item.historical+=row.historical;
+      item.forecast+=row.forecast;
+    });
+    const data=[...grouped.values()].sort((a,b)=>b.stock-a.stock);
+    const totals=data.reduce((sum,row)=>({
+      stock:sum.stock+row.stock,
+      historical:sum.historical+row.historical,
+      forecast:sum.forecast+row.forecast
+    }),{stock:0,historical:0,forecast:0});
+    return {data,totals};
+  }
+
+  function renderStock(){
+    const table=byId('algeriaStockTable');
+    const count=byId('algeriaStockCount');
+    if(!table) return;
+    const source=state.stockBrand
+      ?state.stock.filter(row=>normalizeText(row.brand)===normalizeText(state.stockBrand))
+      :state.stock;
+    const dimension=state.stockBrand?'sku':'brand';
+    const {data,totals}=aggregateStock(source,dimension,state.stockBrand?'Unassigned SKU':'Unassigned Brand');
+    const currency=`${state.currency} '000`;
+    const rows=data.map(row=>`<tr>
+      <td><button class="stock-drill-button" type="button" data-algeria-stock-value="${escapeHtml(row.name)}">${escapeHtml(row.name)}</button></td>
+      <td>${formatAmount(row.stock)}</td>
+      <td>${formatAmount(row.historical)}</td>
+      <td>${formatAmount(row.forecast)}</td>
+      <td>${stockCoverage(row.stock,row.historical,12).toFixed(1)}</td>
+      <td>${stockCoverage(row.stock,row.forecast,6).toFixed(1)}</td>
+    </tr>`).join('');
+    const totalRow=data.length?`<tr class="total-row">
+      <td>Total</td><td>${formatAmount(totals.stock)}</td>
+      <td>${formatAmount(totals.historical)}</td><td>${formatAmount(totals.forecast)}</td>
+      <td>${stockCoverage(totals.stock,totals.historical,12).toFixed(1)}</td>
+      <td>${stockCoverage(totals.stock,totals.forecast,6).toFixed(1)}</td>
+    </tr>`:'';
+    const dimensionLabel=state.stockBrand
+      ?`<button class="algeria-stock-back" type="button" data-algeria-stock-back>← ${escapeHtml(state.stockBrand)}</button>`
+      :'Brand';
+    table.innerHTML=`<colgroup><col style="width:250px"><col style="width:145px">
+      <col style="width:180px"><col style="width:180px"><col style="width:180px"><col style="width:180px"></colgroup>
+      <thead>
+        <tr class="stock-statement-group-head">
+          <th rowspan="2">${dimensionLabel}</th>
+          <th rowspan="2">Stock (${currency})</th>
+          <th rowspan="2">Historical Sales (${currency})</th>
+          <th rowspan="2">Forecast Sales (${currency})</th>
+          <th colspan="2">Monthly Coverage</th>
+        </tr>
+        <tr class="stock-statement-sub-head"><th>Historical average</th><th>Forecasted average</th></tr>
+      </thead>
+      <tbody>${rows||'<tr><td colspan="6" class="stock-empty">Upload the Algeria workbook to display Stock Level.</td></tr>'}${totalRow}</tbody>`;
+    table.querySelector('[data-algeria-stock-back]')?.addEventListener('click',()=>{
+      state.stockBrand='';
+      renderStock();
+    });
+    if(!state.stockBrand){
+      table.querySelectorAll('[data-algeria-stock-value]').forEach(button=>{
+        button.addEventListener('click',()=>{
+          state.stockBrand=button.dataset.algeriaStockValue||'';
+          renderStock();
+        });
+      });
+    }else{
+      table.querySelectorAll('[data-algeria-stock-value]').forEach(button=>{
+        button.disabled=true;
+        button.classList.add('algeria-stock-sku');
+      });
+    }
+    if(count) count.textContent=state.stock.length
+      ?`${state.stock.length.toLocaleString('en-US')} SKUs · ${currency}`
+      :'Waiting for upload';
+  }
   function renderAll(){
     renderStatement('algeriaPnlTable',state.pnl,'P&L Line','algeriaPnlCount');
     renderStatement('algeriaSmTable',state.sm,'S&M Expense','algeriaSmCount');
     renderStatement('algeriaGaTable',state.ga,'G&A Expense','algeriaGaCount');
     renderRatios();
+    renderStock();
   }
 
   function setTab(panelId){
@@ -290,7 +376,8 @@
   });
 
   window.loadDadAlgeriaRowsFromDatabase=function(rows){
-    const normalized=(rows||[]).map((row,index)=>({
+    const rawRows=rows||[];
+    const normalized=rawRows.filter(row=>compact(row.Report??row.report)!=='stock').map((row,index)=>({
       label:String(row.Line??row.line??'').trim(),
       actual:readNumber(row.Actual??row.actual),
       budget:readNumber(row.Budget??row.budget),
@@ -302,6 +389,16 @@
     state.pnl=normalized.filter(row=>row.report==='pnl');
     state.sm=normalized.filter(row=>row.report==='sm');
     state.ga=normalized.filter(row=>row.report==='ga');
+    state.stock=rawRows.filter(row=>compact(row.Report??row.report)==='stock').map(row=>({
+      country:String(row.Country??row.country??'Algeria').trim(),
+      agent:String(row.Agent??row.agent??'').trim(),
+      brand:String(row.Brand??row.brand??row['Product Group']??'Unassigned Brand').trim()||'Unassigned Brand',
+      sku:String(row.SKU??row.sku??row.Product??'Unassigned SKU').trim()||'Unassigned SKU',
+      stock:readNumber(row['Stock $']??row.Stock??row.stock),
+      historical:readNumber(row['Historical Sales $']??row['Historical Sales']??row.historical),
+      forecast:readNumber(row['Forecast Sales $']??row['Forecast Sales']??row.forecast)
+    }));
+    if(state.stockBrand&&!state.stock.some(row=>normalizeText(row.brand)===normalizeText(state.stockBrand))) state.stockBrand='';
     renderAll();
     const status=byId('algeriaUploadStatus');
     if(!status) return;
@@ -312,7 +409,7 @@
       return;
     }
     status.classList.add('success');
-    status.textContent=`Source: Data Admin · ${state.pnl.length} P&L · ${state.sm.length} S&M · ${state.ga.length} G&A · USD '000`;
+    status.textContent=`Source: Data Admin · ${state.pnl.length} P&L · ${state.sm.length} S&M · ${state.ga.length} G&A · ${state.stock.length} Stock SKUs · USD '000`;
   };
 
   window.renderAlgeriaReports=renderAll;
