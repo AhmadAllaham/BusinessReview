@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Business Review</title>
-  <link rel="stylesheet" href="style.css?v=20260809-logo3" />
+  <link rel="stylesheet" href="style.css?v=20260809-algeria1" />
 </head>
 <body>
   <header class="app-header">
@@ -46,6 +46,19 @@
         <button class="tab-btn" data-tab="stockSection" type="button">Stock Level</button>
         <button class="tab-btn" data-tab="smExpensesSection" type="button">Selling &amp; Marketing Expenses</button>
         <button class="tab-btn" data-tab="pnlSection" type="button">P&amp;L</button>
+      </div>
+
+      <button class="workspace-btn" type="button" data-workspace="algeriaWorkspace" aria-expanded="false">
+        <span class="nav-icon">DZ</span>
+        <span>DAD ALGERIA</span>
+        <span class="nav-chevron">›</span>
+      </button>
+      <div class="side-submenu" id="algeriaSubmenu">
+        <button class="algeria-tab-btn active" data-algeria-tab="algeriaPnlPanel" type="button">P&amp;L</button>
+        <button class="algeria-tab-btn" data-algeria-tab="algeriaSmPanel" type="button">S&amp;M</button>
+        <button class="algeria-tab-btn" data-algeria-tab="algeriaGaPanel" type="button">G&amp;A</button>
+        <button class="algeria-tab-btn" data-algeria-tab="algeriaStockPanel" type="button">Stock Level</button>
+        <button class="algeria-tab-btn" data-algeria-tab="algeriaExpiryPanel" type="button">Nearly Expiry</button>
       </div>
 
       <button class="workspace-btn" type="button" data-workspace="mdaWorkspace" aria-expanded="false">
@@ -502,6 +515,74 @@
     </section>
       </div>
 
+      <div id="algeriaWorkspace" class="workspace-pane">
+        <section class="algeria-shell" aria-label="DAD Algeria reports">
+          <div class="algeria-page-head">
+            <div>
+              <span class="eyebrow">DAD ALGERIA</span>
+              <h2>Algeria Business Review</h2>
+              <p>P&amp;L, Selling &amp; Marketing, G&amp;A, Stock Level and Nearly Expiry.</p>
+            </div>
+            <div class="algeria-head-actions">
+              <div class="pnl-currency-switch" role="group" aria-label="DAD Algeria currency">
+                <button class="active" type="button" data-algeria-currency="USD" aria-pressed="true">USD '000</button>
+                <button type="button" data-algeria-currency="JOD" aria-pressed="false">JOD '000</button>
+              </div>
+              <label class="upload-btn algeria-upload-btn" for="algeriaWorkbookInput">Upload Algeria Excel</label>
+              <input id="algeriaWorkbookInput" type="file" accept=".xlsx,.xls,.xlsm" hidden>
+            </div>
+          </div>
+
+          <div id="algeriaUploadStatus" class="status-box algeria-status">
+            Upload one workbook containing P&amp;L, S&amp;M and G&amp;A sheets. Source values are read as USD '000.
+          </div>
+
+          <div class="algeria-mobile-tabs" role="tablist" aria-label="DAD Algeria reports">
+            <button class="algeria-tab-btn active" data-algeria-tab="algeriaPnlPanel" type="button">P&amp;L</button>
+            <button class="algeria-tab-btn" data-algeria-tab="algeriaSmPanel" type="button">S&amp;M</button>
+            <button class="algeria-tab-btn" data-algeria-tab="algeriaGaPanel" type="button">G&amp;A</button>
+            <button class="algeria-tab-btn" data-algeria-tab="algeriaStockPanel" type="button">Stock Level</button>
+            <button class="algeria-tab-btn" data-algeria-tab="algeriaExpiryPanel" type="button">Nearly Expiry</button>
+          </div>
+
+          <section id="algeriaPnlPanel" class="algeria-panel active">
+            <article class="report-card algeria-report-card">
+              <div class="section-head">
+                <div><span class="eyebrow">PROFIT &amp; LOSS</span><h2>DAD Algeria P&amp;L</h2></div>
+                <span id="algeriaPnlCount" class="count-pill">Waiting for upload</span>
+              </div>
+              <div class="table-wrap"><table id="algeriaPnlTable" class="pnl-vertical-table algeria-table"></table></div>
+            </article>
+            <article class="report-card algeria-ratio-card">
+              <div class="section-head"><div><span class="eyebrow">MANAGEMENT RATIOS</span><h2>Profitability &amp; Expense Ratios</h2></div></div>
+              <div class="table-wrap"><table id="algeriaRatioTable" class="pnl-vertical-table algeria-table"></table></div>
+            </article>
+          </section>
+
+          <section id="algeriaSmPanel" class="algeria-panel">
+            <article class="report-card algeria-report-card">
+              <div class="section-head"><div><span class="eyebrow">OPERATING EXPENSES</span><h2>Selling &amp; Marketing Expenses</h2></div><span id="algeriaSmCount" class="count-pill">Waiting for upload</span></div>
+              <div class="table-wrap"><table id="algeriaSmTable" class="pnl-vertical-table algeria-table"></table></div>
+            </article>
+          </section>
+
+          <section id="algeriaGaPanel" class="algeria-panel">
+            <article class="report-card algeria-report-card">
+              <div class="section-head"><div><span class="eyebrow">OPERATING EXPENSES</span><h2>General &amp; Administrative Expenses</h2></div><span id="algeriaGaCount" class="count-pill">Waiting for upload</span></div>
+              <div class="table-wrap"><table id="algeriaGaTable" class="pnl-vertical-table algeria-table"></table></div>
+            </article>
+          </section>
+
+          <section id="algeriaStockPanel" class="algeria-panel">
+            <article class="report-card algeria-placeholder"><span class="eyebrow">STOCK LEVEL</span><h2>Ready for the stock workbook</h2><p>This tab is prepared and will be connected when the Stock Level sheet is available.</p></article>
+          </section>
+
+          <section id="algeriaExpiryPanel" class="algeria-panel">
+            <article class="report-card algeria-placeholder"><span class="eyebrow">NEARLY EXPIRY</span><h2>Ready for the expiry workbook</h2><p>This tab is prepared and will be connected when the Nearly Expiry sheet is available.</p></article>
+          </section>
+        </section>
+      </div>
+
       <div id="mdaWorkspace" class="workspace-pane">
         <section class="report-card mda-empty-workspace" aria-label="MD&A workspace"></section>
       </div>
@@ -641,7 +722,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="firebase-client.js?v=20260806-17"></script>
-  <script src="script.js?v=20260806-28"></script>
+  <script src="script.js?v=20260809-algeria1"></script>
+  <script src="algeria.js?v=20260809-algeria1"></script>
   <script src="ksa-historical-stock-restore.js?v=20260806-3"></script>
   <script src="dashboard-firebase.js?v=20260802-4"></script>
 </body>
