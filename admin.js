@@ -20,7 +20,7 @@
     nearlyExpired:"Stock Level · Nearly Expired",
     sm:"Selling & Marketing Expenses",
     pnl:"P&L",
-    dadAlgeria:"DAD Algeria · P&L + S&M + G&A"
+    dadAlgeria:"DAD Algeria · P&L + S&M + G&A + Stock Level"
   };
 
   function show(id,message,type="") {
@@ -295,6 +295,32 @@
     }));
   }
 
+  function dadAlgeriaStockRows(matrix,sheetName) {
+    const headerIndex = stockHeaderIndex(matrix);
+    if (headerIndex < 0) return [];
+    const headers = matrix[headerIndex].map((value,index) =>
+      String(value || `Column ${index + 1}`).trim()
+    );
+    return matrix.slice(headerIndex + 1)
+      .filter(values => values.some(value => String(value ?? "").trim() !== ""))
+      .map((values,index) => {
+        const stock = stockPayload(headers,values);
+        if (!stock.Brand && !stock.SKU) return null;
+        return {
+          sheetName,
+          rowNumber:headerIndex + index + 2,
+          country:"Algeria",
+          payload:{
+            ...stock,
+            Country:"Algeria",
+            Report:"stock",
+            "Display Order":index + 1
+          }
+        };
+      })
+      .filter(Boolean);
+  }
+
   function parseDadAlgeriaWorkbook(workbook) {
     const parsedSheets = [];
     const rows = [];
@@ -313,11 +339,14 @@
       else if (!finalPnlSheet && (name.includes("plalgeria") || name.includes("pandlalgeria"))) report = "pnl";
       else if (name.includes("smexpenses") || name.includes("sandmexpenses")) report = "sm";
       else if (name.includes("gaexpenses") || name.includes("gandaexpenses")) report = "ga";
+      else if (name.includes("stocklevel")) report = "stock";
       if (!report) return;
 
       const sheetRows = report === "pnlFinal"
         ? dadAlgeriaFinalRows(matrix,sheetName)
-        : dadAlgeriaRows(matrix,sheetName,report);
+        : report === "stock"
+          ? dadAlgeriaStockRows(matrix,sheetName)
+          : dadAlgeriaRows(matrix,sheetName,report);
       if (!sheetRows.length) return;
       parsedSheets.push({
         name:sheetName,
@@ -328,8 +357,8 @@
     });
 
     const reports = new Set(rows.map(row => row.payload.Report));
-    if (!reports.has("pnl") || !reports.has("sm") || !reports.has("ga")) {
-      throw new Error("DAD Algeria requires P&L final, S&M Expenses, and G&A Expenses sheets.");
+    if (!reports.has("pnl") || !reports.has("sm") || !reports.has("ga") || !reports.has("stock")) {
+      throw new Error("DAD Algeria requires P&L final, S&M Expenses, G&A Expenses, and Stock Level sheets.");
     }
     return {sheets:parsedSheets,rows,countries:["Algeria"]};
   }
