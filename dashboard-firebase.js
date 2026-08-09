@@ -97,7 +97,7 @@
     console.error(accessError);
     allowedReports = [
       'salesAnalysis','actualGp','focAnalysis','stockLevel',
-      'nearlyExpired','stockDashboard','smExpenses','pnl','analysis','mda'
+      'nearlyExpired','stockDashboard','smExpenses','pnl','analysis','dadAlgeria','mda'
     ];
   }
 
@@ -285,6 +285,7 @@
   }
 
   async function mountDadAlgeria() {
+    if (!hasReport('dadAlgeria')) return [];
     if (!data.dadAlgeria) data.dadAlgeria = await loadDataset(active.dadAlgeria);
     if (!mounted.has('dadAlgeria')) {
       window.loadDadAlgeriaRowsFromDatabase?.(data.dadAlgeria);
@@ -350,6 +351,7 @@
     smExpenses:'S&M',
     pnl:'P&L',
     analysis:'Analysis',
+    dadAlgeria:'DAD Algeria',
     mda:'MD&A'
   };
 
@@ -383,6 +385,9 @@
           break;
         case 'analysis':
           await mountAnalysis();
+          break;
+        case 'dadAlgeria':
+          await mountDadAlgeria();
           break;
         case 'mda':
           break;
@@ -441,7 +446,7 @@
 
     return [
       'salesAnalysis','actualGp','focAnalysis','stockLevel','nearlyExpired',
-      'stockDashboard','smExpenses','pnl','analysis','mda'
+      'stockDashboard','smExpenses','pnl','analysis','dadAlgeria','mda'
     ].find(hasReport) || '';
   }
 
@@ -450,7 +455,8 @@
       ? event.target.closest('[data-workspace="algeriaWorkspace"]')
       : null;
     if (workspace) {
-      setTimeout(() => mountDadAlgeria().catch(console.error),0);
+      if (!hasReport('dadAlgeria')) return;
+      setTimeout(() => ensureReport('dadAlgeria').catch(console.error),0);
       return;
     }
     const tab = event.target instanceof Element
