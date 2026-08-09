@@ -37,7 +37,7 @@
               <option value="nearlyExpired">Stock Level · Nearly Expired</option>
               <option value="sm">Selling &amp; Marketing Expenses</option>
               <option value="pnl">P&amp;L</option>
-              <option value="dadAlgeria">DAD Algeria Upload · P&amp;L + S&amp;M + G&amp;A</option>
+              <option value="dadAlgeria">DAD Algeria Upload · P&amp;L Final + S&amp;M + G&amp;A</option>
             </select>
           </div>
           <label id="dropZone" class="drop-zone">
@@ -82,7 +82,7 @@
               <input id="chunkCount" value="0" disabled>
             </div>
           </div>
-          <p class="portal-note">Upload the Sales workbook once for Sales Analysis and IMS FOC. Upload Stock Level, Nearly Expired, S&amp;M and P&amp;L as separate files. DAD Algeria reads P&amp;L, S&amp;M and G&amp;A from one workbook. For Stock Level, enter the reporting period to populate its Month filter. Nearly Expired reads both quantity columns and calculates value as Quantity × Unit Price. Large workbooks are packed into country-secured chunks to minimize Firestore writes.</p>
+          <p class="portal-note">Upload the Sales workbook once for Sales Analysis and IMS FOC. Upload Stock Level, Nearly Expired, S&amp;M and P&amp;L as separate files. DAD Algeria reads P&amp;L Final, S&amp;M and G&amp;A from one workbook. For Stock Level, enter the reporting period to populate its Month filter. Nearly Expired reads both quantity columns and calculates value as Quantity × Unit Price. Large workbooks are packed into country-secured chunks to minimize Firestore writes.</p>
           <div class="portal-actions">
             <button id="uploadButton" class="portal-button" type="button" disabled>Upload and activate</button>
           </div>
@@ -120,7 +120,7 @@
   <script src="firebase-config.js"></script>
   <script src="firebase-client.js?v=20260809-algeria-admin1"></script>
   <script src="sm-date-upload-fix.js?v=20260803-1"></script>
-  <script src="admin.js?v=20260809-algeria-admin1"></script>
+  <script src="admin.js?v=20260809-algeria-final1"></script>
   <script src="ksa-historical-admin.js?v=20260804-1"></script>
 </body>
 </html>
