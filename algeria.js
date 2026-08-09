@@ -133,7 +133,7 @@
   function expenseVarianceClass(value){return value>0?'sm-good':value<0?'sm-bad':'sm-zero';}
 
   function isTotalRow(row){
-    return /(^total\b|gross sales|net sales|gross profit|operating profit|net income|profit before)/.test(row.key);
+    return /(^total\b|gross sales|net sales|gross profit|operating profit|net income|profit before|profit for(?: the)? year)/.test(row.key);
   }
 
   function statementHeader(firstLabel,expenseFormat=false){
@@ -356,11 +356,53 @@
     });
   }
 
+  let spotlightState=null;
+
+  function setAlgeriaSpotlight(cardId,active){
+    if(active&&spotlightState) setAlgeriaSpotlight(spotlightState.card.id,false);
+    const card=byId(cardId);
+    const button=document.querySelector(`[data-algeria-spotlight="${cardId}"]`);
+    if(!card||!button) return;
+
+    if(active){
+      spotlightState={card,parent:card.parentNode,nextSibling:card.nextSibling};
+      card.classList.add('algeria-spotlight-stage');
+      document.body.appendChild(card);
+      document.body.classList.add('algeria-table-spotlight');
+      button.setAttribute('aria-pressed','true');
+      button.querySelector('span').textContent='Exit spotlight';
+      card.querySelector('.table-wrap,.algeria-table-scroll,.algeria-stock-scroll')?.scrollTo({top:0,left:0});
+      button.focus();
+      return;
+    }
+
+    if(spotlightState?.card!==card) return;
+    const {parent,nextSibling}=spotlightState;
+    card.classList.remove('algeria-spotlight-stage');
+    if(nextSibling&&nextSibling.parentNode===parent) parent.insertBefore(card,nextSibling);
+    else parent.appendChild(card);
+    spotlightState=null;
+    document.body.classList.remove('algeria-table-spotlight');
+    button.setAttribute('aria-pressed','false');
+    button.querySelector('span').textContent='Spotlight';
+    button.focus();
+  }
+
   document.querySelectorAll('.algeria-tab-btn').forEach(button=>{
     button.addEventListener('click',event=>{
       event.stopPropagation();
       setTab(button.dataset.algeriaTab);
     });
+  });
+
+  document.querySelectorAll('[data-algeria-spotlight]').forEach(button=>{
+    button.addEventListener('click',()=>{
+      const cardId=button.dataset.algeriaSpotlight;
+      setAlgeriaSpotlight(cardId,spotlightState?.card?.id!==cardId);
+    });
+  });
+  document.addEventListener('keydown',event=>{
+    if(event.key==='Escape'&&spotlightState) setAlgeriaSpotlight(spotlightState.card.id,false);
   });
 
   document.querySelectorAll('[data-algeria-currency]').forEach(button=>{
