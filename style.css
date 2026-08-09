@@ -4296,3 +4296,92 @@ body.algeria-view .app-shell{max-width:none}
 .br-night-mode .algeria-expense-panel .sales-foc-reference-table tbody td:first-child{
   color:#dcecf1;
 }
+
+
+/* DAD Algeria P&L: exact visual parity with the main-market P&L */
+:is(#algeriaPnlTable,#algeriaRatioTable) thead th{
+  position:sticky;
+  top:0;
+  z-index:3;
+  padding:7px 10px;
+  border-right:5px solid #fff;
+  border-bottom:0;
+  background:#0b3158;
+  color:#fff;
+  text-align:center;
+  font-size:14px;
+  line-height:1.25;
+  cursor:default;
+}
+:is(#algeriaPnlTable,#algeriaRatioTable) thead th::after{display:none}
+:is(#algeriaPnlTable,#algeriaRatioTable) thead .pnl-group-head th:first-child{
+  left:0;
+  z-index:5;
+  min-width:230px;
+  text-align:left;
+  background:#0b3158;
+}
+:is(#algeriaPnlTable,#algeriaRatioTable) thead .pnl-sub-head th{
+  top:52px;
+  padding:4px 10px 6px;
+  border-right:0;
+  border-top:1px solid #0b3158;
+  border-bottom:1px solid #0b3158;
+  background:#0b3158;
+  color:#fff;
+  font-size:12px;
+  font-weight:800;
+}
+:is(#algeriaPnlTable,#algeriaRatioTable) tbody td{
+  padding:6px 10px;
+  border-bottom:0;
+  background:#fff;
+  color:#111827;
+  font-size:15px;
+  line-height:1.4;
+}
+:is(#algeriaPnlTable,#algeriaRatioTable) tbody td:first-child{
+  position:sticky;
+  left:0;
+  z-index:1;
+  background:#fff;
+  color:#071f43;
+  font-weight:800;
+}
+:is(#algeriaPnlTable,#algeriaRatioTable) tbody tr:not(.pnl-statement-total):hover td{
+  background:#f4f9f8;
+}
+:is(#algeriaPnlTable,#algeriaRatioTable) tbody tr.pnl-statement-total td,
+:is(#algeriaPnlTable,#algeriaRatioTable) tbody tr.pnl-statement-total td:first-child{
+  border-top:2px solid #fff;
+  border-bottom:2px solid #fff;
+  background:#082d61;
+  color:#fff;
+  font-weight:900;
+}
+:is(#algeriaPnlTable,#algeriaRatioTable) tbody tr.pnl-statement-total td.pnl-positive{color:#86efac}
+:is(#algeriaPnlTable,#algeriaRatioTable) tbody tr.pnl-statement-total td.pnl-negative,
+:is(#algeriaPnlTable,#algeriaRatioTable) tbody tr.pnl-statement-total td.pnl-amount-negative{color:#ff5b62!important}
+:is(#algeriaPnlTable,#algeriaRatioTable) td.pnl-amount-negative{color:#ef2525!important}
+#algeriaPnlTable{min-width:1020px}
+#algeriaRatioTable{min-width:820px}
+html.br-night-mode :is(#algeriaPnlTable,#algeriaRatioTable) thead th{
+  background:#13283b!important;
+  color:#f1f8fb!important;
+  border-color:#315064!important;
+}
+html.br-night-mode :is(#algeriaPnlTable,#algeriaRatioTable) thead .pnl-sub-head th{
+  background:#102235!important;
+  color:#bcd0da!important;
+  border-color:#29485d!important;
+}
+html.br-night-mode :is(#algeriaPnlTable,#algeriaRatioTable) tbody td,
+html.br-night-mode :is(#algeriaPnlTable,#algeriaRatioTable) tbody td:first-child{
+  background:rgba(15,29,45,.62)!important;
+  color:#d9e6ec!important;
+}
+html.br-night-mode :is(#algeriaPnlTable,#algeriaRatioTable) tbody tr.pnl-statement-total td{
+  background:#173b3d!important;
+  color:#effffc!important;
+  border-top-color:#35c8b7!important;
+}
