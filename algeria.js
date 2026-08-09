@@ -129,14 +129,27 @@
   }
 
   function amountClass(value){return value<0?'pnl-amount-negative':'';}
-  function varianceClass(value){return value>0?'pnl-positive':value<0?'pnl-negative':'';}
+  function varianceClass(value){return value>0?'pnl-positive positive':value<0?'pnl-negative negative':'';}
 
   function isTotalRow(row){
     return /(^total\b|gross sales|net sales|gross profit|operating profit|net income|profit before)/.test(row.key);
   }
 
-  function statementHeader(firstLabel){
+  function statementHeader(firstLabel,expenseFormat=false){
     const currency=`${state.currency} '000`;
+    if(expenseFormat){
+      return `<thead>
+        <tr class="sm-statement-group-head">
+          <th rowspan="2">${escapeHtml(firstLabel)}</th>
+          <th class="sm-actual-head" rowspan="2">Actual<br><small>${currency}</small></th>
+          <th rowspan="2">Budget<br><small>${currency}</small></th>
+          <th class="sm-statement-group" colspan="2">Vs. Budget</th>
+          <th rowspan="2">LY<br><small>${currency}</small></th>
+          <th class="sm-statement-group" colspan="2">Vs. Last Year</th>
+        </tr>
+        <tr class="sm-statement-column-head"><th>${currency}</th><th>%</th><th>${currency}</th><th>%</th></tr>
+      </thead>`;
+    }
     return `<thead>
       <tr class="pnl-group-head">
         <th rowspan="2">${escapeHtml(firstLabel)}</th>
@@ -153,16 +166,19 @@
   function renderStatement(tableId,rows,firstLabel,countId){
     const table=byId(tableId);
     const count=byId(countId);
+    const expenseFormat=tableId!=='algeriaPnlTable';
     if(!table) return;
     if(!rows.length){
-      table.innerHTML=`${statementHeader(firstLabel)}<tbody><tr><td colspan="8" class="algeria-empty-cell">Upload the Algeria workbook to display this report.</td></tr></tbody>`;
+      table.innerHTML=`${statementHeader(firstLabel,expenseFormat)}<tbody><tr><td colspan="8" class="algeria-empty-cell">Upload the Algeria workbook to display this report.</td></tr></tbody>`;
       if(count) count.textContent='Waiting for upload';
       return;
     }
     const body=rows.map(row=>{
       const vb=row.actual-row.budget;
       const vl=row.actual-row.ly;
-      const rowClass=isTotalRow(row)?'pnl-subtotal pnl-statement-total':'';
+      const rowClass=isTotalRow(row)
+        ?(expenseFormat?'total-row sm-total-row':'pnl-subtotal pnl-statement-total')
+        :'';
       return `<tr class="${rowClass}">
         <td>${escapeHtml(row.label)}</td>
         <td class="${amountClass(row.actual)}">${formatAmount(row.actual)}</td>
@@ -174,7 +190,7 @@
         <td class="${varianceClass(vl)}">${variancePercent(vl,row.ly)}</td>
       </tr>`;
     }).join('');
-    table.innerHTML=`${statementHeader(firstLabel)}<tbody>${body}</tbody>`;
+    table.innerHTML=`${statementHeader(firstLabel,expenseFormat)}<tbody>${body}</tbody>`;
     if(count) count.textContent=`${rows.length.toLocaleString('en-US')} lines · ${state.currency} '000`;
   }
 
