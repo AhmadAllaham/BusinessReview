@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Business Review</title>
-  <link rel="stylesheet" href="style.css?v=20260809-algeria-pnl-overlap-fix1" />
+  <link rel="stylesheet" href="style.css?v=20260809-algeria-stock-sm1" />
 </head>
 <body>
   <header class="app-header">
@@ -572,7 +572,15 @@
           </section>
 
           <section id="algeriaStockPanel" class="algeria-panel">
-            <article class="report-card algeria-placeholder"><span class="eyebrow">STOCK LEVEL</span><h2>Ready for the stock workbook</h2><p>This tab is prepared and will be connected when the Stock Level sheet is available.</p></article>
+            <article class="report-card algeria-report-card algeria-stock-card">
+              <div class="section-head">
+                <div><span class="eyebrow">STOCK LEVEL</span><h2>DAD Algeria Stock Level</h2></div>
+                <span id="algeriaStockCount" class="count-pill">Waiting for upload</span>
+              </div>
+              <div class="sm-table-scroll stock-table-scroll algeria-stock-scroll">
+                <table id="algeriaStockTable" class="stock-statement-table stock-level-table" aria-label="DAD Algeria Stock Level"></table>
+              </div>
+            </article>
           </section>
 
           <section id="algeriaExpiryPanel" class="algeria-panel">
@@ -721,7 +729,7 @@
   <script src="firebase-config.js"></script>
   <script src="firebase-client.js?v=20260809-algeria-access1"></script>
   <script src="script.js?v=20260809-algeria2"></script>
-  <script src="algeria.js?v=20260809-algeria-admin1"></script>
+  <script src="algeria.js?v=20260809-algeria-stock1"></script>
   <script src="ksa-historical-stock-restore.js?v=20260806-3"></script>
   <script src="dashboard-firebase.js?v=20260809-algeria-access1"></script>
 </body>
