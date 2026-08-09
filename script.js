@@ -609,11 +609,18 @@ function setWorkspace(workspaceId){
   });
 
   const isMda=workspaceId==='mdaWorkspace';
+  const isAlgeria=workspaceId==='algeriaWorkspace';
   document.body.classList.toggle('mda-view',isMda);
+  document.body.classList.toggle('algeria-view',isAlgeria);
   if(isMda){
     document.body.classList.remove('pnl-clean-view','sm-expense-view','stock-level-view');
     const subtitle=$('headerSubtitle');
     if(subtitle) subtitle.textContent='Management Discussion & Analysis';
+  }else if(isAlgeria){
+    document.body.classList.remove('pnl-clean-view','sm-expense-view','stock-level-view');
+    const subtitle=$('headerSubtitle');
+    if(subtitle) subtitle.textContent="DAD Algeria · P&L, S&M, G&A, Stock Level and Nearly Expiry";
+    if(typeof window.renderAlgeriaReports==='function') window.renderAlgeriaReports();
   }else{
     setBusinessReportTab(
       document.querySelector('#businessSubmenu .tab-btn.active')?.dataset.tab || 'salesSection'
