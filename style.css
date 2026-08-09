@@ -4171,3 +4171,128 @@ body.algeria-view .app-shell{max-width:none}
   .algeria-mobile-tabs{display:flex}
   .algeria-mobile-tabs .algeria-tab-btn{width:auto;min-width:max-content;border:1px solid var(--border);padding:9px 14px}
 }
+
+
+/* DAD Algeria formatting aligned with the existing P&L and expense sheets */
+#algeriaPnlPanel.pnl-sm-theme .algeria-report-card,
+#algeriaPnlPanel.pnl-sm-theme .algeria-ratio-card{
+  border:1px solid #dce9e6;
+  background:#ffffff;
+  box-shadow:0 10px 28px rgba(15,118,110,.08);
+}
+#algeriaPnlPanel.pnl-sm-theme .section-head,
+.algeria-expense-panel .section-head{
+  padding-bottom:16px;
+  border-bottom:1px solid #e3eeeb;
+}
+#algeriaPnlPanel.pnl-sm-theme .section-head .eyebrow,
+.algeria-expense-panel .section-head .eyebrow{
+  color:#0f766e;
+}
+#algeriaPnlPanel.pnl-sm-theme .section-head h2,
+.algeria-expense-panel .section-head h2{
+  color:#173f3b;
+}
+#algeriaPnlPanel .pnl-table-wrap{
+  border:1px solid #dce9e6;
+  border-radius:12px;
+  overflow:auto;
+}
+#algeriaPnlTable,
+#algeriaRatioTable{
+  width:100%;
+  font-size:12px;
+}
+#algeriaPnlTable thead th,
+#algeriaRatioTable thead th{
+  padding:10px 12px;
+  font-size:11px;
+  line-height:1.25;
+}
+#algeriaPnlTable tbody td,
+#algeriaRatioTable tbody td{
+  padding:10px 12px;
+  font-size:12px;
+  line-height:1.35;
+}
+.algeria-expense-panel .algeria-report-card{
+  overflow:hidden;
+  border:1px solid #dce9e6;
+  background:#ffffff;
+  box-shadow:0 10px 28px rgba(15,118,110,.08);
+}
+.algeria-expense-panel .algeria-table-scroll{
+  width:100%;
+  padding:0 10px 70px;
+}
+.algeria-expense-panel .algeria-table{
+  width:min(1068px,100%);
+  min-width:980px;
+}
+.algeria-expense-panel .sm-statement-group-head th{
+  padding-top:8px;
+  padding-bottom:8px;
+  border-right:6px solid #fff;
+  border-bottom:4px solid #fff;
+  background:#0b3158;
+  color:#fff;
+  font-size:12px;
+  letter-spacing:.01em;
+}
+.algeria-expense-panel .sm-statement-group-head th:last-child{
+  border-right:0;
+}
+.algeria-expense-panel .sm-statement-column-head th{
+  padding:6px 10px;
+  background:#ffffff;
+  color:#0b3158;
+  border-color:#dce9e6;
+  font-size:11px;
+}
+.algeria-expense-panel .sales-foc-reference-table tbody td:first-child{
+  width:31%;
+  color:#0b213c;
+  font-weight:800;
+}
+.algeria-expense-panel .sales-foc-reference-table tbody tr.total-row td{
+  background:#0f5f58;
+  border-color:#2b7c73;
+  color:#ffffff;
+  font-weight:900;
+}
+.algeria-expense-panel .sales-foc-reference-table tbody td.positive{
+  color:#0f766e;
+  background:rgba(15,118,110,.08);
+  font-weight:800;
+}
+.algeria-expense-panel .sales-foc-reference-table tbody td.negative{
+  color:#c2413b;
+  background:rgba(194,65,59,.08);
+  font-weight:800;
+}
+.br-night-mode #algeriaPnlPanel.pnl-sm-theme .algeria-report-card,
+.br-night-mode #algeriaPnlPanel.pnl-sm-theme .algeria-ratio-card,
+.br-night-mode .algeria-expense-panel .algeria-report-card{
+  border-color:#29465b;
+  background:#102231;
+}
+.br-night-mode #algeriaPnlPanel.pnl-sm-theme .section-head,
+.br-night-mode .algeria-expense-panel .section-head{
+  border-bottom-color:#29465b;
+}
+.br-night-mode #algeriaPnlPanel.pnl-sm-theme .section-head h2,
+.br-night-mode .algeria-expense-panel .section-head h2{
+  color:#e8f2f6;
+}
+.br-night-mode .algeria-expense-panel .sm-statement-group-head th{
+  border-right-color:#102231;
+  border-bottom-color:#102231;
+}
+.br-night-mode .algeria-expense-panel .sm-statement-column-head th{
+  background:#153247;
+  color:#d8edf3;
+  border-color:#29465b;
+}
+.br-night-mode .algeria-expense-panel .sales-foc-reference-table tbody td:first-child{
+  color:#dcecf1;
+}
