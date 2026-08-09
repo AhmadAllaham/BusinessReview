@@ -4397,3 +4397,30 @@ html.br-night-mode :is(#algeriaPnlTable,#algeriaRatioTable) tbody tr.pnl-stateme
   color:#effffc!important;
   border-top-color:#35c8b7!important;
 }
+
+
+/* DAD Algeria S&M and G&A match the Business Review expense statement exactly */
+#algeriaSmTable,#algeriaGaTable{width:100%;min-width:920px;border-collapse:separate;border-spacing:0;color:#111827;font-size:12px;line-height:1.25}
+#algeriaSmTable thead th,#algeriaGaTable thead th{position:static;padding:7px 10px;border:0;background:#0b3158!important;color:#fff!important;text-align:center;font-size:11px;font-weight:900}
+#algeriaSmTable thead .sm-statement-group-head th,#algeriaGaTable thead .sm-statement-group-head th{padding-top:8px;padding-bottom:8px;border-right:6px solid #fff;border-bottom:4px solid #fff;background:#0b3158!important;color:#fff!important;font-size:12px;letter-spacing:.01em}
+#algeriaSmTable thead .sm-statement-group-head th:first-child,#algeriaGaTable thead .sm-statement-group-head th:first-child{width:31%;text-align:left}
+#algeriaSmTable thead .sm-statement-group-head th:last-child,#algeriaGaTable thead .sm-statement-group-head th:last-child{border-right:0}
+#algeriaSmTable thead .sm-statement-column-head th,#algeriaGaTable thead .sm-statement-column-head th{padding:7px 10px;border-bottom:1px solid #edf1f1;background:#fff!important;color:#0b3158!important}
+#algeriaSmTable tbody td,#algeriaGaTable tbody td{padding:7px 10px;border:0;border-bottom:1px solid #edf1f1;background:#fff!important;color:#111827;text-align:right;font-size:12px;font-weight:500;line-height:1.35;white-space:nowrap}
+#algeriaSmTable tbody td:first-child,#algeriaGaTable tbody td:first-child{width:31%;color:#0b213c!important;text-align:left;white-space:normal;font-weight:800}
+#algeriaSmTable tbody tr:not(.sm-total-row):hover td,#algeriaGaTable tbody tr:not(.sm-total-row):hover td{background:#f6faf9!important}
+#algeriaSmTable tbody td.sm-good,#algeriaGaTable tbody td.sm-good{color:#087f75!important;font-weight:800}
+#algeriaSmTable tbody td.sm-bad,#algeriaGaTable tbody td.sm-bad{color:#ef2525!important;font-weight:800}
+#algeriaSmTable tbody td.sm-zero,#algeriaGaTable tbody td.sm-zero{color:#334155!important;font-weight:700}
+#algeriaSmTable tbody .sm-total-row td,#algeriaGaTable tbody .sm-total-row td{padding-top:8px;padding-bottom:8px;border-top:1px solid #0b3158!important;border-bottom:1px solid #0b3158!important;background:#fff!important;color:#0b213c!important;font-weight:900}
+
+/* DAD Algeria Stock Level uses the shared BR Stock Level visual language */
+#algeriaStockPanel .algeria-stock-card{overflow:hidden;border:1px solid #dce9e6;background:#fff;box-shadow:0 10px 28px rgba(15,118,110,.08)}
+#algeriaStockPanel .section-head{padding-bottom:16px;border-bottom:1px solid #e3eeeb}
+#algeriaStockPanel .algeria-stock-scroll{margin:0;padding:0 10px 70px;border:0;border-radius:0}
+#algeriaStockTable{width:min(1068px,100%);min-width:1040px;font-variant-numeric:tabular-nums}
+#algeriaStockTable .algeria-stock-back{padding:0;border:0;background:transparent;color:inherit;font:inherit;font-weight:900;cursor:pointer}
+#algeriaStockTable .algeria-stock-sku{cursor:default;font-weight:600}
+#algeriaStockTable .algeria-stock-sku::after{display:none}
+.br-night-mode #algeriaSmTable tbody td,.br-night-mode #algeriaGaTable tbody td,.br-night-mode #algeriaStockTable tbody td{background:#102231!important;color:#e5eef4!important;border-color:#29465b!important}
+.br-night-mode #algeriaSmTable thead .sm-statement-column-head th,.br-night-mode #algeriaGaTable thead .sm-statement-column-head th,.br-night-mode #algeriaStockTable thead .stock-statement-sub-head th{background:#152b3b!important;color:#d8e7ef!important}
