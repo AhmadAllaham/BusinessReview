@@ -4132,3 +4132,42 @@ body table tbody tr:focus-within > td{
 .gp-class-cell.gp-ll{background:#ffead9;color:#a14f14}
 .gp-class-cell.gp-ls{background:#fde4e4;color:#b42323}
 .gp-class-cell.gp-empty{background:#f4f7f7;color:#8a9997}
+
+/* DAD Algeria workspace */
+.algeria-shell{display:grid;gap:18px;padding-bottom:28px}
+.algeria-report-card .section-head,.algeria-ratio-card .section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:18px}
+.algeria-report-card .section-head h2,.algeria-ratio-card .section-head h2{margin:4px 0 0}
+.algeria-report-card .count-pill{display:inline-flex;align-items:center;border:1px solid var(--border);border-radius:999px;background:#f5f8f8;color:var(--muted);padding:7px 11px;font-size:.76rem;font-weight:800;white-space:nowrap}
+.algeria-page-head{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:22px 24px;border:1px solid var(--border);border-radius:20px;background:linear-gradient(135deg,rgba(14,80,138,.12),rgba(36,130,183,.04));box-shadow:0 3px 12px #0000000d}
+.algeria-page-head h2{margin:4px 0 6px;font-size:clamp(1.45rem,2.4vw,2.05rem)}
+.algeria-page-head p{margin:0;color:var(--muted)}
+.algeria-head-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+.algeria-upload-btn{cursor:pointer;white-space:nowrap}
+.algeria-status{margin:0}
+.algeria-status.success{border-color:rgba(34,197,94,.45);background:rgba(34,197,94,.08)}
+.algeria-status.error{border-color:rgba(239,68,68,.5);background:rgba(239,68,68,.08);color:#dc2626}
+.algeria-panel{display:none;gap:18px}
+.algeria-panel.active{display:grid}
+.algeria-report-card,.algeria-ratio-card{overflow:hidden}
+.algeria-ratio-card{margin-top:0}
+.algeria-table{min-width:980px}
+.algeria-table th small{display:block;margin-top:3px;font-size:.68rem;font-weight:700;opacity:.75}
+.algeria-table tbody td:not(:first-child){font-variant-numeric:tabular-nums;text-align:right}
+.algeria-table tbody td:first-child{font-weight:700;text-align:left}
+.algeria-empty-cell{padding:34px!important;text-align:center!important;color:var(--muted);font-weight:600!important}
+.algeria-placeholder{min-height:300px;display:grid;place-content:center;text-align:center;padding:40px}
+.algeria-placeholder h2{margin:8px 0}
+.algeria-placeholder p{max-width:580px;margin:0;color:var(--muted)}
+.algeria-mobile-tabs{display:none;gap:8px;overflow-x:auto;padding:3px}
+.algeria-tab-btn{width:100%;border:0;border-radius:10px;background:transparent;color:inherit;font:inherit;font-weight:700;text-align:left;padding:10px 12px;cursor:pointer;transition:.2s ease}
+.algeria-tab-btn:hover,.algeria-tab-btn.active{background:rgba(31,112,173,.14);color:var(--teal-dark)}
+.side-submenu .algeria-tab-btn{padding-left:42px}
+body.algeria-view .sales-only-ui{display:none!important}
+body.algeria-view .app-shell{max-width:none}
+
+@media (max-width:900px){
+  .algeria-page-head{align-items:flex-start;flex-direction:column}
+  .algeria-head-actions{justify-content:flex-start}
+  .algeria-mobile-tabs{display:flex}
+  .algeria-mobile-tabs .algeria-tab-btn{width:auto;min-width:max-content;border:1px solid var(--border);padding:9px 14px}
+}
