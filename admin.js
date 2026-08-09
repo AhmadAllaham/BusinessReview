@@ -239,21 +239,85 @@
     }).filter(Boolean);
   }
 
+  function dadAlgeriaFinalRows(matrix,sheetName) {
+    const headerIndex = matrix.findIndex(row => {
+      const headers = row.map(normalizeHeader);
+      return headers.includes("scenario") &&
+        headers.includes("grosssales") &&
+        headers.includes("netsales") &&
+        headers.includes("grossprofit");
+    });
+    if (headerIndex < 0) return [];
+
+    const rawHeaders = matrix[headerIndex].map(value => String(value ?? "").trim());
+    const headers = rawHeaders.map(normalizeHeader);
+    const scenarioIndex = headers.indexOf("scenario");
+    const dimensionHeaders = new Set([
+      "salestype","market","country","countryname","agent","scenario","period","version"
+    ]);
+    const metricIndexes = headers
+      .map((header,index) => ({header,index}))
+      .filter(item => item.header && !dimensionHeaders.has(item.header));
+    const scenarioRows = {actual:[],budget:[],ly:[]};
+
+    matrix.slice(headerIndex + 1).forEach(values => {
+      const scenario = normalizeHeader(values[scenarioIndex]);
+      const key = scenario === "actual" || scenario.startsWith("actual")
+        ? "actual"
+        : scenario === "budget" || scenario.startsWith("budget")
+          ? "budget"
+          : scenario === "ly" || scenario.startsWith("ly") || scenario.includes("lastyear")
+            ? "ly"
+            : "";
+      if (key) scenarioRows[key].push(values);
+    });
+
+    if (!scenarioRows.actual.length || !scenarioRows.budget.length || !scenarioRows.ly.length) {
+      return [];
+    }
+
+    const scenarioTotal = (scenario,index) => scenarioRows[scenario]
+      .reduce((sum,values) => sum + numberValue(values[index]),0);
+
+    return metricIndexes.map(({index},order) => ({
+      sheetName,
+      rowNumber:headerIndex + 2,
+      country:"Algeria",
+      payload:{
+        Country:"Algeria",
+        Report:"pnl",
+        Line:rawHeaders[index],
+        Actual:scenarioTotal("actual",index),
+        Budget:scenarioTotal("budget",index),
+        LY:scenarioTotal("ly",index),
+        "Display Order":order + 1
+      }
+    }));
+  }
+
   function parseDadAlgeriaWorkbook(workbook) {
     const parsedSheets = [];
     const rows = [];
+    const finalPnlSheet = workbook.SheetNames.find(sheetName => {
+      const name = normalizeHeader(sheetName);
+      return name === "pandlfinal" || name === "pnlfinal";
+    });
     workbook.SheetNames.forEach(sheetName => {
       const matrix = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName],{
         header:1,defval:"",raw:true,cellDates:true
       });
       const name = normalizeHeader(sheetName);
       let report = "";
-      if (name.includes("plalgeria") || name.includes("pandlalgeria")) report = "pnl";
+      const isFinalPnl = sheetName === finalPnlSheet;
+      if (isFinalPnl) report = "pnlFinal";
+      else if (!finalPnlSheet && (name.includes("plalgeria") || name.includes("pandlalgeria"))) report = "pnl";
       else if (name.includes("smexpenses") || name.includes("sandmexpenses")) report = "sm";
       else if (name.includes("gaexpenses") || name.includes("gandaexpenses")) report = "ga";
       if (!report) return;
 
-      const sheetRows = dadAlgeriaRows(matrix,sheetName,report);
+      const sheetRows = report === "pnlFinal"
+        ? dadAlgeriaFinalRows(matrix,sheetName)
+        : dadAlgeriaRows(matrix,sheetName,report);
       if (!sheetRows.length) return;
       parsedSheets.push({
         name:sheetName,
@@ -265,7 +329,7 @@
 
     const reports = new Set(rows.map(row => row.payload.Report));
     if (!reports.has("pnl") || !reports.has("sm") || !reports.has("ga")) {
-      throw new Error("DAD Algeria requires P&L- Algeria, S&M Expenses, and G&A Expenses sheets.");
+      throw new Error("DAD Algeria requires P&L final, S&M Expenses, and G&A Expenses sheets.");
     }
     return {sheets:parsedSheets,rows,countries:["Algeria"]};
   }
