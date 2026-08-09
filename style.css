@@ -4322,7 +4322,7 @@ body.algeria-view .app-shell{max-width:none}
   background:#0b3158;
 }
 :is(#algeriaPnlTable,#algeriaRatioTable) thead .pnl-sub-head th{
-  top:52px;
+  top:32px;
   padding:4px 10px 6px;
   border-right:0;
   border-top:1px solid #0b3158;
@@ -4363,7 +4363,19 @@ body.algeria-view .app-shell{max-width:none}
 :is(#algeriaPnlTable,#algeriaRatioTable) tbody tr.pnl-statement-total td.pnl-negative,
 :is(#algeriaPnlTable,#algeriaRatioTable) tbody tr.pnl-statement-total td.pnl-amount-negative{color:#ff5b62!important}
 :is(#algeriaPnlTable,#algeriaRatioTable) td.pnl-amount-negative{color:#ef2525!important}
-#algeriaPnlTable{min-width:1020px}
+#algeriaPnlTable{
+  min-width:1020px;
+  table-layout:fixed;
+}
+#algeriaPnlTable thead .pnl-group-head th:first-child{width:30%}
+#algeriaPnlTable thead .pnl-group-head th:nth-child(2),
+#algeriaPnlTable thead .pnl-group-head th:nth-child(3),
+#algeriaPnlTable thead .pnl-group-head th:nth-child(5){width:11%}
+#algeriaPnlTable thead .pnl-group-head th[colspan="2"]{width:18.5%}
+#algeriaPnlTable tbody td:not(:first-child){
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
 #algeriaRatioTable{min-width:820px}
 html.br-night-mode :is(#algeriaPnlTable,#algeriaRatioTable) thead th{
   background:#13283b!important;
