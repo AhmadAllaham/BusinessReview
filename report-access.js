@@ -12,10 +12,11 @@
     { key: 'stockDashboard', label: 'Stock Dashboard' },
     { key: 'smExpenses', label: 'Selling & Marketing Expenses' },
     { key: 'pnl', label: 'P&L' },
+    { key: 'dadAlgeria', label: 'DAD Algeria' },
     { key: 'mda', label: 'MD&A' }
   ];
   const allKeys = catalog.map(item => item.key);
-  const businessKeys = allKeys.filter(key => key !== 'mda');
+  const businessKeys = allKeys.filter(key => !['dadAlgeria','mda'].includes(key));
   let allowed = new Set(allKeys);
   let stockPatched = false;
   let stockHeaderPatched = false;
@@ -316,6 +317,13 @@
     setVisible(businessButton, businessAllowed);
     if (!businessAllowed) setVisible(businessWorkspace, false);
 
+    const algeriaButton = document.querySelector('[data-workspace="algeriaWorkspace"]');
+    const algeriaWorkspace = document.getElementById('algeriaWorkspace');
+    const algeriaSubmenu = document.getElementById('algeriaSubmenu');
+    setVisible(algeriaButton, has('dadAlgeria'));
+    setVisible(algeriaSubmenu, has('dadAlgeria'));
+    if (!has('dadAlgeria')) setVisible(algeriaWorkspace, false);
+
     const mdaButton = document.querySelector('[data-workspace="mdaWorkspace"]');
     const mdaWorkspace = document.getElementById('mdaWorkspace');
     setVisible(mdaButton, has('mda'));
@@ -355,6 +363,11 @@
           const requestedMode = stockModes[reportKey] || firstAllowedStockMode();
           setTimeout(() => window.setStockDisplayMode?.(requestedMode), 0);
         }
+        return;
+      }
+
+      if (has('dadAlgeria')) {
+        document.querySelector('[data-workspace="algeriaWorkspace"]')?.click();
         return;
       }
 
