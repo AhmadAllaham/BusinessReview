@@ -4672,7 +4672,7 @@ body.algeria-table-spotlight .algeria-spotlight-stage .sm-spotlight-btn{backgrou
   ) !important;
   filter:
     drop-shadow(0 0 3px rgba(var(--logo-glow-rgb),.22))
-    drop-shadow(0 0 7px rgba(var(--logo-glow-rgb),.12)) !important;
+    drop-shadow(0 0 7px rgba(var(--logo-glow-rgb),.12));
   animation:logo-glow-breathe var(--logo-breath-speed) ease-in-out infinite;
   will-change:filter;
 }
@@ -4681,12 +4681,12 @@ body.algeria-table-spotlight .algeria-spotlight-stage .sm-spotlight-btn{backgrou
   0%,100%{
     filter:
       drop-shadow(0 0 2px rgba(var(--logo-glow-rgb),.18))
-      drop-shadow(0 0 5px rgba(var(--logo-glow-rgb),.09)) !important;
+      drop-shadow(0 0 5px rgba(var(--logo-glow-rgb),.09));
   }
   50%{
     filter:
       drop-shadow(0 0 5px rgba(var(--logo-glow-rgb),.42))
-      drop-shadow(0 0 12px rgba(var(--logo-glow-rgb),.24)) !important;
+      drop-shadow(0 0 12px rgba(var(--logo-glow-rgb),.24));
   }
 }
 
