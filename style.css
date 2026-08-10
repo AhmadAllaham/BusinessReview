@@ -4900,3 +4900,13 @@ body.algeria-table-spotlight .algeria-spotlight-stage .sm-spotlight-btn{backgrou
   }
   .side-nav::after{display:none}
 }
+
+
+/* Stock Level row tracking: match the shared table hover exactly. */
+#stockSection .stock-statement-table tbody tr:hover:not(.total-row) > td,
+#stockSection .stock-statement-table tbody tr:focus-within:not(.total-row) > td,
+#stockDetailTable tbody tr:hover:not(.total-row) > td,
+#stockDetailTable tbody tr:focus-within:not(.total-row) > td{
+  background-color:#e6f6f3!important;
+  background-image:none!important;
+}
