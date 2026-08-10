@@ -4586,3 +4586,42 @@ body.algeria-table-spotlight .algeria-spotlight-stage .sm-spotlight-btn{backgrou
 @media(prefers-reduced-motion:reduce){
   .multi-filter-btn,.multi-option{transition:none}
 }
+
+
+/* Stock view switch: restrained neon glow */
+.stock-report-tabs{
+  border-color:rgba(43,181,164,.42);
+  background:linear-gradient(180deg,#f1faf8 0%,#eaf6f3 100%);
+  box-shadow:0 7px 18px rgba(11,49,88,.06),0 0 0 1px rgba(54,211,191,.05),0 0 16px rgba(32,194,173,.08);
+  transition:border-color .18s ease,box-shadow .18s ease,background .18s ease;
+}
+.stock-report-tabs:hover,
+.stock-report-tabs:focus-within{
+  border-color:rgba(47,190,173,.60);
+  box-shadow:0 8px 20px rgba(11,49,88,.08),0 0 0 2px rgba(54,211,191,.08),0 0 20px rgba(32,194,173,.12);
+}
+.stock-report-tabs button:hover,
+.stock-report-tabs button:focus-visible{
+  background:linear-gradient(180deg,#e5f8f4 0%,#d9f2ed 100%);
+  box-shadow:0 0 12px rgba(34,190,172,.10);
+  outline:none;
+}
+.stock-report-tabs button.active{
+  background:linear-gradient(135deg,#10877d 0%,#0f766e 72%,#0d6d66 100%);
+  box-shadow:0 6px 15px rgba(15,118,110,.25),0 0 0 1px rgba(98,245,225,.18),0 0 16px rgba(29,211,187,.20);
+}
+.br-night-mode .stock-report-tabs{
+  border-color:rgba(84,225,207,.32);
+  background:linear-gradient(180deg,#132d38 0%,#102732 100%);
+  box-shadow:0 0 17px rgba(46,218,197,.09);
+}
+.br-night-mode .stock-report-tabs button{
+  color:#cbe8e4;
+}
+.br-night-mode .stock-report-tabs button.active{
+  color:#fff;
+  box-shadow:0 6px 15px rgba(0,0,0,.24),0 0 0 1px rgba(98,245,225,.20),0 0 18px rgba(42,226,203,.22);
+}
+@media(prefers-reduced-motion:reduce){
+  .stock-report-tabs,.stock-report-tabs button{transition:none}
+}
