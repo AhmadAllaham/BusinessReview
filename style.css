@@ -4910,3 +4910,16 @@ body.algeria-table-spotlight .algeria-spotlight-stage .sm-spotlight-btn{backgrou
   background-color:#e6f6f3!important;
   background-image:none!important;
 }
+
+
+/* Dynamic lightweight bold on table row hover */
+table tbody tr:not(.total-row) > td{
+  transition:background-color .18s ease,color .18s ease,font-weight .14s ease;
+}
+table tbody tr:hover:not(.total-row) > td,
+table tbody tr:focus-within:not(.total-row) > td{
+  font-weight:600!important;
+}
+@media(prefers-reduced-motion:reduce){
+  table tbody tr:not(.total-row) > td{transition:none}
+}
