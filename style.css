@@ -4524,7 +4524,7 @@ body.algeria-table-spotlight .algeria-spotlight-stage .sm-spotlight-btn{backgrou
 /* Main BR workspace: slightly wider centered content */
 @media(min-width:901px){
   body:not(.algeria-view) .app-shell{
-    width:min(1080px,100%);
+    width:min(1180px,100%);
   }
 }
 
