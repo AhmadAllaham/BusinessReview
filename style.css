@@ -4527,3 +4527,62 @@ body.algeria-table-spotlight .algeria-spotlight-stage .sm-spotlight-btn{backgrou
     width:min(1080px,100%);
   }
 }
+
+
+/* Filters: restrained neon glow */
+.multi-filter-btn{
+  border-color:rgba(43,151,139,.34);
+  box-shadow:0 0 0 1px rgba(53,211,191,.035),0 0 10px rgba(31,181,163,.045);
+  transition:border-color .18s ease,box-shadow .18s ease,background .18s ease,color .18s ease;
+}
+.multi-filter-btn:hover{
+  border-color:rgba(43,181,164,.58);
+  box-shadow:0 0 0 1px rgba(63,220,201,.07),0 0 13px rgba(32,194,173,.10);
+}
+.multi-filter:focus-within .multi-filter-btn{
+  border-color:#35b9a8;
+  background:linear-gradient(180deg,#fff 0%,#f7fffd 100%);
+  box-shadow:0 0 0 2px rgba(53,185,168,.13),0 0 16px rgba(30,201,180,.15);
+}
+.multi-filter-btn.filter-applied{
+  border-color:#28a997;
+  background:linear-gradient(180deg,#fff 0%,#f2fcfa 100%);
+  color:#166d63;
+  box-shadow:0 0 0 2px rgba(40,169,151,.11),0 0 15px rgba(32,194,173,.12);
+}
+.multi-filter-menu{
+  border-color:rgba(49,177,161,.46);
+  box-shadow:0 14px 34px rgba(5,56,51,.16),0 0 20px rgba(35,204,183,.10);
+}
+.multi-filter-search input:focus{
+  border-color:#35b9a8;
+  outline:none;
+  box-shadow:0 0 0 2px rgba(53,185,168,.12),0 0 11px rgba(30,201,180,.09);
+}
+.multi-option{
+  transition:background .14s ease,color .14s ease,box-shadow .14s ease;
+}
+.multi-option:hover{
+  background:linear-gradient(90deg,rgba(54,211,191,.12),rgba(54,211,191,.035));
+  box-shadow:inset 3px 0 rgba(47,190,173,.45);
+}
+.multi-option:has(input:checked){
+  background:rgba(40,169,151,.075);
+  color:#176f65;
+}
+.br-night-mode .multi-filter-btn{
+  border-color:rgba(84,225,207,.30);
+  background:#102532;
+  color:#e7f5f3;
+  box-shadow:0 0 11px rgba(46,218,197,.075);
+}
+.br-night-mode .multi-filter:focus-within .multi-filter-btn,
+.br-night-mode .multi-filter-btn.filter-applied{
+  border-color:rgba(94,238,220,.70);
+  background:#122a37;
+  color:#d9fffa;
+  box-shadow:0 0 0 2px rgba(74,222,203,.11),0 0 17px rgba(41,213,192,.15);
+}
+@media(prefers-reduced-motion:reduce){
+  .multi-filter-btn,.multi-option{transition:none}
+}
