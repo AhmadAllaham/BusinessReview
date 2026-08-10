@@ -3213,7 +3213,7 @@ body.performance-table-spotlight .performance-spotlight-stage #nearExpiryTable{
 }
 
 .stock-statement-table tbody tr:hover:not(.total-row) td{
-  background:#f7fafb!important;
+  background:#f4f9f8!important;
 }
 
 .stock-statement-table .total-row td{
