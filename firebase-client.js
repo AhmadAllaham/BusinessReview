@@ -36,7 +36,7 @@
   const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(config);
   const auth = app.auth();
   const db = app.firestore();
-  const ASSET_VERSION = '20260809-algeria-access1';
+  const ASSET_VERSION = '20260810-speed1';
 
   const persistenceReady = auth
     .setPersistence(firebase.auth.Auth.Persistence.SESSION)
@@ -131,15 +131,6 @@
 
   const realRequireSession = window.BRPortal.requireSession;
   const dashboardSessionPromise = realRequireSession({next:'index.html'});
-  let skipLegacyDashboardSession = true;
-
-  window.BRPortal.requireSession = function (options={}) {
-    if (skipLegacyDashboardSession && options.next === 'index.html') {
-      skipLegacyDashboardSession = false;
-      return Promise.resolve(null);
-    }
-    return realRequireSession(options);
-  };
 
   function revealDashboard() {
     if (!dashboardBody) return;
@@ -191,21 +182,27 @@
     const status = document.getElementById('statusBox');
     const verifiedSession = await dashboardSessionPromise;
     if (!verifiedSession) return;
+    window.__BR_VERIFIED_SESSION__ = verifiedSession;
 
-    try {
-      await loadCachedScript('night-mode.js','data-br-night-mode');
-      await loadCachedScript('night-format-unified.js','data-br-night-format-unified');
-      await loadCachedScript('night-stock-shell-fix.js','data-br-night-stock-shell-fix');
-      await loadCachedScript('night-pnl-shell-fix.js','data-br-night-pnl-shell-fix');
-      await loadCachedScript('table-format-unified.js','data-br-table-format-unified');
-      await loadCachedScript('light-comparison-headers.js','data-br-light-comparison-headers');
-      await loadCachedScript('light-soft-glow.js','data-br-light-soft-glow');
-      await loadCachedScript('light-header-card-glow.js','data-br-light-header-card-glow');
-      await loadCachedScript('ksa-pnl-expected-return.js','data-br-ksa-pnl-expected-return');
-    } catch (themeError) {
-      console.error('Unable to load dashboard formatting.',themeError);
-    }
+    // The session is valid, so make the interface usable immediately. Formatting
+    // helpers continue loading in parallel instead of blocking the whole page.
     revealDashboard();
+
+    Promise.allSettled([
+      loadCachedScript('night-mode.js','data-br-night-mode'),
+      loadCachedScript('night-format-unified.js','data-br-night-format-unified'),
+      loadCachedScript('night-stock-shell-fix.js','data-br-night-stock-shell-fix'),
+      loadCachedScript('night-pnl-shell-fix.js','data-br-night-pnl-shell-fix'),
+      loadCachedScript('table-format-unified.js','data-br-table-format-unified'),
+      loadCachedScript('light-comparison-headers.js','data-br-light-comparison-headers'),
+      loadCachedScript('light-soft-glow.js','data-br-light-soft-glow'),
+      loadCachedScript('light-header-card-glow.js','data-br-light-header-card-glow'),
+      loadCachedScript('ksa-pnl-expected-return.js','data-br-ksa-pnl-expected-return')
+    ]).then(results => {
+      results.forEach(result => {
+        if (result.status === 'rejected') console.error('Unable to load dashboard formatting.',result.reason);
+      });
+    });
 
     try {
       await loadCachedScript('report-access.js','data-latest-report-access');
@@ -218,12 +215,6 @@
         loadCachedScript('sm-test-link.js','data-sm-test-link'),
         loadCachedScript('header-flag-images.js','data-header-flag-images')
       ]);
-
-      await loadCachedScript('analysis-window.js','data-analysis-window');
-      await waitFor(
-        () => Number(window.__BR_ANALYSIS_WINDOW_VERSION__ || 0) >= 4,
-        'The integrated Analysis module did not start.'
-      );
 
       const script = document.createElement('script');
       script.src = versioned('dashboard-firebase.js');
