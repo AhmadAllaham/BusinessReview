@@ -258,22 +258,27 @@
     const metricIndexes = headers
       .map((header,index) => ({header,index}))
       .filter(item => item.header && !dimensionHeaders.has(item.header));
-    const scenarioRows = {actual:[],budget:[],ly:[]};
+    const scenarioRows = {actual:[],budget:[],ly:[],fyBudget:[]};
 
     matrix.slice(headerIndex + 1).forEach(values => {
       const scenario = normalizeHeader(values[scenarioIndex]);
       const key = scenario === "actual" || scenario.startsWith("actual")
         ? "actual"
-        : scenario === "budget" || scenario.startsWith("budget")
-          ? "budget"
-          : scenario === "ly" || scenario.startsWith("ly") || scenario.includes("lastyear")
-            ? "ly"
-            : "";
+        : scenario === "fybudget" || scenario.includes("fullyearbudget") || scenario === "budgetfy"
+          ? "fyBudget"
+          : scenario === "budget" || scenario === "budgetytd" || scenario.startsWith("budgetytd")
+            ? "budget"
+            : scenario === "ly" || scenario.startsWith("ly") || scenario.includes("lastyear")
+              ? "ly"
+              : "";
       if (key) scenarioRows[key].push(values);
     });
 
     if (!scenarioRows.actual.length || !scenarioRows.budget.length || !scenarioRows.ly.length) {
       return [];
+    }
+    if (!scenarioRows.fyBudget.length) {
+      throw new Error("P&L final requires a Scenario row named FY Budget. Check the Scenario column before uploading.");
     }
 
     const scenarioTotal = (scenario,index) => scenarioRows[scenario]
@@ -290,6 +295,7 @@
         Actual:scenarioTotal("actual",index),
         Budget:scenarioTotal("budget",index),
         LY:scenarioTotal("ly",index),
+        "FY Budget":scenarioTotal("fyBudget",index),
         "Display Order":order + 1
       }
     }));
