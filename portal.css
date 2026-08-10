@@ -143,6 +143,26 @@ button,input,select,textarea { font:inherit; }
 .login-card h2 { margin:0; font-size:30px; }
 .login-card .lead { margin:8px 0 26px; color:var(--portal-muted); line-height:1.6; }
 .login-card .portal-button { width:100%; min-height:46px; }
+.login-remember {
+  display:flex;
+  align-items:center;
+  gap:9px;
+  width:max-content;
+  margin:-2px 0 16px;
+  color:var(--portal-muted);
+  font-size:13px;
+  font-weight:700;
+  cursor:pointer;
+  user-select:none;
+}
+.login-remember input {
+  width:17px;
+  height:17px;
+  margin:0;
+  accent-color:var(--portal-teal);
+  cursor:pointer;
+}
+.login-remember:hover { color:var(--portal-ink); }
 @media(max-width:850px) {
   .login-layout { grid-template-columns:1fr; }
   .login-showcase { min-height:360px; padding:34px 24px; }
