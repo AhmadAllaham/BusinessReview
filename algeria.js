@@ -3,7 +3,7 @@
 
   const byId=id=>document.getElementById(id);
   const USD_TO_JOD=0.709;
-  const state={currency:'USD',pnl:[],sm:[],ga:[],stock:[],stockBrand:'',fileName:''};
+  const state={currency:'USD',pnlComparison:'standard',pnl:[],sm:[],ga:[],stock:[],stockBrand:'',fileName:''};
 
   function normalizeText(value){
     return String(value??'')
@@ -151,6 +151,16 @@
         <tr class="sm-statement-column-head"><th>${currency}</th><th>%</th><th>${currency}</th><th>%</th></tr>
       </thead>`;
     }
+    if(state.pnlComparison==='fyBudget'){
+      return `<thead>
+        <tr class="pnl-group-head pnl-fy-budget-head">
+          <th>${escapeHtml(firstLabel)}</th>
+          <th>Actual<br><small>${currency}</small></th>
+          <th>FY Budget<br><small>${currency}</small></th>
+          <th>Remaining<br><small>${currency}</small></th>
+        </tr>
+      </thead>`;
+    }
     return `<thead>
       <tr class="pnl-group-head">
         <th rowspan="2">${escapeHtml(firstLabel)}</th>
@@ -168,19 +178,27 @@
     const table=byId(tableId);
     const count=byId(countId);
     const expenseFormat=tableId!=='algeriaPnlTable';
+    const fyBudgetFormat=!expenseFormat&&state.pnlComparison==='fyBudget';
     if(!table) return;
+    if(!expenseFormat) table.classList.toggle('algeria-pnl-fy-budget',fyBudgetFormat);
     if(!rows.length){
-      table.innerHTML=`${statementHeader(firstLabel,expenseFormat)}<tbody><tr><td colspan="8" class="algeria-empty-cell">Upload the Algeria workbook to display this report.</td></tr></tbody>`;
+      table.innerHTML=`${statementHeader(firstLabel,expenseFormat)}<tbody><tr><td colspan="${fyBudgetFormat?4:8}" class="algeria-empty-cell">Upload the Algeria workbook to display this report.</td></tr></tbody>`;
       if(count) count.textContent='Waiting for upload';
       return;
     }
     const body=rows.map(row=>{
       const vb=row.actual-row.budget;
       const vl=row.actual-row.ly;
+      const remaining=row.fyBudget-row.actual;
       const rowClass=isTotalRow(row)
         ?(expenseFormat?'total-row sm-total-row':'pnl-subtotal pnl-statement-total')
         :'';
-      return `<tr class="${rowClass}">
+      return fyBudgetFormat?`<tr class="${rowClass}">
+        <td>${escapeHtml(row.label)}</td>
+        <td class="${amountClass(row.actual)}">${formatAmount(row.actual)}</td>
+        <td class="${amountClass(row.fyBudget)}">${formatAmount(row.fyBudget)}</td>
+        <td class="${varianceClass(remaining)} ${amountClass(remaining)}">${formatAmount(remaining)}</td>
+      </tr>`:`<tr class="${rowClass}">
         <td>${escapeHtml(row.label)}</td>
         <td class="${amountClass(row.actual)}">${formatAmount(row.actual)}</td>
         <td class="${amountClass(row.budget)}">${formatAmount(row.budget)}</td>
@@ -200,7 +218,7 @@
     let row=rows.find(item=>normalizedAliases.includes(item.key));
     if(row) return row;
     row=rows.find(item=>normalizedAliases.some(alias=>item.key.includes(alias)));
-    return row||{actual:0,budget:0,ly:0};
+    return row||{actual:0,budget:0,ly:0,fyBudget:0};
   }
 
   function ratioValue(numerator,denominator,absolute=true){
@@ -237,14 +255,25 @@
       ['Ristourne / Gross Sales',lines.ristourne,lines.grossSales,true],
       ['S&M / Gross Sales',lines.sm,lines.grossSales,true]
     ];
-    const header=`<thead><tr class="pnl-group-head"><th>Ratio</th><th>Actual</th><th>Budget</th><th>Vs Budget</th><th>LY</th><th>Vs LY</th></tr></thead>`;
+    const fyBudgetFormat=state.pnlComparison==='fyBudget';
+    table.classList.toggle('algeria-ratio-fy-budget',fyBudgetFormat);
+    const header=fyBudgetFormat
+      ?`<thead><tr class="pnl-group-head pnl-fy-budget-head"><th>Ratio</th><th>Actual</th><th>FY Budget</th><th>Remaining</th></tr></thead>`
+      :`<thead><tr class="pnl-group-head"><th>Ratio</th><th>Actual</th><th>Budget</th><th>Vs Budget</th><th>LY</th><th>Vs LY</th></tr></thead>`;
     const body=ratioDefinitions.map(([label,numerator,denominator,absolute])=>{
       const actual=ratioValue(numerator.actual,denominator.actual,absolute);
       const budget=ratioValue(numerator.budget,denominator.budget,absolute);
       const ly=ratioValue(numerator.ly,denominator.ly,absolute);
+      const fyBudget=ratioValue(numerator.fyBudget,denominator.fyBudget,absolute);
       const vb=actual-budget;
       const vl=actual-ly;
-      return `<tr>
+      const remaining=fyBudget-actual;
+      return fyBudgetFormat?`<tr>
+        <td>${escapeHtml(label)}</td>
+        <td>${formatPercent(actual)}</td>
+        <td>${formatPercent(fyBudget)}</td>
+        <td class="${varianceClass(remaining)}">${Number.isFinite(remaining)?`${(remaining*100).toFixed(1)} pp`:'—'}</td>
+      </tr>`:`<tr>
         <td>${escapeHtml(label)}</td>
         <td>${formatPercent(actual)}</td><td>${formatPercent(budget)}</td>
         <td class="${varianceClass(vb)}">${Number.isFinite(vb)?`${(vb*100).toFixed(1)} pp`:'—'}</td>
@@ -417,6 +446,19 @@
     });
   });
 
+  document.querySelectorAll('[data-algeria-pnl-comparison]').forEach(button=>{
+    button.addEventListener('click',()=>{
+      state.pnlComparison=button.dataset.algeriaPnlComparison==='fyBudget'?'fyBudget':'standard';
+      document.querySelectorAll('[data-algeria-pnl-comparison]').forEach(option=>{
+        const active=option.dataset.algeriaPnlComparison===state.pnlComparison;
+        option.classList.toggle('active',active);
+        option.setAttribute('aria-pressed',String(active));
+      });
+      renderStatement('algeriaPnlTable',state.pnl,'P&L Line','algeriaPnlCount');
+      renderRatios();
+    });
+  });
+
   window.loadDadAlgeriaRowsFromDatabase=function(rows){
     const rawRows=rows||[];
     const normalized=rawRows.filter(row=>compact(row.Report??row.report)!=='stock').map((row,index)=>({
@@ -424,6 +466,7 @@
       actual:readNumber(row.Actual??row.actual),
       budget:readNumber(row.Budget??row.budget),
       ly:readNumber(row.LY??row.ly),
+      fyBudget:readNumber(row['FY Budget']??row.FYBudget??row.fyBudget),
       key:normalizeText(row.Line??row.line),
       order:readNumber(row['Display Order']??row.displayOrder??index+1),
       report:compact(row.Report??row.report)
