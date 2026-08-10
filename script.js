@@ -4212,6 +4212,24 @@ window.loadProfitabilityRowsFromDatabase = function(rows){
 
 // Enable sorting for Selling & Marketing table
 (function(){
+  let xlsxPromise=null;
+  function ensureXlsx(){
+    if (typeof XLSX !== "undefined") return Promise.resolve();
+    if (xlsxPromise) return xlsxPromise;
+    xlsxPromise=new Promise((resolve,reject)=>{
+      const script=document.createElement("script");
+      script.src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+      script.dataset.xlsxRuntime="true";
+      script.onload=()=>resolve();
+      script.onerror=()=>reject(new Error("Excel export library could not be loaded."));
+      document.head.appendChild(script);
+    }).catch(error=>{
+      xlsxPromise=null;
+      throw error;
+    });
+    return xlsxPromise;
+  }
+
 let smSort={index:0,asc:true};
 
 function smCellValue(tr,index){
@@ -4334,16 +4352,12 @@ renderSmExpenses=function(){
     });
   }
 
-  function exportReport(reportKey,button){
+  async function exportReport(reportKey,button){
     const config=exports[reportKey];
     if (!config) return;
-    if (typeof XLSX === "undefined") {
-      window.alert("Excel export is unavailable. Refresh the page and try again.");
-      return;
-    }
-
     button.disabled=true;
     try {
+      await ensureXlsx();
       const workbook=XLSX.utils.book_new();
       config.sheets.forEach(sheetConfig=>{
         const table=document.getElementById(sheetConfig.tableId);
