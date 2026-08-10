@@ -4376,6 +4376,10 @@ body.algeria-view .app-shell{max-width:none}
   overflow:hidden;
   text-overflow:ellipsis;
 }
+#algeriaPnlTable.algeria-pnl-fy-budget{min-width:760px}
+#algeriaPnlTable.algeria-pnl-fy-budget thead .pnl-fy-budget-head th:first-child{width:40%}
+#algeriaPnlTable.algeria-pnl-fy-budget thead .pnl-fy-budget-head th:not(:first-child){width:20%}
+#algeriaRatioTable.algeria-ratio-fy-budget{min-width:680px}
 #algeriaRatioTable{min-width:820px}
 html.br-night-mode :is(#algeriaPnlTable,#algeriaRatioTable) thead th{
   background:#13283b!important;
