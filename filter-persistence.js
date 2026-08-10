@@ -20,6 +20,7 @@
   let savedFilters = {};
   let restoreQueued = false;
   let restoring = false;
+  const restoredFilterIds = new Set();
 
   function normalizeValues(values) {
     return [...new Set((Array.isArray(values) ? values : []).map(String))];
@@ -65,6 +66,7 @@
   }
 
   function restoreFilter(filter) {
+    if (restoredFilterIds.has(filter.id)) return;
     if (!filter.id || !Object.prototype.hasOwnProperty.call(savedFilters, filter.id)) return;
     if (typeof filter._getSelected !== 'function' || typeof filter._setSelected !== 'function') return;
 
@@ -82,10 +84,14 @@
     if (desired.length && !allowed.length) return;
 
     const current = normalizeValues(filter._getSelected());
-    if (sameValues(current, allowed)) return;
+    if (sameValues(current, allowed)) {
+      restoredFilterIds.add(filter.id);
+      return;
+    }
 
     filter._setSelected(allowed);
     if (typeof filter._applySelection === 'function') filter._applySelection();
+    restoredFilterIds.add(filter.id);
   }
 
   function restoreAllFilters() {
@@ -113,6 +119,7 @@
     if (storageKey === nextKey) return;
     storageKey = nextKey;
     savedFilters = readSavedFilters();
+    restoredFilterIds.clear();
     queueRestore();
 
     // Some report filters are created only after their Firestore dataset loads.
