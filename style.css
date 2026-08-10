@@ -4521,10 +4521,11 @@ body.algeria-table-spotlight .algeria-spotlight-stage .sm-spotlight-btn{backgrou
 }
 
 
-/* Main BR workspace: slightly wider centered content */
+/* Main BR workspace: use the full space beside the sidebar so complete tables fit */
 @media(min-width:901px){
   body:not(.algeria-view) .app-shell{
-    width:min(1180px,100%);
+    width:100%;
+    max-width:none;
   }
 }
 
