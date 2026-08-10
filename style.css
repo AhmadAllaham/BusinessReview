@@ -4421,8 +4421,8 @@ html.br-night-mode :is(#algeriaPnlTable,#algeriaRatioTable) tbody tr.pnl-stateme
 /* DAD Algeria Stock Level uses the shared BR Stock Level visual language */
 #algeriaStockPanel .algeria-stock-card{overflow:hidden;border:1px solid #dce9e6;background:#fff;box-shadow:0 10px 28px rgba(15,118,110,.08)}
 #algeriaStockPanel .section-head{padding-bottom:16px;border-bottom:1px solid #e3eeeb}
-#algeriaStockPanel .algeria-stock-scroll{margin:0;padding:0 10px 70px;border:0;border-radius:0}
-#algeriaStockTable{width:min(1068px,100%);min-width:1040px;font-variant-numeric:tabular-nums}
+#algeriaStockPanel .algeria-stock-scroll{max-height:64vh;margin:0 18px 18px;padding:0;border:0;border-radius:0;overflow:auto}
+#algeriaStockTable{width:100%;min-width:1040px;font-variant-numeric:tabular-nums}
 #algeriaStockTable .algeria-stock-back{padding:0;border:0;background:transparent;color:inherit;font:inherit;font-weight:900;cursor:pointer}
 #algeriaStockTable .algeria-stock-sku{cursor:default;font-weight:600}
 #algeriaStockTable .algeria-stock-sku::after{display:none}
