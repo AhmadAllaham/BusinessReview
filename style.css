@@ -4625,3 +4625,74 @@ body.algeria-table-spotlight .algeria-spotlight-stage .sm-spotlight-btn{backgrou
 @media(prefers-reduced-motion:reduce){
   .stock-report-tabs,.stock-report-tabs button{transition:none}
 }
+
+
+/* P&L switches + logo breathing glow */
+:root{
+  --logo-glow-rgb:33,143,130;
+  --logo-glow-intensity:.22;
+  --logo-breath-speed:4.8s;
+}
+
+.pnl-view-switch{
+  border-color:rgba(31,210,195,.42);
+  box-shadow:
+    0 0 0 1px rgba(31,210,195,.08),
+    0 0 11px rgba(31,210,195,.12);
+  transition:border-color .2s ease,box-shadow .2s ease;
+}
+
+.pnl-view-switch:hover,
+.pnl-view-switch:focus-within{
+  border-color:rgba(31,210,195,.62);
+  box-shadow:
+    0 0 0 1px rgba(31,210,195,.13),
+    0 0 15px rgba(31,210,195,.18);
+}
+
+.pnl-view-switch button:hover{
+  text-shadow:0 0 8px rgba(31,210,195,.30);
+  box-shadow:inset 0 0 9px rgba(31,210,195,.09);
+}
+
+.pnl-view-switch button.active{
+  box-shadow:
+    0 2px 6px rgba(15,118,110,.25),
+    0 0 8px rgba(31,210,195,.42),
+    0 0 15px rgba(31,210,195,.18);
+  text-shadow:0 0 6px rgba(255,255,255,.36);
+}
+
+.header-company-logo{
+  background:radial-gradient(
+    ellipse at center,
+    rgba(var(--logo-glow-rgb),var(--logo-glow-intensity)) 0%,
+    rgba(var(--logo-glow-rgb),.08) 44%,
+    transparent 72%
+  ) !important;
+  filter:
+    drop-shadow(0 0 3px rgba(var(--logo-glow-rgb),.22))
+    drop-shadow(0 0 7px rgba(var(--logo-glow-rgb),.12)) !important;
+  animation:logo-glow-breathe var(--logo-breath-speed) ease-in-out infinite;
+  will-change:filter;
+}
+
+@keyframes logo-glow-breathe{
+  0%,100%{
+    filter:
+      drop-shadow(0 0 2px rgba(var(--logo-glow-rgb),.18))
+      drop-shadow(0 0 5px rgba(var(--logo-glow-rgb),.09)) !important;
+  }
+  50%{
+    filter:
+      drop-shadow(0 0 5px rgba(var(--logo-glow-rgb),.42))
+      drop-shadow(0 0 12px rgba(var(--logo-glow-rgb),.24)) !important;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  .header-company-logo{
+    animation:none;
+    filter:drop-shadow(0 0 5px rgba(var(--logo-glow-rgb),.20)) !important;
+  }
+}
