@@ -4697,3 +4697,71 @@ body.algeria-table-spotlight .algeria-spotlight-stage .sm-spotlight-btn{backgrou
     filter:drop-shadow(0 0 5px rgba(var(--logo-glow-rgb),.20)) !important;
   }
 }
+
+
+/* Green motif report sidebar v2 */
+.side-nav{
+  position:sticky;
+  isolation:isolate;
+  background:
+    linear-gradient(90deg,rgba(5,89,101,.08),rgba(5,65,73,.95) 42%,#0b343b 100%);
+  border-right-color:#16766f;
+  box-shadow:10px 0 28px rgba(6,69,76,.12);
+}
+.side-nav::before{
+  content:"";
+  position:absolute;
+  z-index:-1;
+  inset:0;
+  pointer-events:none;
+  background-image:
+    linear-gradient(90deg,rgba(5,162,140,.74),rgba(5,89,101,.2) 45%,rgba(11,52,59,.84) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='192' viewBox='0 0 96 192'%3E%3Crect width='96' height='192' fill='%23075965'/%3E%3Cpath d='M0 0h48a48 48 0 0 1-48 48zM48 0a48 48 0 0 1 48 48H48zM0 48a48 48 0 0 0 48 48H0zM96 48a48 48 0 0 0-48 48h48zM0 96h48a48 48 0 0 1-48 48zM48 96a48 48 0 0 1 48 48H48zM0 144a48 48 0 0 0 48 48H0zM96 144a48 48 0 0 0-48 48h48z' fill='%2305a28c'/%3E%3C/svg%3E");
+  background-repeat:no-repeat,repeat-y;
+  background-position:left top,left top;
+  background-size:100% 100%,96px 192px;
+  opacity:.66;
+}
+.side-nav-title{
+  color:#c5e5e1;
+  text-shadow:0 1px 8px rgba(0,0,0,.28);
+}
+.workspace-btn{
+  color:#e5f3f1;
+  text-shadow:0 1px 8px rgba(0,0,0,.22);
+}
+.workspace-btn:hover{
+  background:rgba(7,154,133,.25);
+}
+.workspace-btn.active{
+  background:linear-gradient(135deg,#10a992,#087d72);
+  border:1px solid rgba(134,239,222,.45);
+  box-shadow:0 8px 22px rgba(4,67,71,.25),inset 0 1px 0 rgba(255,255,255,.18);
+}
+.side-submenu .tab-btn{
+  color:#c2d9d6;
+  border-left-color:rgba(104,211,193,.34);
+}
+.side-submenu .tab-btn:hover{
+  color:#fff;
+  background:rgba(6,118,106,.34);
+}
+.side-submenu .tab-btn.active{
+  color:#fff;
+  border-left-color:#6ce6d2;
+  background:linear-gradient(90deg,rgba(6,157,137,.46),rgba(5,89,101,.18));
+}
+.sidebar-toggle{
+  border-color:rgba(111,211,197,.4);
+  background:rgba(5,89,101,.64);
+}
+.side-nav-foot{
+  color:#a7c2bf;
+  border-top-color:rgba(142,215,205,.22);
+}
+@media(max-width:900px){
+  .side-nav::before{
+    background-repeat:no-repeat,repeat-x;
+    background-size:100% 100%,72px 144px;
+  }
+}
