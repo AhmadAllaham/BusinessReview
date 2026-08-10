@@ -36,7 +36,7 @@
   const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(config);
   const auth = app.auth();
   const db = app.firestore();
-  const ASSET_VERSION = '20260810-speed1';
+  const ASSET_VERSION = '20260810-neon-brand1';
 
   const persistenceReady = auth
     .setPersistence(firebase.auth.Auth.Persistence.SESSION)
@@ -198,10 +198,15 @@
       loadCachedScript('light-soft-glow.js','data-br-light-soft-glow'),
       loadCachedScript('light-header-card-glow.js','data-br-light-header-card-glow'),
       loadCachedScript('ksa-pnl-expected-return.js','data-br-ksa-pnl-expected-return')
-    ]).then(results => {
+    ]).then(async results => {
       results.forEach(result => {
         if (result.status === 'rejected') console.error('Unable to load dashboard formatting.',result.reason);
       });
+      try {
+        await loadCachedScript('night-neon-brand.js','data-br-night-neon-brand');
+      } catch (error) {
+        console.error('Unable to load branded Night Mode.',error);
+      }
     });
 
     try {
