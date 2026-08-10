@@ -4449,3 +4449,73 @@ body.algeria-table-spotlight .algeria-spotlight-stage .sm-spotlight-btn{backgrou
   .algeria-section-actions{width:100%;justify-content:space-between}
   body.algeria-table-spotlight .algeria-spotlight-stage{inset:8px}
 }
+
+
+/* Sidebar: restrained neon glow */
+.side-nav{
+  background:
+    radial-gradient(circle at 18% 7%,rgba(38,220,201,.08),transparent 31%),
+    linear-gradient(180deg,#14282f 0%,#12242b 100%);
+  border-right-color:rgba(83,215,200,.16);
+  box-shadow:inset -1px 0 rgba(101,238,221,.05);
+}
+.side-nav-title{
+  color:#a9bec3;
+  text-shadow:0 0 9px rgba(91,231,214,.18);
+}
+.workspace-btn{
+  border:1px solid transparent;
+  transition:background .18s ease,border-color .18s ease,box-shadow .18s ease,color .18s ease,transform .18s ease;
+}
+.workspace-btn:hover{
+  background:rgba(40,78,85,.58);
+  border-color:rgba(92,225,209,.12);
+  box-shadow:0 0 14px rgba(34,211,190,.07);
+}
+.workspace-btn.active{
+  background:linear-gradient(135deg,#249b8d 0%,#168879 100%);
+  border-color:rgba(127,255,235,.28);
+  box-shadow:
+    0 0 0 1px rgba(77,232,211,.08),
+    0 0 16px rgba(28,209,185,.21),
+    inset 0 1px rgba(255,255,255,.10);
+  text-shadow:0 0 8px rgba(214,255,249,.22);
+}
+.workspace-btn.active .nav-icon{
+  background:rgba(226,255,250,.17);
+  box-shadow:0 0 11px rgba(90,244,222,.18);
+}
+.nav-icon{
+  border:1px solid rgba(189,244,236,.04);
+  transition:background .18s ease,box-shadow .18s ease,border-color .18s ease;
+}
+.side-submenu .tab-btn{
+  transition:background .16s ease,color .16s ease,border-color .16s ease,box-shadow .16s ease;
+}
+.side-submenu .tab-btn:hover{
+  background:linear-gradient(90deg,rgba(58,224,203,.10),rgba(58,224,203,.025));
+  border-left-color:rgba(91,236,217,.66);
+  box-shadow:inset 8px 0 14px -13px rgba(80,244,221,.8);
+}
+.side-submenu .tab-btn.active{
+  background:linear-gradient(90deg,rgba(70,229,208,.14),rgba(255,255,255,.035));
+  border-left-color:#68f0dc;
+  box-shadow:
+    inset 8px 0 14px -13px rgba(91,255,232,.95),
+    0 0 13px rgba(36,208,186,.07);
+  color:#f7fffe;
+  text-shadow:0 0 7px rgba(172,255,243,.17);
+}
+.sidebar-toggle{
+  border-color:rgba(101,224,208,.24);
+  background:linear-gradient(180deg,#203a42,#1b3037);
+  box-shadow:0 0 11px rgba(44,210,190,.08);
+}
+.sidebar-toggle:hover{
+  border-color:rgba(112,242,224,.38);
+  background:#29474f;
+  box-shadow:0 0 15px rgba(52,225,204,.14);
+}
+@media(prefers-reduced-motion:reduce){
+  .workspace-btn,.nav-icon,.side-submenu .tab-btn{transition:none}
+}
