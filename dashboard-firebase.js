@@ -66,12 +66,25 @@
     return loadScriptOnce('report-access.js?v=20260805-2','data-report-access');
   };
 
+  const loadAnalysisModule = async () => {
+    if (Number(window.__BR_ANALYSIS_WINDOW_VERSION__ || 0) >= 4) return;
+    await loadScriptOnce('analysis-window.js?v=20260810-speed1','data-analysis-window');
+    const started = Date.now();
+    while (Number(window.__BR_ANALYSIS_WINDOW_VERSION__ || 0) < 4) {
+      if (Date.now() - started > 10000) {
+        throw new Error('The integrated Analysis module did not start.');
+      }
+      await new Promise(resolve => setTimeout(resolve,25));
+    }
+  };
+
   if (!window.BRPortal?.configured) {
     showStatus(window.BRPortal?.error || 'Firebase is not configured.',false,true);
     return;
   }
 
-  const session = await BRPortal.requireSession({next:'index.html'});
+  const session = window.__BR_VERIFIED_SESSION__ || await BRPortal.requireSession({next:'index.html'});
+  window.__BR_VERIFIED_SESSION__ = null;
   if (!session) return;
 
   const profile = session.profile || {};
@@ -315,6 +328,7 @@
   }
 
   async function mountAnalysis() {
+    await loadAnalysisModule();
     const canUseSales = hasReport('salesAnalysis') || hasReport('focAnalysis') || hasReport('actualGp');
     const canUsePnl = hasReport('pnl');
     const canUseStock = hasReport('stockLevel') || hasReport('stockDashboard');
@@ -489,9 +503,9 @@
   if (hasReport('salesAnalysis') || hasReport('focAnalysis') || hasReport('stockLevel')) {
     const preloadProfitability = () => mountProfitability().catch(error => console.error(error));
     if ('requestIdleCallback' in window) {
-      window.requestIdleCallback(preloadProfitability,{timeout:5000});
+      window.requestIdleCallback(preloadProfitability,{timeout:20000});
     } else {
-      setTimeout(preloadProfitability,2500);
+      setTimeout(preloadProfitability,12000);
     }
   }
 })();
