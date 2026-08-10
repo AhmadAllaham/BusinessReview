@@ -4923,3 +4923,16 @@ table tbody tr:focus-within:not(.total-row) > td{
 @media(prefers-reduced-motion:reduce){
   table tbody tr:not(.total-row) > td{transition:none}
 }
+
+
+/* Make hover emphasis visible in compact Sales, FOC and Stock Level statements. */
+#salesTable tbody tr:hover:not(.total-row) > td,
+#salesTable tbody tr:focus-within:not(.total-row) > td,
+#focTable tbody tr:hover:not(.total-row) > td,
+#focTable tbody tr:focus-within:not(.total-row) > td,
+#stockSection .stock-statement-table tbody tr:hover:not(.total-row) > td,
+#stockSection .stock-statement-table tbody tr:focus-within:not(.total-row) > td,
+#stockDetailTable tbody tr:hover:not(.total-row) > td,
+#stockDetailTable tbody tr:focus-within:not(.total-row) > td{
+  font-weight:650!important;
+}
