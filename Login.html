@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Sign in · Business Review</title>
-  <link rel="stylesheet" href="portal.css?v=20260729-3">
+  <link rel="stylesheet" href="portal.css?v=20260810-remember-password1">
 </head>
 <body class="portal-page login-page">
   <main class="login-layout">
@@ -33,12 +33,16 @@
 
         <div class="portal-field">
           <label for="email">Email / Username</label>
-          <input id="email" type="email" autocomplete="username" required placeholder="name@company.com">
+          <input id="email" name="username" type="email" autocomplete="username" required placeholder="name@company.com">
         </div>
         <div class="portal-field">
           <label for="password">Password</label>
-          <input id="password" type="password" autocomplete="current-password" required placeholder="••••••••">
+          <input id="password" name="password" type="password" autocomplete="current-password" required placeholder="••••••••">
         </div>
+        <label class="login-remember" for="rememberPassword">
+          <input id="rememberPassword" type="checkbox">
+          <span>Remember password</span>
+        </label>
         <button id="loginButton" class="portal-button" type="submit">Sign in</button>
         <div id="loginStatus" class="portal-status" role="alert"></div>
       </form>
@@ -51,6 +55,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="firebase-client.js"></script>
-  <script src="login.js"></script>
+  <script src="login.js?v=20260810-remember-password1"></script>
 </body>
 </html>
