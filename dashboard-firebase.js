@@ -169,20 +169,44 @@
     if (datasetPromiseCache.has(datasetId)) return datasetPromiseCache.get(datasetId);
 
     const promise = (async () => {
+      await BRPortal.firestorePersistenceReady;
+      const scopeKey = isAdmin
+        ? 'admin'
+        : queryCountries.map(country => String(country).trim().toLowerCase()).sort().join('|');
+      const cacheKey = `br-complete-dataset:${datasetId}:${scopeKey}`;
+      let useCache = false;
+      try {
+        useCache = localStorage.getItem(cacheKey) === '1';
+      } catch (_) {}
+
+      const runQuery = (country,source) => {
+        let query = BRPortal.db.collection('reportChunks')
+          .where('datasetId','==',datasetId);
+        if (country) query = query.where('country','==',country);
+        return source ? query.get({source}) : query.get();
+      };
+
       let chunkDocs = [];
-      if (isAdmin) {
-        const snapshot = await BRPortal.db.collection('reportChunks')
-          .where('datasetId','==',datasetId)
-          .get();
-        chunkDocs = snapshot.docs;
-      } else {
-        const snapshots = await Promise.all(queryCountries.map(country =>
-          BRPortal.db.collection('reportChunks')
-            .where('datasetId','==',datasetId)
-            .where('country','==',country)
-            .get()
-        ));
+      if (useCache) {
+        try {
+          const cachedSnapshots = isAdmin
+            ? [await runQuery('', 'cache')]
+            : await Promise.all(queryCountries.map(country => runQuery(country,'cache')));
+          chunkDocs = cachedSnapshots.flatMap(snapshot => snapshot.docs);
+          if (!chunkDocs.length) useCache = false;
+        } catch (_) {
+          useCache = false;
+        }
+      }
+
+      if (!useCache) {
+        const snapshots = isAdmin
+          ? [await runQuery('')]
+          : await Promise.all(queryCountries.map(country => runQuery(country)));
         chunkDocs = snapshots.flatMap(snapshot => snapshot.docs);
+        try {
+          localStorage.setItem(cacheKey,'1');
+        } catch (_) {}
       }
 
       return chunkDocs
@@ -215,11 +239,13 @@
     return data.sales;
   }
 
-  async function mountSales() {
+  async function mountSales(reportKey='all') {
     const rows = await getSales();
     if (!mounted.has('sales')) {
-      window.loadSalesRowsFromDatabase?.(rows);
+      window.loadSalesRowsFromDatabase?.(rows,reportKey);
       mounted.add('sales');
+    } else {
+      window.renderSalesReportFromDatabase?.(reportKey);
     }
     return rows;
   }
@@ -379,7 +405,7 @@
       switch (reportKey) {
         case 'salesAnalysis':
         case 'focAnalysis':
-          await mountSales();
+          await mountSales(reportKey);
           break;
         case 'actualGp':
           await mountActualGp();
