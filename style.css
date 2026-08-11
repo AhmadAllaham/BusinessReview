@@ -4103,21 +4103,34 @@ body table tbody tr:focus-within > td{
 }
 /* Budget profitability: the table shows the requested classification letter only. */
 .gp-toggle-btn{
-  border:1px solid rgba(15,128,116,.42);
+  border:1px solid rgba(15,128,116,.62);
   border-radius:999px;
-  background:transparent;
+  background:rgba(239,252,248,.82);
   color:#0f7068;
   padding:.48rem .78rem;
   font:700 .78rem/1 inherit;
   cursor:pointer;
-  transition:background .18s ease,color .18s ease,box-shadow .18s ease,opacity .18s ease;
+  box-shadow:
+    0 0 0 2px rgba(15,128,116,.08),
+    0 0 13px rgba(22,188,153,.24);
+  transition:background .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,opacity .18s ease,transform .18s ease;
 }
-.gp-toggle-btn:hover:not(:disabled),.gp-toggle-btn.active{
+.gp-toggle-btn:hover:not(:disabled),.gp-toggle-btn.active,.gp-toggle-btn[aria-pressed="true"]{
   background:#0f8074;
   color:#fff;
-  box-shadow:0 0 0 3px rgba(15,128,116,.12);
+  border-color:rgba(42,220,183,.9);
+  box-shadow:
+    0 0 0 3px rgba(31,196,162,.16),
+    0 0 18px rgba(22,188,153,.46);
+  transform:translateY(-1px);
 }
-.gp-toggle-btn:disabled{opacity:.42;cursor:not-allowed}
+.gp-toggle-btn:disabled{
+  opacity:.52;
+  cursor:not-allowed;
+  box-shadow:
+    0 0 0 2px rgba(15,128,116,.06),
+    0 0 9px rgba(22,188,153,.16);
+}
 .gp-class-cell{
   min-width:72px;
   text-align:center!important;
