@@ -186,44 +186,38 @@
 
     const promise = (async () => {
       await BRPortal.firestorePersistenceReady;
-      const scopeKey = isAdmin
-        ? 'admin'
-        : queryCountries.map(country => String(country).trim().toLowerCase()).sort().join('|');
-      const cacheKey = `br-complete-dataset:${datasetId}:${scopeKey}`;
-      let useCache = false;
-      try {
-        useCache = localStorage.getItem(cacheKey) === '1';
-      } catch (_) {}
 
-      const runQuery = (country,source) => {
+      const runQuery = (country,source='server') => {
         let query = BRPortal.db.collection('reportChunks')
           .where('datasetId','==',datasetId);
         if (country) query = query.where('country','==',country);
-        return source ? query.get({source}) : query.get();
+        return query.get({source});
       };
 
-      let chunkDocs = [];
-      if (useCache) {
-        try {
-          const cachedSnapshots = isAdmin
-            ? [await runQuery('', 'cache')]
-            : await Promise.all(queryCountries.map(country => runQuery(country,'cache')));
-          chunkDocs = cachedSnapshots.flatMap(snapshot => snapshot.docs);
-          if (!chunkDocs.length) useCache = false;
-        } catch (_) {
-          useCache = false;
-        }
+      const loadSnapshots = source => isAdmin
+        ? Promise.all([runQuery('',source)])
+        : Promise.all(queryCountries.map(country => runQuery(country,source)));
+
+      // Totals must be identical for every account that views the same country.
+      // Always verify the current dataset against Firestore first. The persistent
+      // cache remains an offline fallback, but is never treated as permanently
+      // complete because a dataset can be refreshed after a user first opens it.
+      let snapshots;
+      try {
+        snapshots = await loadSnapshots('server');
+      } catch (serverError) {
+        console.warn('Using cached report chunks because Firestore is unavailable.',serverError);
+        snapshots = await loadSnapshots('cache');
       }
 
-      if (!useCache) {
-        const snapshots = isAdmin
-          ? [await runQuery('')]
-          : await Promise.all(queryCountries.map(country => runQuery(country)));
-        chunkDocs = snapshots.flatMap(snapshot => snapshot.docs);
-        try {
-          localStorage.setItem(cacheKey,'1');
-        } catch (_) {}
-      }
+      // A country can be requested through more than one authorized alias.
+      // De-duplicate by Firestore document id before expanding the rows so an
+      // alias can never double the country totals.
+      const chunkDocsById = new Map();
+      snapshots.forEach(snapshot => {
+        snapshot.docs.forEach(doc => chunkDocsById.set(doc.id,doc));
+      });
+      const chunkDocs = [...chunkDocsById.values()];
 
       return chunkDocs
         .sort((leftDoc,rightDoc) => {
