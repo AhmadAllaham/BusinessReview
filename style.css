@@ -4982,7 +4982,8 @@ table tbody tr:focus-within:not(.total-row) > td:first-child{
 }
 #smSimpleTable tbody tr:hover:not(.sm-total-row) > td,
 #smSimpleTable tbody tr:focus-within:not(.sm-total-row) > td{
-  background:#f6faf9!important;
+  background-color:#e6f6f3!important;
+  background-image:none!important;
   font-weight:650!important;
   box-shadow:
     inset 0 1px rgba(33,143,130,.20),
