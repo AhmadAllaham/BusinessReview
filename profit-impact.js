@@ -181,8 +181,8 @@
       return typeof av === 'string' ? direction * av.localeCompare(bv) : direction * (av-bv);
     });
     const total = rows.reduce((sum,row) => sum + row.impact,0);
-    const positive = rows.reduce((best,row) => row.impact > (best?.impact ?? -Infinity) ? row : best,null);
-    const negative = rows.reduce((best,row) => row.impact < (best?.impact ?? Infinity) ? row : best,null);
+    const positive = rows.filter(row => row.impact > 0).reduce((best,row) => row.impact > (best?.impact ?? -Infinity) ? row : best,null);
+    const negative = rows.filter(row => row.impact < 0).reduce((best,row) => row.impact < (best?.impact ?? Infinity) ? row : best,null);
     ids('profitImpactTotal').textContent = money(total);
     ids('profitImpactPositive').textContent = positive ? `${positive.product} · ${money(positive.impact)}` : '—';
     ids('profitImpactNegative').textContent = negative ? `${negative.product} · ${money(negative.impact)}` : '—';
