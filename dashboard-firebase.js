@@ -340,6 +340,16 @@
     return rows;
   }
 
+  // Test-only Product Profitability Impact window. It reuses the authenticated,
+  // country-scoped datasets and does not create or change any Firestore data.
+  window.BREnsureProfitImpactData = async function () {
+    const [sales,profitability] = await Promise.all([
+      getSales(),
+      getProfitability()
+    ]);
+    return { sales,profitability };
+  };
+
   async function mountDadAlgeria() {
     if (!hasReport('dadAlgeria')) return [];
     if (!data.dadAlgeria) data.dadAlgeria = await loadDataset(active.dadAlgeria);
