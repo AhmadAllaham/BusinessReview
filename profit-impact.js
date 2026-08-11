@@ -239,13 +239,24 @@
     </div>`;
   }
 
+  async function waitForDataService(timeout=10000) {
+    const started = Date.now();
+    while (typeof window.BREnsureProfitImpactData !== 'function') {
+      if (Date.now() - started >= timeout) throw new Error('The data service is not ready. Refresh the page and try again.');
+      await new Promise(resolve => setTimeout(resolve,50));
+    }
+    return window.BREnsureProfitImpactData;
+  }
+
   async function open() {
     const modal = ids('profitImpactModal');
     modal.classList.add('open'); modal.setAttribute('aria-hidden','false'); document.body.classList.add('profit-impact-open');
     ids('profitImpactLoading').hidden = false; ids('profitImpactContent').hidden = true;
+    ids('profitImpactLoading').classList.remove('error');
+    ids('profitImpactLoading').textContent = 'Loading Sales and Budget profitability data…';
     try {
-      if (typeof window.BREnsureProfitImpactData !== 'function') throw new Error('The data service is not ready yet. Please try again.');
-      const source = await window.BREnsureProfitImpactData();
+      const service = await waitForDataService();
+      const source = await service();
       state.sales = (source.sales || []).map(salesRow).filter(row => row.product && (row.actual || row.budget));
       state.margins = (source.profitability || []).map(marginRow).filter(row => row.product && (row.sales || row.gp));
       prepareFilters(); render(); ids('profitImpactLoading').hidden = true; ids('profitImpactContent').hidden = false;
