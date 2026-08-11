@@ -61,6 +61,22 @@
     );
   };
 
+  const loadSmJuneMonthFix = () => {
+    if (window.__smJuneMonthFixInstalled) return Promise.resolve();
+    return loadScriptOnce(
+      'sm-june-month-fix.js?v=20260811-startup-cache2',
+      'data-sm-june-month-fix'
+    );
+  };
+
+  const loadKsaForecastOverride = () => {
+    if (window.__ksaForecastOverrideInstalled) return Promise.resolve();
+    return loadScriptOnce(
+      'ksa-forecast-override.js?v=20260811-startup-cache2',
+      'data-ksa-forecast-override'
+    );
+  };
+
   const loadReportAccess = () => {
     if (window.BRReportAccess) return Promise.resolve();
     return loadScriptOnce('report-access.js?v=20260805-2','data-report-access');
@@ -272,6 +288,7 @@
   }
 
   async function mountStock() {
+    await loadKsaForecastOverride();
     const rows = await getStock();
     if (!mounted.has('stock')) {
       window.loadStockRowsFromDatabase?.(rows);
@@ -281,7 +298,7 @@
   }
 
   async function mountSm() {
-    await loadNearExpiryStockFix();
+    await Promise.all([loadNearExpiryStockFix(),loadSmJuneMonthFix()]);
     if (!data.sm) data.sm = await loadDataset(active.sm);
     if (!mounted.has('sm')) {
       window.loadSmRowsFromDatabase?.(data.sm);
