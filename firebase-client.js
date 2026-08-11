@@ -36,7 +36,19 @@
   const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(config);
   const auth = app.auth();
   const db = app.firestore();
-  const ASSET_VERSION = '20260810-neon-brand1';
+  const ASSET_VERSION = '20260811-startup-cache2';
+
+  // Persist immutable monthly report chunks locally. After the first successful
+  // load, reopening the same dataset can use IndexedDB instead of downloading
+  // every Firestore chunk again.
+  const firestorePersistenceReady = db.enablePersistence({synchronizeTabs:true})
+    .then(() => true)
+    .catch(error => {
+      if (!['failed-precondition','unimplemented'].includes(error?.code)) {
+        console.error('Unable to enable Firestore offline cache.',error);
+      }
+      return false;
+    });
 
   const persistenceReady = auth
     .setPersistence(firebase.auth.Auth.Persistence.SESSION)
@@ -45,6 +57,7 @@
     });
 
   async function getProfile(uid) {
+    await firestorePersistenceReady;
     const snap = await db.collection('users').doc(uid).get();
     return snap.exists ? {id:snap.id,...snap.data()} : null;
   }
@@ -109,6 +122,7 @@
     auth,
     db,
     persistenceReady,
+    firestorePersistenceReady,
     getProfile,
     currentSession,
     waitForAuth,
@@ -212,14 +226,13 @@
     try {
       await loadCachedScript('report-access.js','data-latest-report-access');
 
-      await Promise.all([
+      // Only functional patches required by the first report block startup.
+      // Pure formatting and report-specific helpers continue in the background.
+      const startupScripts = [
         loadCachedScript('sales-fy-budget.js','data-sales-fy-budget'),
-        loadCachedScript('report-readability.js','data-report-readability'),
-        loadCachedScript('sm-june-month-fix.js','data-sm-june-month-fix'),
-        loadCachedScript('ksa-forecast-override.js','data-ksa-forecast-override'),
-        loadCachedScript('sm-test-link.js','data-sm-test-link'),
-        loadCachedScript('header-flag-images.js','data-header-flag-images')
-      ]);
+        loadCachedScript('sm-test-link.js','data-sm-test-link')
+      ];
+      await Promise.all(startupScripts);
 
       const script = document.createElement('script');
       script.src = versioned('dashboard-firebase.js');
@@ -230,6 +243,22 @@
         status.className = 'status-box error';
       };
       document.body.appendChild(script);
+
+      const loadDeferredHelpers = () => Promise.allSettled([
+        loadCachedScript('report-readability.js','data-report-readability'),
+        loadCachedScript('sm-june-month-fix.js','data-sm-june-month-fix'),
+        loadCachedScript('ksa-forecast-override.js','data-ksa-forecast-override'),
+        loadCachedScript('header-flag-images.js','data-header-flag-images')
+      ]).then(results => results.forEach(result => {
+        if (result.status === 'rejected') {
+          console.error('Unable to load a deferred dashboard helper.',result.reason);
+        }
+      }));
+      if ('requestIdleCallback' in window) {
+        window.requestIdleCallback(loadDeferredHelpers,{timeout:5000});
+      } else {
+        setTimeout(loadDeferredHelpers,1200);
+      }
     } catch (error) {
       console.error(error);
       if (!status) return;
