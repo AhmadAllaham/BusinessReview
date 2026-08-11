@@ -4054,10 +4054,25 @@ updateProfitabilityButtons();
 
 // Database loaders. The authenticated Firestore layer calls these after it has
 // already enforced the user's country access.
-window.loadSalesRowsFromDatabase = function(rows){
+window.renderSalesReportFromDatabase = function(reportKey='all'){
+  if(!rawData.length) return;
+  const rows=filtered();
+  if(reportKey==='salesAnalysis'){
+    renderSalesTable(rows);
+    return;
+  }
+  if(reportKey==='focAnalysis'){
+    renderFocTable(rows);
+    return;
+  }
+  renderSalesTable(rows);
+  renderFocTable(rows);
+};
+
+window.loadSalesRowsFromDatabase = function(rows,reportKey='all'){
   rawData = (rows || []).map(normalize);
   buildAllSalesFilters(true);
-  renderAll();
+  window.renderSalesReportFromDatabase(reportKey);
 };
 
 window.loadPnlRowsFromDatabase = function(rows){
