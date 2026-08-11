@@ -3,7 +3,7 @@
 
   const byId=id=>document.getElementById(id);
   const USD_TO_JOD=0.709;
-  const state={currency:'USD',pnlComparison:'standard',pnl:[],sm:[],ga:[],stock:[],stockBrand:'',fileName:''};
+  const state={currency:'USD',pnlComparison:'standard',pnlView:'full',pnl:[],sm:[],ga:[],stock:[],stockBrand:'',fileName:''};
 
   function normalizeText(value){
     return String(value??'')
@@ -136,6 +136,26 @@
     return /(^total\b|gross sales|net sales|gross profit|operating profit|net income|profit before|profit for(?: the)? year)/.test(row.key);
   }
 
+  function pnlVisibleRows(rows){
+    if(state.pnlView==='netSales'){
+      const start=rows.findIndex(row=>/(^| )net sales($| )/.test(row.key));
+      return start>=0?rows.slice(start):rows;
+    }
+    if(state.pnlView==='summary'){
+      const summaryMatchers=[
+        /(^| )gross sales($| )/,
+        /(^| )net sales($| )/,
+        /cost of sales|cogs/,
+        /gross profit|gross margin/,
+        /s and m|selling and marketing/,
+        /net income|profit for(?: the)? year/
+      ];
+      const filtered=rows.filter(row=>summaryMatchers.some(matcher=>matcher.test(row.key)));
+      return filtered.length?filtered:rows;
+    }
+    return rows;
+  }
+
   function statementHeader(firstLabel,expenseFormat=false){
     const currency=`${state.currency} '000`;
     if(expenseFormat){
@@ -179,14 +199,15 @@
     const count=byId(countId);
     const expenseFormat=tableId!=='algeriaPnlTable';
     const fyBudgetFormat=!expenseFormat&&state.pnlComparison==='fyBudget';
+    const visibleRows=expenseFormat?rows:pnlVisibleRows(rows);
     if(!table) return;
     if(!expenseFormat) table.classList.toggle('algeria-pnl-fy-budget',fyBudgetFormat);
-    if(!rows.length){
+    if(!visibleRows.length){
       table.innerHTML=`${statementHeader(firstLabel,expenseFormat)}<tbody><tr><td colspan="${fyBudgetFormat?4:8}" class="algeria-empty-cell">Upload the Algeria workbook to display this report.</td></tr></tbody>`;
       if(count) count.textContent='Waiting for upload';
       return;
     }
-    const body=rows.map(row=>{
+    const body=visibleRows.map(row=>{
       const vb=row.actual-row.budget;
       const vl=row.actual-row.ly;
       const remaining=row.fyBudget-row.actual;
@@ -210,7 +231,7 @@
       </tr>`;
     }).join('');
     table.innerHTML=`${statementHeader(firstLabel,expenseFormat)}<tbody>${body}</tbody>`;
-    if(count) count.textContent=`${rows.length.toLocaleString('en-US')} lines · ${state.currency} '000`;
+    if(count) count.textContent=`${visibleRows.length.toLocaleString('en-US')} lines · ${state.currency} '000`;
   }
 
   function findLine(rows,aliases){
@@ -307,6 +328,21 @@
     return {data,totals};
   }
 
+  function refreshAlgeriaStockStickyHeader(table){
+    if(!table?.tHead) return;
+    table.classList.add('resizable-report-table');
+    window.requestAnimationFrame(()=>{
+      let stickyTop=0;
+      [...table.tHead.rows].forEach((row,rowIndex)=>{
+        [...row.cells].forEach(header=>{
+          header.style.setProperty('--table-sticky-top',`${stickyTop}px`);
+          header.style.setProperty('--table-sticky-z',String(14-rowIndex));
+        });
+        stickyTop+=row.getBoundingClientRect().height;
+      });
+    });
+  }
+
   function renderStock(){
     const table=byId('algeriaStockTable');
     const count=byId('algeriaStockCount');
@@ -347,6 +383,7 @@
         <tr class="stock-statement-sub-head"><th>Historical average</th><th>Forecasted average</th></tr>
       </thead>
       <tbody>${rows||'<tr><td colspan="6" class="stock-empty">Upload the Algeria workbook to display Stock Level.</td></tr>'}${totalRow}</tbody>`;
+    refreshAlgeriaStockStickyHeader(table);
     table.querySelector('[data-algeria-stock-back]')?.addEventListener('click',()=>{
       state.stockBrand='';
       renderStock();
@@ -383,6 +420,7 @@
     document.querySelectorAll('.algeria-panel').forEach(panel=>{
       panel.classList.toggle('active',panel.id===panelId);
     });
+    if(panelId==='algeriaStockPanel') refreshAlgeriaStockStickyHeader(byId('algeriaStockTable'));
   }
 
   let spotlightState=null;
@@ -401,6 +439,7 @@
       button.setAttribute('aria-pressed','true');
       button.querySelector('span').textContent='Exit spotlight';
       card.querySelector('.table-wrap,.algeria-table-scroll,.algeria-stock-scroll')?.scrollTo({top:0,left:0});
+      if(cardId==='algeriaStockCard') refreshAlgeriaStockStickyHeader(byId('algeriaStockTable'));
       button.focus();
       return;
     }
@@ -443,6 +482,20 @@
         option.setAttribute('aria-pressed',String(active));
       });
       renderAll();
+    });
+  });
+
+  document.querySelectorAll('[data-algeria-pnl-view]').forEach(button=>{
+    button.addEventListener('click',()=>{
+      state.pnlView=['full','summary','netSales'].includes(button.dataset.algeriaPnlView)
+        ?button.dataset.algeriaPnlView
+        :'full';
+      document.querySelectorAll('[data-algeria-pnl-view]').forEach(option=>{
+        const active=option.dataset.algeriaPnlView===state.pnlView;
+        option.classList.toggle('active',active);
+        option.setAttribute('aria-pressed',String(active));
+      });
+      renderStatement('algeriaPnlTable',state.pnl,'P&L Line','algeriaPnlCount');
     });
   });
 
