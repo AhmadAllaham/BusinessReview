@@ -462,11 +462,106 @@
     };
   }
 
-  function buildChunks(rows) {
-    const byCountry = new Map();
+  const SALES_MONTH_NAMES = [
+    "January","February","March","April","May","June",
+    "July","August","September","October","November","December"
+  ];
+
+  function payloadField(payload,aliases) {
+    const wanted = new Set(aliases.map(normalizeHeader));
+    const key = Object.keys(payload || {}).find(name => wanted.has(normalizeHeader(name)));
+    return key === undefined ? "" : payload[key];
+  }
+
+  function salesYear(payload) {
+    const raw = payloadField(payload,["Year","Fiscal Year","Reporting Year"]);
+    if (raw instanceof Date && !Number.isNaN(raw.getTime())) return String(raw.getFullYear());
+    const match = String(raw ?? "").match(/(?:19|20|21)\d{2}/);
+    return match ? match[0] : "";
+  }
+
+  function salesMonth(payload) {
+    const raw = payloadField(payload,["Month","Reporting Month","Period Month"]);
+    if (raw instanceof Date && !Number.isNaN(raw.getTime())) return SALES_MONTH_NAMES[raw.getMonth()];
+    if (typeof raw === "number" && raw >= 1 && raw <= 12) return SALES_MONTH_NAMES[Math.trunc(raw)-1];
+    const text = String(raw ?? "").trim();
+    if (!text) return "";
+    if (/^(?:0?[1-9]|1[0-2])$/.test(text)) return SALES_MONTH_NAMES[Number(text)-1];
+    const key = normalizeHeader(text).slice(0,3);
+    const index = SALES_MONTH_NAMES.findIndex(name => normalizeHeader(name).startsWith(key));
+    return index >= 0 ? SALES_MONTH_NAMES[index] : text;
+  }
+
+  function salesType(payload) {
+    return String(payloadField(payload,["Type","Sales Type","SalesType","Channel"]) || "").trim();
+  }
+
+  function salesSector(payload) {
+    return String(payloadField(payload,["Sector"]) || "").trim();
+  }
+
+  function buildSalesSummaryRows(rows) {
+    const dimensionKeys = new Set([
+      "country","market","countryname","year","fiscalyear","reportingyear",
+      "month","reportingmonth","periodmonth","type","salestype","channel","sector",
+      "agent","distributor","customer","productgroup","brand","family",
+      "productfamily","group","productname","product","itemdescription","item","sku"
+    ]);
+    const groups = new Map();
+
     rows.forEach(row => {
-      if (!byCountry.has(row.country)) byCountry.set(row.country,[]);
-      byCountry.get(row.country).push({
+      const year = salesYear(row.payload);
+      const month = salesMonth(row.payload);
+      const type = salesType(row.payload);
+      const sector = salesSector(row.payload);
+      const key = [row.country,year,month,type,sector].map(normalizeHeader).join("|");
+      if (!groups.has(key)) {
+        groups.set(key,{
+          country:row.country,
+          year,
+          month,
+          type,
+          sector,
+          metrics:{}
+        });
+      }
+      const group = groups.get(key);
+      Object.entries(row.payload || {}).forEach(([header,value]) => {
+        const normalized = normalizeHeader(header);
+        if (dimensionKeys.has(normalized) || normalized.includes("percent") ||
+            normalized.includes("percentage") || normalized.endsWith("pct")) return;
+        const text = String(value ?? "").trim();
+        if (!text || (!/^\(?-?[\d,.]+\)?$/.test(text) && typeof value !== "number")) return;
+        group.metrics[header] = (group.metrics[header] || 0) + numberValue(value);
+      });
+    });
+
+    return [...groups.values()].map((group,index) => ({
+      country:group.country,
+      sheetName:"Sales Summary",
+      rowNumber:index + 1,
+      payload:{
+        Country:group.country,
+        Year:group.year,
+        Month:group.month,
+        Type:group.type,
+        Sector:group.sector,
+        Agent:"All Agents",
+        "Product Group":"All Products",
+        "Product Name":"All Products",
+        ...group.metrics
+      }
+    }));
+  }
+
+  function buildChunks(rows,reportType="",scopeType="detail") {
+    const grouped = new Map();
+    rows.forEach(row => {
+      const year = reportType === "sales" ? salesYear(row.payload) : "";
+      const month = reportType === "sales" ? salesMonth(row.payload) : "";
+      const key = [row.country,year,month].join("|");
+      if (!grouped.has(key)) grouped.set(key,{country:row.country,year,month,rows:[]});
+      grouped.get(key).rows.push({
         sheetName:row.sheetName,
         rowNumber:row.rowNumber,
         payload:row.payload
@@ -474,9 +569,9 @@
     });
 
     const chunks = [];
-    byCountry.forEach((countryRows,country) => {
+    grouped.forEach(group => {
       let current = [];
-      countryRows.forEach(row => {
+      group.rows.forEach(row => {
         const rowBytes = new Blob([JSON.stringify(row)]).size;
         if (rowBytes > MAX_CHUNK_BYTES) {
           throw new Error(`Row ${row.rowNumber} in sheet "${row.sheetName}" is too large for Firestore.`);
@@ -487,13 +582,13 @@
           current.length >= MAX_ROWS_PER_CHUNK ||
           candidateBytes > MAX_CHUNK_BYTES
         )) {
-          chunks.push({country,rows:current});
+          chunks.push({...group,scopeType,rows:current});
           current = [row];
         } else {
           current = candidate;
         }
       });
-      if (current.length) chunks.push({country,rows:current});
+      if (current.length) chunks.push({...group,scopeType,rows:current});
     });
     return chunks;
   }
@@ -529,7 +624,7 @@
       state.rows = parsed.rows;
       state.countries = parsed.countries;
       if (!state.rows.length) throw new Error("No data rows were found.");
-      state.chunks = buildChunks(state.rows);
+      state.chunks = buildChunks(state.rows,$("reportType").value);
       renderSummary();
       $("datasetName").value = file.name.replace(/\.[^.]+$/,"");
       $("uploadButton").disabled = false;
@@ -575,13 +670,34 @@
         payload:{...row.payload,Month:row.payload.Month || reportingPeriod}
       }))
       : state.rows;
-    const uploadChunks = reportType === "stock" ? buildChunks(uploadRows) : state.chunks;
+    const detailChunks = reportType === "stock"
+      ? buildChunks(uploadRows,reportType)
+      : buildChunks(uploadRows,reportType);
+    const summaryChunks = reportType === "sales"
+      ? buildChunks(buildSalesSummaryRows(uploadRows),reportType,"summary")
+      : [];
+    const uploadChunks = [...detailChunks,...summaryChunks];
 
     const button = $("uploadButton");
     const datasetRef = db.collection("datasets").doc();
     const datasetId = datasetRef.id;
     let uploadedRows = 0;
     let uploadedChunks = 0;
+    const chunkWrites = uploadChunks.map((chunk,chunkIndex) => ({
+      chunk,
+      chunkIndex,
+      ref:db.collection("reportChunks").doc()
+    }));
+    const smartChunkManifest = reportType === "sales"
+      ? chunkWrites.map(entry => ({
+          id:entry.ref.id,
+          country:entry.chunk.country,
+          year:entry.chunk.year || "",
+          month:entry.chunk.month || "",
+          scopeType:entry.chunk.scopeType || "detail",
+          rowCount:entry.chunk.rows.length
+        }))
+      : [];
 
     button.disabled = true;
     $("progress").hidden = false;
@@ -598,6 +714,10 @@
         countries:state.countries,
         rowCount:uploadRows.length,
         chunkCount:uploadChunks.length,
+        detailChunkCount:detailChunks.length,
+        summaryChunkCount:summaryChunks.length,
+        chunkSchemaVersion:reportType === "sales" ? 2 : 1,
+        smartChunkManifest,
         status:"uploading",
         active:false,
         uploadedBy:session.user.uid,
@@ -605,24 +725,29 @@
         uploadedAt:BRPortal.serverTimestamp()
       });
 
-      for (let start=0; start<uploadChunks.length; start+=WRITES_PER_BATCH) {
+      for (let start=0; start<chunkWrites.length; start+=WRITES_PER_BATCH) {
         const batch = db.batch();
-        uploadChunks.slice(start,start + WRITES_PER_BATCH).forEach((chunk,index) => {
-          const chunkRef = db.collection("reportChunks").doc();
+        const pendingWrites = chunkWrites.slice(start,start + WRITES_PER_BATCH);
+        pendingWrites.forEach(entry => {
+          const {chunk,chunkIndex,ref:chunkRef} = entry;
           batch.set(chunkRef,{
             datasetId,
             reportType,
             country:chunk.country,
-            chunkIndex:start + index,
+            year:chunk.year || "",
+            month:chunk.month || "",
+            scopeType:chunk.scopeType || "detail",
+            chunkIndex,
             rowCount:chunk.rows.length,
             rows:chunk.rows,
             createdAt:BRPortal.serverTimestamp()
           });
         });
         await batch.commit();
-        const completed = uploadChunks.slice(start,start + WRITES_PER_BATCH);
-        uploadedChunks += completed.length;
-        uploadedRows += completed.reduce((sum,chunk)=>sum + chunk.rows.length,0);
+        uploadedChunks += pendingWrites.length;
+        uploadedRows += pendingWrites
+          .filter(entry => entry.chunk.scopeType !== "summary")
+          .reduce((sum,entry)=>sum + entry.chunk.rows.length,0);
         $("progressBar").style.width = `${Math.round(uploadedChunks / uploadChunks.length * 100)}%`;
         show(
           "uploadStatus",
