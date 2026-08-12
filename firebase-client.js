@@ -36,7 +36,7 @@
   const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(config);
   const auth = app.auth();
   const db = app.firestore();
-  const ASSET_VERSION = '20260812-smart-sales1';
+  const ASSET_VERSION = '20260812-smart-sales2';
 
   // Persist immutable monthly report chunks locally. After the first successful
   // load, reopening the same dataset can use IndexedDB instead of downloading
