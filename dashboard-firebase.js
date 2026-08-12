@@ -554,9 +554,11 @@
     const rawManifest = Array.isArray(metadata?.smartChunkManifest)
       ? metadata.smartChunkManifest
       : [];
-    const smartManifest = Number(metadata?.chunkSchemaVersion || 0) >= 2
-      ? salesManifestForUser(rawManifest).filter(entry => (entry.scopeType || 'detail') === 'detail')
+    const authorizedManifest = Number(metadata?.chunkSchemaVersion || 0) >= 2
+      ? salesManifestForUser(rawManifest)
       : [];
+    const smartManifest = authorizedManifest
+      .filter(entry => (entry.scopeType || 'detail') === 'detail');
 
     let legacyRows = null;
     const availableRows = async () => {
@@ -609,11 +611,28 @@
 
     let salesRows;
     if (smartManifest.length) {
-      salesRows = await loadSmartSalesScope({
-        countries:market ? [market] : [],
-        years:year ? [year] : [],
-        months:month ? [month] : []
-      });
+      // Sales uploads already contain authoritative summary rows grouped by
+      // Country + Year + Month + Type + Sector. Markets A&P only needs the
+      // IMS/Private total, so read those summaries directly instead of
+      // rebuilding the total from every product-level Sales row.
+      const selectedYears = new Set([String(year)]);
+      const previousYear = Number(year)-1;
+      if (Number.isFinite(previousYear)) selectedYears.add(String(previousYear));
+      const summaryEntries = authorizedManifest.filter(entry =>
+        entry.scopeType === 'summary' &&
+        countryAliasKey(entry.country) === countryAliasKey(market) &&
+        selectedYears.has(String(entry.year || '')) &&
+        (!month || textKey(entry.month) === textKey(month))
+      );
+      const hasCurrentSummary = summaryEntries.some(entry => String(entry.year || '') === String(year));
+
+      salesRows = hasCurrentSummary
+        ? await readManifestChunks(summaryEntries)
+        : await loadSmartSalesScope({
+            countries:market ? [market] : [],
+            years:year ? [year] : [],
+            months:month ? [month] : []
+          });
     } else {
       salesRows = await availableRows();
     }
