@@ -2,7 +2,7 @@
   'use strict';
 
   if (window.__BR_MARKETS_AP_VERSION__) return;
-  window.__BR_MARKETS_AP_VERSION__ = 2;
+  window.__BR_MARKETS_AP_VERSION__ = 3;
 
   const USD_TO_JOD = 0.709;
   const monthNumbers = {
@@ -78,9 +78,8 @@
     return normalized;
   }
 
-  function isPrivateIms(row) {
-    return key(field(row,['Type','Sales Type','Channel'])).includes('ims') &&
-      key(field(row,['Sector','Sales Sector'])).includes('private');
+  function isIms(row) {
+    return key(field(row,['Type','Sales Type','Channel'])) === 'ims';
   }
 
   function isApExpense(row) {
@@ -97,8 +96,11 @@
   function aggregateSales(rows,selected) {
     const targetYear=Number(selected.year);
     const targetMonth=monthNumber(selected.month);
+    // Match the IMS total shown in Sales for the selected market. Do not apply
+    // a Sector/Private filter here because the Sales IMS figure includes every
+    // IMS row in that market.
     const scoped=(rows || []).filter(row =>
-      sameMarket(row,selected.market) && isPrivateIms(row)
+      sameMarket(row,selected.market) && isIms(row)
     );
     const current=scoped.filter(row => {
       const period=salesPeriod(row);
