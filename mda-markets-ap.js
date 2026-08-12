@@ -2,7 +2,7 @@
   'use strict';
 
   if (window.__BR_MARKETS_AP_VERSION__) return;
-  window.__BR_MARKETS_AP_VERSION__ = 4;
+  window.__BR_MARKETS_AP_VERSION__ = 5;
 
   const USD_TO_JOD = 0.709;
   const monthNumbers = {
@@ -74,7 +74,14 @@
 
   function smPeriod(value) {
     const normalized=key(value).replace(/and/g,'');
-    if (normalized === 'ly' || normalized === 'py' || normalized.includes('lastyear') || normalized.includes('previousyear')) return 'ly';
+    if (
+      normalized === 'ly' ||
+      normalized === 'py' ||
+      normalized.startsWith('ly') ||
+      normalized.includes('lastyear') ||
+      normalized.includes('previousyear') ||
+      normalized.includes('prioryear')
+    ) return 'ly';
     if (normalized.includes('budget') || normalized === 'bud' || normalized === 'bdg') return 'budget';
     if (normalized.includes('actual') || normalized === 'act') return 'actual';
     return normalized;
@@ -120,20 +127,41 @@
   }
 
   function aggregateAp(rows,selected) {
+    // S&M keeps its hidden Reporting Month filter on the latest loaded Actual
+    // period. Use that exact period here too; adding every loaded month would
+    // overstate cumulative S&M workbooks.
+    const latestActualPeriod=(rows || []).reduce((latest,row) => {
+      if (smPeriod(field(row,['Period','Scenario'])) !== 'actual') return latest;
+      const date=rowDate(row);
+      if (!date) return latest;
+      const period={year:date.getUTCFullYear(),month:date.getUTCMonth()+1};
+      return !latest || period.year*12+period.month > latest.year*12+latest.month
+        ? period
+        : latest;
+    },null);
+
     let matched=0;
     const totals={actual:0,budget:0,ly:0};
     let explicitLy=0;
+    let priorActual=0;
+
+    if (!latestActualPeriod) return {...totals,count:0,reportingPeriod:null};
 
     (rows || []).forEach(row => {
       if (!sameMarket(row,selected.market) || !isApExpense(row)) return;
+      const date=rowDate(row);
+      if (!date || date.getUTCMonth()+1 !== latestActualPeriod.month) return;
+      const rowYear=date.getUTCFullYear();
       const period=smPeriod(field(row,['Period','Scenario']));
       const amount=Math.abs(number(field(row,['Amount','Value','Actual Value','Budget Value'])));
-      if (period === 'actual') { totals.actual+=amount; matched+=1; }
-      if (period === 'budget') { totals.budget+=amount; matched+=1; }
-      if (period === 'ly') explicitLy+=amount;
+      if (rowYear === latestActualPeriod.year && period === 'actual') { totals.actual+=amount; matched+=1; }
+      if (rowYear === latestActualPeriod.year && period === 'budget') { totals.budget+=amount; matched+=1; }
+      if ((rowYear === latestActualPeriod.year || rowYear === latestActualPeriod.year-1) && period === 'ly') explicitLy+=amount;
+      if (rowYear === latestActualPeriod.year-1 && period === 'actual') priorActual+=amount;
     });
-    totals.ly=explicitLy;
+    totals.ly=Math.abs(explicitLy)>1e-9 ? explicitLy : priorActual;
     totals.count=matched;
+    totals.reportingPeriod=latestActualPeriod;
     return totals;
   }
 
@@ -226,7 +254,11 @@
     const status=byId('marketsApStatus');
     if (status) {
       const monthLabel=selected.months?.length ? selected.months.join(', ') : 'No sales months';
-      status.textContent=`${selected.market} · Sales: ${monthLabel} ${selected.year} · S&M: loaded data · ${state.currency} '000`;
+      const smLabel=ap.reportingPeriod
+        ? new Intl.DateTimeFormat('en-US',{month:'long',year:'numeric',timeZone:'UTC'})
+          .format(new Date(Date.UTC(ap.reportingPeriod.year,ap.reportingPeriod.month-1,1)))
+        : 'No loaded Actual period';
+      status.textContent=`${selected.market} · Sales: ${monthLabel} ${selected.year} · S&M: ${smLabel} · ${state.currency} '000`;
       status.className='markets-ap-status ready';
     }
     const note=byId('marketsApMappingNote');
