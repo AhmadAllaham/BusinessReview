@@ -5044,3 +5044,94 @@ table tbody tr:focus-within:not(.total-row) > td:first-child{
 @media(prefers-reduced-motion:reduce){
   #smSimpleTable tbody tr:not(.sm-total-row) > td{transition:none}
 }
+
+
+/* Comparison figures: restrained neon that follows favorable/unfavorable color. */
+table :is(
+  td.positive,
+  td.favorable,
+  td.sm-favorable,
+  td.pnl-positive,
+  td.stock-gap-positive
+){
+  --comparison-neon-rgb:7,140,60;
+  text-shadow:0 0 4px rgba(var(--comparison-neon-rgb),.18)!important;
+  transition:
+    color .18s ease,
+    font-weight .16s ease,
+    text-shadow .18s ease,
+    filter .18s ease!important;
+}
+
+table :is(
+  td.negative,
+  td.unfavorable,
+  td.sm-unfavorable,
+  td.pnl-negative,
+  td.stock-gap-negative
+){
+  --comparison-neon-rgb:199,55,55;
+  text-shadow:0 0 4px rgba(var(--comparison-neon-rgb),.18)!important;
+  transition:
+    color .18s ease,
+    font-weight .16s ease,
+    text-shadow .18s ease,
+    filter .18s ease!important;
+}
+
+table :is(
+  td.positive,
+  td.favorable,
+  td.sm-favorable,
+  td.pnl-positive,
+  td.stock-gap-positive,
+  td.negative,
+  td.unfavorable,
+  td.sm-unfavorable,
+  td.pnl-negative,
+  td.stock-gap-negative
+):is(:hover,:focus-visible){
+  font-weight:850!important;
+  text-shadow:
+    0 0 4px rgba(var(--comparison-neon-rgb),.78),
+    0 0 10px rgba(var(--comparison-neon-rgb),.46),
+    0 0 16px rgba(var(--comparison-neon-rgb),.20)!important;
+  filter:saturate(1.12) brightness(1.04);
+}
+
+html.br-night-mode table :is(
+  td.positive,
+  td.favorable,
+  td.sm-favorable,
+  td.pnl-positive,
+  td.stock-gap-positive
+){
+  --comparison-neon-rgb:43,207,124;
+}
+
+html.br-night-mode table :is(
+  td.negative,
+  td.unfavorable,
+  td.sm-unfavorable,
+  td.pnl-negative,
+  td.stock-gap-negative
+){
+  --comparison-neon-rgb:255,107,118;
+}
+
+@media(prefers-reduced-motion:reduce){
+  table :is(
+    td.positive,
+    td.favorable,
+    td.sm-favorable,
+    td.pnl-positive,
+    td.stock-gap-positive,
+    td.negative,
+    td.unfavorable,
+    td.sm-unfavorable,
+    td.pnl-negative,
+    td.stock-gap-negative
+  ){
+    transition:none!important;
+  }
+}
