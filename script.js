@@ -503,7 +503,15 @@ function stabilizeSelections(data,ids,selections){
     for(const id of ids){
       const col=$(id).dataset.column;
       const available=new Set(uniqueValues(rowsForFilterOptions(data,ids,stable,id),col));
-      const kept=(stable[id]||[]).filter(v=>available.has(String(v)));
+      const smartScopeValues={
+        countryFilter:window.BRSalesAvailableCountries,
+        yearFilter:window.BRSalesAvailableYears,
+        monthFilter:window.BRSalesAvailableMonths
+      }[id];
+      if(Array.isArray(smartScopeValues)) smartScopeValues.map(String).forEach(value=>available.add(value));
+      const kept=(stable[id]||[]).filter(v=>
+        [...available].some(option=>sameText(option,String(v)))
+      );
       if(kept.length!==(stable[id]||[]).length){stable[id]=kept;changed=true;}
     }
     if(!changed)break;
