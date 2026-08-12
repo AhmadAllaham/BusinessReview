@@ -179,6 +179,168 @@
     analysisCost:null
   };
   const mounted = new Set();
+  const datasetMetadataCache = new Map();
+  const smartSalesScopeCache = new Map();
+  let currentSalesScope = null;
+  let salesScopeTimer = 0;
+
+  const textKey = value => String(value || '').trim().toLocaleLowerCase('en-US');
+  const monthOrder = [
+    'January','February','March','April','May','June',
+    'July','August','September','October','November','December'
+  ];
+  const countryAliasKey = value => {
+    const key = textKey(value).replace(/[^a-z0-9]+/g,'');
+    if (['uae','unitedarabemirates'].includes(key)) return 'uae';
+    if (['ksa','saudi','saudiarabia','kingdomofsaudiarabia'].includes(key)) return 'ksa';
+    return key;
+  };
+
+  async function getDatasetMetadata(datasetId) {
+    if (!datasetId) return null;
+    if (!datasetMetadataCache.has(datasetId)) {
+      datasetMetadataCache.set(datasetId,(async () => {
+        let snapshot;
+        try {
+          snapshot = await BRPortal.db.collection('datasets').doc(datasetId).get({source:'server'});
+        } catch (error) {
+          console.warn('Using cached dataset definition because Firestore is unavailable.',error);
+          snapshot = await BRPortal.db.collection('datasets').doc(datasetId).get({source:'cache'});
+        }
+        return snapshot.exists ? {id:snapshot.id,...snapshot.data()} : null;
+      })());
+    }
+    return datasetMetadataCache.get(datasetId);
+  }
+
+  function savedSalesFilters() {
+    try {
+      const key = `businessReview.filterPreferences.v1.${session.user.uid}`;
+      const saved = JSON.parse(localStorage.getItem(key) || '{}');
+      return saved && typeof saved === 'object' ? saved : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  function salesManifestForUser(manifest) {
+    if (isAdmin) return manifest;
+    const allowed = new Set(queryCountries.map(countryAliasKey));
+    return manifest.filter(entry => allowed.has(countryAliasKey(entry.country)));
+  }
+
+  function chooseInitialSalesScope(manifest) {
+    const detail = manifest.filter(entry => (entry.scopeType || 'detail') === 'detail');
+    const countries = [...new Set(detail.map(entry => String(entry.country || '')).filter(Boolean))]
+      .sort((a,b) => a.localeCompare(b));
+    const years = [...new Set(detail.map(entry => String(entry.year || '')).filter(Boolean))]
+      .sort((a,b) => Number(a)-Number(b));
+    const months = [...new Set(detail.map(entry => String(entry.month || '')).filter(Boolean))]
+      .sort((a,b) => {
+        const left=monthOrder.indexOf(a),right=monthOrder.indexOf(b);
+        return (left < 0 ? 99 : left)-(right < 0 ? 99 : right) || a.localeCompare(b);
+      });
+    const saved = savedSalesFilters();
+    const availableCountries = new Set(countries.map(countryAliasKey));
+    const availableYears = new Set(years);
+    const availableMonths = new Set(months.map(textKey));
+    const savedCountries = (saved.countryFilter || [])
+      .filter(country => availableCountries.has(countryAliasKey(country)));
+    const savedYears = (saved.yearFilter || []).map(String).filter(year => availableYears.has(year));
+    const savedMonths = (saved.monthFilter || []).map(String)
+      .filter(month => availableMonths.has(textKey(month)));
+    const latestYear = years.length ? years[years.length-1] : '';
+
+    const scope = {
+      countries:savedCountries.length
+        ? savedCountries
+        : isAdmin
+          ? countries.slice(0,1)
+          : countries,
+      years:savedYears.length ? savedYears : latestYear ? [latestYear] : [],
+      months:savedMonths
+    };
+    window.BRSalesAvailableCountries = countries;
+    window.BRSalesAvailableYears = years;
+    window.BRSalesAvailableMonths = months;
+    window.BRSalesInitialScope = scope;
+    return scope;
+  }
+
+  function manifestEntriesForScope(manifest,scope) {
+    const countries = (scope.countries || []).map(countryAliasKey);
+    const years = (scope.years || []).map(String);
+    const months = (scope.months || []).map(textKey);
+    const yearSet = new Set(years);
+    years.map(Number).filter(Number.isFinite).forEach(year => yearSet.add(String(year-1)));
+    const useSummary = countries.length === 0;
+
+    return manifest.filter(entry => {
+      const scopeType = entry.scopeType || 'detail';
+      if (scopeType !== (useSummary ? 'summary' : 'detail')) return false;
+      if (!useSummary && !countries.includes(countryAliasKey(entry.country))) return false;
+      if (yearSet.size && entry.year && !yearSet.has(String(entry.year))) return false;
+      if (months.length && entry.month && !months.includes(textKey(entry.month))) return false;
+      return true;
+    });
+  }
+
+  async function readManifestChunks(entries) {
+    const key = entries.map(entry => entry.id).sort().join('|');
+    if (!key) return [];
+    if (smartSalesScopeCache.has(key)) return smartSalesScopeCache.get(key);
+
+    const promise = (async () => {
+      const docs = [];
+      for (let start=0; start<entries.length; start+=30) {
+        const group = entries.slice(start,start+30);
+        let snapshots;
+        try {
+          snapshots = await Promise.all(group.map(entry =>
+            BRPortal.db.collection('reportChunks').doc(entry.id).get({source:'server'})
+          ));
+        } catch (error) {
+          console.warn('Using cached Sales chunks because Firestore is unavailable.',error);
+          snapshots = await Promise.all(group.map(entry =>
+            BRPortal.db.collection('reportChunks').doc(entry.id).get({source:'cache'})
+          ));
+        }
+        snapshots.forEach(snapshot => {
+          if (snapshot.exists) docs.push(snapshot);
+        });
+      }
+      return docs
+        .sort((left,right) => (left.data().chunkIndex || 0)-(right.data().chunkIndex || 0))
+        .flatMap(snapshot => snapshot.data().rows || [])
+        .map(row => row.payload || {});
+    })();
+    smartSalesScopeCache.set(key,promise);
+    try {
+      return await promise;
+    } catch (error) {
+      smartSalesScopeCache.delete(key);
+      throw error;
+    }
+  }
+
+  async function loadSmartSalesScope(scope) {
+    const metadata = await getDatasetMetadata(active.sales);
+    const rawManifest = Array.isArray(metadata?.smartChunkManifest)
+      ? metadata.smartChunkManifest
+      : [];
+    if (Number(metadata?.chunkSchemaVersion || 0) < 2 || !rawManifest.length) {
+      return null;
+    }
+    const manifest = salesManifestForUser(rawManifest);
+    const effectiveScope = scope || chooseInitialSalesScope(manifest);
+    currentSalesScope = {
+      countries:[...(effectiveScope.countries || [])],
+      years:[...(effectiveScope.years || [])],
+      months:[...(effectiveScope.months || [])]
+    };
+    const entries = manifestEntriesForScope(manifest,currentSalesScope);
+    return readManifestChunks(entries);
+  }
 
   async function loadDataset(datasetId) {
     if (!datasetId) return [];
@@ -242,12 +404,52 @@
   async function getSales() {
     if (data.sales) return data.sales;
     await loadSalesCanonicalizer();
-    const rows = await loadDataset(active.sales);
+    const smartRows = await loadSmartSalesScope();
+    const rows = smartRows === null ? await loadDataset(active.sales) : smartRows;
     data.sales = typeof window.canonicalizeSalesRows === 'function'
       ? window.canonicalizeSalesRows(rows)
       : rows;
     return data.sales;
   }
+
+  async function reloadSalesScope(scope) {
+    const smartRows = await loadSmartSalesScope(scope);
+    if (smartRows === null) return;
+    data.sales = typeof window.canonicalizeSalesRows === 'function'
+      ? window.canonicalizeSalesRows(smartRows)
+      : smartRows;
+    const activeTab = document.querySelector('.side-submenu .tab-btn.active')?.dataset.tab;
+    const reportKey = activeTab === 'focSection' ? 'focAnalysis' : 'salesAnalysis';
+    window.loadSalesRowsFromDatabase?.(data.sales,reportKey,{preserveFilters:true});
+    mounted.add('sales');
+  }
+
+  function selectedSalesScope() {
+    const selected = id => {
+      const filter = document.getElementById(id);
+      return typeof filter?._getSelected === 'function' ? filter._getSelected() : [];
+    };
+    return {
+      countries:selected('countryFilter'),
+      years:selected('yearFilter'),
+      months:selected('monthFilter')
+    };
+  }
+
+  document.addEventListener('br:sales-scope-change',() => {
+    if (!currentSalesScope) return;
+    clearTimeout(salesScopeTimer);
+    salesScopeTimer=setTimeout(async () => {
+      try {
+        showStatus('Loading the selected Sales scope…');
+        await reloadSalesScope(selectedSalesScope());
+        showStatus('Sales is ready.',true,false);
+      } catch (error) {
+        console.error(error);
+        showStatus(error?.message || 'Unable to load the selected Sales scope.',false,true);
+      }
+    },120);
+  });
 
   async function mountSales(reportKey='all') {
     const rows = await getSales();
