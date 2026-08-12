@@ -197,6 +197,17 @@ function syncGlobalCountryFilters(sourceId,selectedValues=[]){
 function createMultiFilter(el,data,col,onChange,defaultValues=[]){
   el.dataset.filterLabel=col;
   const values=uniqueValues(data,col);
+  const smartScopeValues = {
+    countryFilter:window.BRSalesAvailableCountries,
+    yearFilter:window.BRSalesAvailableYears,
+    monthFilter:window.BRSalesAvailableMonths
+  }[el.id];
+  if(Array.isArray(smartScopeValues)){
+    smartScopeValues.map(String).filter(Boolean).forEach(value=>{
+      if(!values.some(option=>sameText(option,value))) values.push(value);
+    });
+    values.sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  }
   let requestedDefaults=defaultValues.map(String);
   if(isGlobalCountryFilter(el.id) && globalCountrySelection.length){
     requestedDefaults=mapCountrySelection(values,globalCountrySelection);
@@ -315,6 +326,11 @@ function createMultiFilter(el,data,col,onChange,defaultValues=[]){
       globalCountrySelection=[...new Set(selectedNow)];
     }
     onChange();
+    if(['countryFilter','yearFilter','monthFilter'].includes(el.id)){
+      document.dispatchEvent(new CustomEvent('br:sales-scope-change',{
+        detail:{filterId:el.id,values:[...selectedNow]}
+      }));
+    }
     if(isGlobalCountryFilter(el.id) && !globalCountrySyncing){
       syncGlobalCountryFilters(el.id,selectedNow);
     }
@@ -505,8 +521,14 @@ function rebuildDependentFilters(data,ids,selections,onApply){
 function buildAllSalesFilters(reset=false,changedId=''){
   const years=uniqueValues(rawData,'Year').map(Number).filter(Number.isFinite);
   const latestYear=years.length?String(Math.max(...years)):'';
+  const initialScope=window.BRSalesInitialScope||{};
   const selections=reset
-    ?Object.fromEntries(salesFilterIds.map(id=>[id,id==='yearFilter'&&latestYear?[latestYear]:[]]))
+    ?Object.fromEntries(salesFilterIds.map(id=>{
+        if(id==='yearFilter') return [id,(initialScope.years||[]).length?initialScope.years:latestYear?[latestYear]:[]];
+        if(id==='monthFilter') return [id,initialScope.months||[]];
+        if(id==='countryFilter') return [id,initialScope.countries||[]];
+        return [id,[]];
+      }))
     :captureSelections(salesFilterIds);
   if(changedId==='countryFilter'){
     constrainChildrenToParent(rawData,selections,'countryFilter',[
@@ -4069,9 +4091,9 @@ window.renderSalesReportFromDatabase = function(reportKey='all'){
   renderFocTable(rows);
 };
 
-window.loadSalesRowsFromDatabase = function(rows,reportKey='all'){
+window.loadSalesRowsFromDatabase = function(rows,reportKey='all',options={}){
   rawData = (rows || []).map(normalize);
-  buildAllSalesFilters(true);
+  buildAllSalesFilters(options.preserveFilters ? false : true);
   window.renderSalesReportFromDatabase(reportKey);
 };
 
