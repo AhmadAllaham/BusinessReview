@@ -2,7 +2,7 @@
   'use strict';
 
   if (window.__BR_MARKETS_AP_VERSION__) return;
-  window.__BR_MARKETS_AP_VERSION__ = 3;
+  window.__BR_MARKETS_AP_VERSION__ = 4;
 
   const USD_TO_JOD = 0.709;
   const monthNumbers = {
@@ -18,7 +18,9 @@
   }
 
   function key(value) {
-    const normalized=text(value).toLocaleLowerCase('en-US').replace(/[^a-z0-9]+/g,'');
+    const normalized=text(value).toLocaleLowerCase('en-US')
+      .replace(/&/g,' and ')
+      .replace(/[^a-z0-9]+/g,'');
     if (['uae','unitedarabemirates'].includes(normalized)) return 'uae';
     if (['ksa','saudi','saudiarabia','kingdomofsaudiarabia'].includes(normalized)) return 'ksa';
     return normalized;
@@ -95,7 +97,7 @@
 
   function aggregateSales(rows,selected) {
     const targetYear=Number(selected.year);
-    const targetMonth=monthNumber(selected.month);
+    const targetMonths=new Set((selected.months || []).map(monthNumber).filter(Boolean));
     // Match the IMS total shown in Sales for the selected market. Do not apply
     // a Sector/Private filter here because the Sales IMS figure includes every
     // IMS row in that market.
@@ -104,11 +106,11 @@
     );
     const current=scoped.filter(row => {
       const period=salesPeriod(row);
-      return period.year === targetYear && (!targetMonth || period.month === targetMonth);
+      return period.year === targetYear && (!targetMonths.size || targetMonths.has(period.month));
     });
     const prior=scoped.filter(row => {
       const period=salesPeriod(row);
-      return period.year === targetYear-1 && (!targetMonth || period.month === targetMonth);
+      return period.year === targetYear-1 && (!targetMonths.size || targetMonths.has(period.month));
     });
     const actual=current.reduce((sum,row) => sum+number(field(row,['Actual Value','Actual Sales','Actual','Actual YTD'])),0);
     const budget=current.reduce((sum,row) => sum+number(field(row,['Budget Value','Budget Sales','Budget','Budget YTD'])),0);
@@ -118,28 +120,19 @@
   }
 
   function aggregateAp(rows,selected) {
-    const targetYear=Number(selected.year);
-    const targetMonth=monthNumber(selected.month);
     let matched=0;
     const totals={actual:0,budget:0,ly:0};
     let explicitLy=0;
-    let priorActual=0;
 
     (rows || []).forEach(row => {
       if (!sameMarket(row,selected.market) || !isApExpense(row)) return;
-      const date=rowDate(row);
-      if (!date) return;
-      const rowYear=date.getUTCFullYear();
-      const rowMonth=date.getUTCMonth()+1;
-      if (targetMonth && rowMonth !== targetMonth) return;
       const period=smPeriod(field(row,['Period','Scenario']));
       const amount=Math.abs(number(field(row,['Amount','Value','Actual Value','Budget Value'])));
-      if (rowYear === targetYear && period === 'actual') { totals.actual+=amount; matched+=1; }
-      if (rowYear === targetYear && period === 'budget') { totals.budget+=amount; matched+=1; }
-      if ((rowYear === targetYear || rowYear === targetYear-1) && period === 'ly') explicitLy+=amount;
-      if (rowYear === targetYear-1 && period === 'actual') priorActual+=amount;
+      if (period === 'actual') { totals.actual+=amount; matched+=1; }
+      if (period === 'budget') { totals.budget+=amount; matched+=1; }
+      if (period === 'ly') explicitLy+=amount;
     });
-    totals.ly=Math.abs(explicitLy)>1e-9 ? explicitLy : priorActual;
+    totals.ly=explicitLy;
     totals.count=matched;
     return totals;
   }
@@ -169,17 +162,54 @@
     if (selected) select.value=selected;
   }
 
+  function selectedMonths() {
+    return [...document.querySelectorAll('#marketsApMonthOptions input:checked')].map(input => input.value);
+  }
+
+  function updateMonthButton() {
+    const values=selectedMonths();
+    const label=!values.length ? 'Select months' : values.length === 1 ? values[0] : `${values.length} months selected`;
+    const span=byId('marketsApMonthButton')?.querySelector('span');
+    if (span) span.textContent=label;
+  }
+
+  function fillMonthSelect(values,selected) {
+    const host=byId('marketsApMonthOptions');
+    if (!host) return;
+    const chosen=new Set((selected || []).map(key));
+    host.innerHTML=(values || []).map(value => {
+      const safe=String(value).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+      return `<label><input type="checkbox" value="${safe}"${chosen.has(key(value)) ? ' checked' : ''}><span>${safe}</span></label>`;
+    }).join('');
+    updateMonthButton();
+  }
+
+  function setMonthMenu(open) {
+    const menu=byId('marketsApMonthMenu');
+    const button=byId('marketsApMonthButton');
+    if (menu) menu.hidden=!open;
+    if (button) button.setAttribute('aria-expanded',String(open));
+  }
+
+  function currentRequest() {
+    return {
+      market:byId('marketsApMarketFilter')?.value,
+      year:byId('marketsApYearFilter')?.value,
+      months:selectedMonths()
+    };
+  }
+
   function render() {
     if (!state.data) return;
     const {sales,ap,selected}=state.data;
     const rows=[
       ['IMS Sales Private',sales,'USD','amount'],
-      ['A&P Expenses',ap,'USD','amount'],
+      ['A&P Expenses',ap,'JOD','amount'],
       ['A&P %',{
         actual:[ap.actual,sales.actual],
         budget:[ap.budget,sales.budget],
         ly:[ap.ly,sales.ly]
-      },'USD','percent']
+      },'JOD','percent']
     ];
     const tbody=byId('marketsApTable')?.tBodies?.[0];
     if (!tbody) return;
@@ -195,18 +225,19 @@
 
     const status=byId('marketsApStatus');
     if (status) {
-      status.textContent=`${selected.market} · ${selected.month} ${selected.year} · ${state.currency} '000`;
+      const monthLabel=selected.months?.length ? selected.months.join(', ') : 'No sales months';
+      status.textContent=`${selected.market} · Sales: ${monthLabel} ${selected.year} · S&M: loaded data · ${state.currency} '000`;
       status.className='markets-ap-status ready';
     }
     const note=byId('marketsApMappingNote');
     if (note) {
       note.hidden=ap.count>0;
-      note.textContent=ap.count>0 ? '' : 'No "Advertising & promotional expenses" rows were found in S&M for this market and period.';
+      note.textContent=ap.count>0 ? '' : 'No "Advertising & promotional expenses" rows were found in the loaded S&M data for this market.';
     }
   }
 
   async function load(requested={}) {
-    if (state.loading || typeof window.BREnsureMarketsAPData !== 'function') return;
+    if (typeof window.BREnsureMarketsAPData !== 'function') return;
     state.loading=true;
     const request=++state.request;
     const status=byId('marketsApStatus');
@@ -219,7 +250,7 @@
       if (request !== state.request) return;
       fillSelect(byId('marketsApMarketFilter'),result.options.markets,result.selected.market);
       fillSelect(byId('marketsApYearFilter'),result.options.years,result.selected.year);
-      fillSelect(byId('marketsApMonthFilter'),result.options.months,result.selected.month);
+      fillMonthSelect(result.options.months,result.selected.months);
       state.data={
         selected:result.selected,
         sales:aggregateSales(result.sales,result.selected),
@@ -233,15 +264,11 @@
         status.className='markets-ap-status error';
       }
     } finally {
-      state.loading=false;
+      if (request === state.request) state.loading=false;
     }
   }
 
-  window.mountMarketsAPReport = () => load({
-    market:byId('marketsApMarketFilter')?.value,
-    year:byId('marketsApYearFilter')?.value,
-    month:byId('marketsApMonthFilter')?.value
-  });
+  window.mountMarketsAPReport = () => load(currentRequest());
 
   document.querySelectorAll('[data-markets-ap-currency]').forEach(button => {
     button.addEventListener('click',() => {
@@ -255,12 +282,35 @@
     });
   });
 
-  ['marketsApMarketFilter','marketsApYearFilter','marketsApMonthFilter'].forEach(id => {
-    byId(id)?.addEventListener('change',() => load({
-      market:byId('marketsApMarketFilter')?.value,
-      year:byId('marketsApYearFilter')?.value,
-      month:byId('marketsApMonthFilter')?.value
-    }));
+  ['marketsApMarketFilter','marketsApYearFilter'].forEach(id => {
+    byId(id)?.addEventListener('change',() => load(currentRequest()));
+  });
+
+  byId('marketsApMonthButton')?.addEventListener('click',event => {
+    event.stopPropagation();
+    setMonthMenu(byId('marketsApMonthMenu')?.hidden !== false);
+  });
+  byId('marketsApMonthOptions')?.addEventListener('change',() => {
+    updateMonthButton();
+    load(currentRequest());
+  });
+  byId('marketsApMonthAll')?.addEventListener('click',() => {
+    document.querySelectorAll('#marketsApMonthOptions input').forEach(input => { input.checked=true; });
+    updateMonthButton();
+    load(currentRequest());
+  });
+  byId('marketsApMonthClear')?.addEventListener('click',() => {
+    document.querySelectorAll('#marketsApMonthOptions input').forEach(input => { input.checked=false; });
+    updateMonthButton();
+    if (state.data) {
+      state.data.selected.months=[];
+      state.data.sales={actual:0,budget:0,ly:0,count:0};
+      render();
+    }
+  });
+  byId('marketsApMonthClose')?.addEventListener('click',() => setMonthMenu(false));
+  document.addEventListener('click',event => {
+    if (!byId('marketsApMonthFilter')?.contains(event.target)) setMonthMenu(false);
   });
 
   document.querySelector('[data-mda-report="markets-ap"]')?.addEventListener('click',() => {

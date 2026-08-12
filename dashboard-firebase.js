@@ -606,32 +606,34 @@
         .map(row => String(row.Month || row['Reporting Month'] || '').trim())
         .filter(Boolean))];
     }
-    const requestedMonth = String(requested.month || '').trim();
-    const month = months.find(value => textKey(value) === textKey(requestedMonth)) || months[months.length-1] || '';
+    const requestedMonths = (Array.isArray(requested.months) ? requested.months : [requested.month])
+      .map(value => String(value || '').trim())
+      .filter(Boolean);
+    let selectedMonths = months.filter(value => requestedMonths.some(month => textKey(month) === textKey(value)));
+    if (!selectedMonths.length && months.length) selectedMonths = [months[months.length-1]];
 
     let salesRows;
     if (smartManifest.length) {
-      // Sales uploads already contain authoritative summary rows grouped by
-      // Country + Year + Month + Type + Sector. Markets A&P only needs the
-      // IMS/Private total, so read those summaries directly instead of
-      // rebuilding the total from every product-level Sales row.
+      // Use the same product-level rows as the Sales report. Re-aggregating a
+      // separately generated summary can drift from the total users see in
+      // Sales when source columns or canonical aliases change.
       const selectedYears = new Set([String(year)]);
       const previousYear = Number(year)-1;
       if (Number.isFinite(previousYear)) selectedYears.add(String(previousYear));
-      const summaryEntries = authorizedManifest.filter(entry =>
-        entry.scopeType === 'summary' &&
+      const detailEntries = authorizedManifest.filter(entry =>
+        (entry.scopeType || 'detail') === 'detail' &&
         countryAliasKey(entry.country) === countryAliasKey(market) &&
         selectedYears.has(String(entry.year || '')) &&
-        (!month || textKey(entry.month) === textKey(month))
+        (!selectedMonths.length || selectedMonths.some(month => textKey(entry.month) === textKey(month)))
       );
-      const hasCurrentSummary = summaryEntries.some(entry => String(entry.year || '') === String(year));
+      const hasCurrentDetail = detailEntries.some(entry => String(entry.year || '') === String(year));
 
-      salesRows = hasCurrentSummary
-        ? await readManifestChunks(summaryEntries)
+      salesRows = hasCurrentDetail
+        ? await readManifestChunks(detailEntries)
         : await loadSmartSalesScope({
             countries:market ? [market] : [],
-            years:year ? [year] : [],
-            months:month ? [month] : []
+            years:year ? [...selectedYears] : [],
+            months:selectedMonths
           });
     } else {
       salesRows = await availableRows();
@@ -645,7 +647,7 @@
       sales,
       sm:data.sm || [],
       options:{markets,years,months},
-      selected:{market,year,month}
+      selected:{market,year,months:selectedMonths}
     };
   };
 

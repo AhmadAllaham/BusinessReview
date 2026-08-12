@@ -2043,6 +2043,17 @@ body.stock-level-view .sales-header-upload{
   outline:none;
 }
 .markets-ap-filters select:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(16,133,121,.12),0 0 12px rgba(16,133,121,.13)}
+.markets-ap-month-filter{position:relative;min-width:0}
+.markets-ap-month-button{width:100%;min-height:42px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 12px;border:1px solid var(--border);border-radius:9px;background:var(--panel);color:var(--ink);font:inherit;font-weight:750;cursor:pointer;text-align:left}
+.markets-ap-month-button:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px rgba(16,133,121,.12),0 0 12px rgba(16,133,121,.13)}
+.markets-ap-month-menu{position:absolute;z-index:40;top:calc(100% + 6px);left:0;right:0;padding:8px;border:1px solid var(--border);border-radius:10px;background:var(--panel);box-shadow:0 14px 30px rgba(15,47,52,.16)}
+.markets-ap-month-options{display:grid;max-height:230px;overflow:auto}
+.markets-ap-month-options label{display:flex;grid-template-columns:none;align-items:center;gap:9px;padding:8px 7px;border-radius:7px;color:var(--ink);font-size:13px;font-weight:700;text-transform:none;letter-spacing:0;cursor:pointer}
+.markets-ap-month-options label:hover{background:rgba(16,133,121,.08)}
+.markets-ap-month-options input{accent-color:var(--teal)}
+.markets-ap-month-actions{display:flex;gap:6px;padding-top:8px;border-top:1px solid var(--border)}
+.markets-ap-month-actions button{flex:1;padding:7px 5px;border:1px solid var(--border);border-radius:7px;background:transparent;color:var(--ink);font-size:11px;font-weight:800;cursor:pointer}
+.markets-ap-month-actions button:last-child{background:var(--teal);border-color:var(--teal);color:#fff}
 .markets-ap-status{margin:18px 20px 0;padding:11px 13px;border-radius:9px;background:rgba(100,116,139,.08);color:var(--muted);font-size:13px;font-weight:700}
 .markets-ap-status.ready{background:rgba(16,133,121,.08);color:var(--teal)}
 .markets-ap-status.error{background:rgba(199,55,55,.08);color:#c73737}
@@ -2062,6 +2073,8 @@ body.stock-level-view .sales-header-upload{
 .markets-ap-empty{text-align:center!important;color:var(--muted)!important;font-size:14px!important}
 .markets-ap-mapping-note{margin:-4px 20px 22px;padding:11px 13px;border:1px solid rgba(217,119,6,.24);border-radius:9px;background:rgba(245,158,11,.08);color:#a65b00;font-size:12px;font-weight:700}
 html.br-night-mode .markets-ap-filters select{background:#10252b;color:#e9f7f5;border-color:rgba(91,220,203,.2)}
+html.br-night-mode .markets-ap-month-button,html.br-night-mode .markets-ap-month-menu{background:#10252b;color:#e9f7f5;border-color:rgba(91,220,203,.2)}
+html.br-night-mode .markets-ap-month-options label,html.br-night-mode .markets-ap-month-actions button{color:#e9f7f5}
 html.br-night-mode .markets-ap-table thead th{background:#0b3036}
 html.br-night-mode .markets-ap-table tbody th{background:rgba(61,215,194,.055)}
 html.br-night-mode .markets-ap-table tbody td{color:#e9f7f5}
