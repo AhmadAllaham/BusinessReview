@@ -2,7 +2,7 @@
   'use strict';
 
   if (window.__BR_MARKETS_AP_VERSION__) return;
-  window.__BR_MARKETS_AP_VERSION__ = 1;
+  window.__BR_MARKETS_AP_VERSION__ = 2;
 
   const USD_TO_JOD = 0.709;
   const monthNumbers = {
@@ -84,22 +84,10 @@
   }
 
   function isApExpense(row) {
-    const classificationFields = [
-      'Expense','Expense Group','Expense Category','Category','Group',
-      'Commitment Item','Commitment Item Name','GL Account Name','Account Name'
-    ];
-    return classificationFields.some(name => {
-      const value=key(field(row,[name]));
-      if (!value) return false;
-      return value === 'ap' ||
-        value === 'apexpenses' ||
-        value.includes('advertisingandpromotion') ||
-        value.includes('advertisingpromotion') ||
-        value.startsWith('advertising') ||
-        value.startsWith('advertisement') ||
-        value.startsWith('promotion') ||
-        value.startsWith('promotional');
-    });
+    // Keep Markets A&P tied to the exact line used by the S&M report. The
+    // normalized comparison tolerates casing, repeated spaces and "&" versus
+    // "and", but deliberately excludes every other advertising/promotion row.
+    return key(field(row,['Expense'])) === key('Advertising & promotional expenses');
   }
 
   function sameMarket(row,market) {
@@ -184,12 +172,12 @@
     const {sales,ap,selected}=state.data;
     const rows=[
       ['IMS Sales Private',sales,'USD','amount'],
-      ['A&P Expenses',ap,'JOD','amount'],
+      ['A&P Expenses',ap,'USD','amount'],
       ['A&P %',{
         actual:[ap.actual,sales.actual],
         budget:[ap.budget,sales.budget],
         ly:[ap.ly,sales.ly]
-      },'JOD','percent']
+      },'USD','percent']
     ];
     const tbody=byId('marketsApTable')?.tBodies?.[0];
     if (!tbody) return;
@@ -211,7 +199,7 @@
     const note=byId('marketsApMappingNote');
     if (note) {
       note.hidden=ap.count>0;
-      note.textContent=ap.count>0 ? '' : 'No A&P rows were matched in S&M for this market and period. Confirm the A&P expense mapping before relying on the percentage.';
+      note.textContent=ap.count>0 ? '' : 'No "Advertising & promotional expenses" rows were found in S&M for this market and period.';
     }
   }
 
