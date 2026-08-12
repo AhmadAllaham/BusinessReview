@@ -140,6 +140,42 @@ function uniqueValues(data,col){
   return [...new Set(data.map(r=>String(r[col]??'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
 }
 
+const filterMonthOrder = [
+  'january','february','march','april','may','june',
+  'july','august','september','october','november','december'
+];
+
+function filterDateParts(value){
+  const source=String(value??'').trim().toLowerCase();
+  if(!source) return null;
+
+  const iso=source.match(/^((?:19|20|21)\d{2})[-/.](0?[1-9]|1[0-2])(?:[-/.](0?[1-9]|[12]\d|3[01]))?$/);
+  if(iso) return {year:Number(iso[1]),month:Number(iso[2]),day:Number(iso[3]||1)};
+
+  const dayFirst=source.match(/^(0?[1-9]|[12]\d|3[01])[-/.](0?[1-9]|1[0-2])[-/.]((?:19|20|21)\d{2})$/);
+  if(dayFirst) return {year:Number(dayFirst[3]),month:Number(dayFirst[2]),day:Number(dayFirst[1])};
+
+  const monthIndex=filterMonthOrder.findIndex(month=>source.includes(month)||source.includes(month.slice(0,3)));
+  if(monthIndex>=0){
+    const year=Number(source.match(/(?:19|20|21)\d{2}/)?.[0]||0);
+    return {year,month:monthIndex+1,day:1};
+  }
+
+  if(/^0?[1-9]$|^1[0-2]$/.test(source)) return {year:0,month:Number(source),day:1};
+  return null;
+}
+
+function chronologicalFilterCompare(left,right){
+  const a=filterDateParts(left),b=filterDateParts(right);
+  if(a&&b){
+    const compareYear=a.year&&b.year ? a.year-b.year : 0;
+    return compareYear||a.month-b.month||a.day-b.day||String(left).localeCompare(String(right));
+  }
+  if(a) return -1;
+  if(b) return 1;
+  return String(left).localeCompare(String(right),undefined,{numeric:true});
+}
+
 function isGlobalCountryFilter(id){
   return globalCountryFilterIds.includes(String(id||''));
 }
@@ -195,6 +231,7 @@ function syncGlobalCountryFilters(sourceId,selectedValues=[]){
 }
 
 function createMultiFilter(el,data,col,onChange,defaultValues=[]){
+  const keepMenuOpen=el.dataset.keepMenuOpen==='true';
   el.dataset.filterLabel=col;
   const values=uniqueValues(data,col);
   const smartScopeValues = {
@@ -216,6 +253,7 @@ function createMultiFilter(el,data,col,onChange,defaultValues=[]){
     });
     values.sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
   }
+  if(/month|date/i.test(`${el.id} ${col}`)) values.sort(chronologicalFilterCompare);
   const defaults=new Set(requestedDefaults);
 
   el.innerHTML=`
@@ -337,6 +375,8 @@ function createMultiFilter(el,data,col,onChange,defaultValues=[]){
     updateActiveFilterChips();
 
     if(keepOpen){
+      el.dataset.keepMenuOpen='true';
+      el.dataset.filterSearch=searchValue;
       // Rebuilding dependent filters replaces the menu. Restore it so users can
       // continue selecting multiple values without reopening the filter.
       const nextBtn=el.querySelector('.multi-filter-btn');
@@ -354,6 +394,8 @@ function createMultiFilter(el,data,col,onChange,defaultValues=[]){
       }
       if(nextOptions) nextOptions.scrollTop=optionsScrollTop;
     }else{
+      delete el.dataset.keepMenuOpen;
+      delete el.dataset.filterSearch;
       const nextBtn=el.querySelector('.multi-filter-btn');
       const nextMenu=el.querySelector('.multi-filter-menu');
       if(nextMenu) nextMenu.hidden=true;
@@ -366,6 +408,10 @@ function createMultiFilter(el,data,col,onChange,defaultValues=[]){
     closeOtherMenus(el);
     menu.hidden=!menu.hidden;
     btn.setAttribute('aria-expanded',String(!menu.hidden));
+    if(menu.hidden){
+      delete el.dataset.keepMenuOpen;
+      delete el.dataset.filterSearch;
+    }
     if(!menu.hidden){
       search.focus();
       search.select();
@@ -380,6 +426,8 @@ function createMultiFilter(el,data,col,onChange,defaultValues=[]){
     if(e.key==='Escape'){
       menu.hidden=true;
       btn.setAttribute('aria-expanded','false');
+      delete el.dataset.keepMenuOpen;
+      delete el.dataset.filterSearch;
       btn.focus();
       return;
     }
@@ -437,6 +485,8 @@ function createMultiFilter(el,data,col,onChange,defaultValues=[]){
   closeBtn.addEventListener('click',()=>{
     menu.hidden=true;
     btn.setAttribute('aria-expanded','false');
+    delete el.dataset.keepMenuOpen;
+    delete el.dataset.filterSearch;
   });
 
   // Expose the current selection so the dashboard tables can read it.
@@ -457,9 +507,28 @@ function createMultiFilter(el,data,col,onChange,defaultValues=[]){
   el._applySelection=()=>applySelection(false);
 
   updateLabel();
+  if(keepMenuOpen){
+    menu.hidden=false;
+    btn.setAttribute('aria-expanded','true');
+    search.value=el.dataset.filterSearch||'';
+    filterOptions();
+    search.focus({preventScroll:true});
+  }
   updateActiveFilterChips();
 }
-function closeOtherMenus(except){document.querySelectorAll('.multi-filter').forEach(el=>{if(el!==except){const m=el.querySelector('.multi-filter-menu');const b=el.querySelector('.multi-filter-btn');if(m){m.hidden=true;b?.setAttribute('aria-expanded','false');}}});}
+function closeOtherMenus(except){
+  document.querySelectorAll('.multi-filter').forEach(el=>{
+    if(el===except) return;
+    const menu=el.querySelector('.multi-filter-menu');
+    const btn=el.querySelector('.multi-filter-btn');
+    if(menu){
+      menu.hidden=true;
+      btn?.setAttribute('aria-expanded','false');
+    }
+    delete el.dataset.keepMenuOpen;
+    delete el.dataset.filterSearch;
+  });
+}
 document.addEventListener('click',()=>closeOtherMenus(null));
 
 function getSelected(id){return $(id)?._getSelected?.()||[];}
