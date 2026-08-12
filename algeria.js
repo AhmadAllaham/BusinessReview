@@ -359,13 +359,13 @@
       <td>${formatAmount(row.historical)}</td>
       <td>${formatAmount(row.forecast)}</td>
       <td>${stockCoverage(row.stock,row.historical,12).toFixed(1)}</td>
-      <td>${stockCoverage(row.stock,row.forecast,6).toFixed(1)}</td>
+      <td>${stockCoverage(row.stock,row.forecast,12).toFixed(1)}</td>
     </tr>`).join('');
     const totalRow=data.length?`<tr class="total-row">
       <td>Total</td><td>${formatAmount(totals.stock)}</td>
       <td>${formatAmount(totals.historical)}</td><td>${formatAmount(totals.forecast)}</td>
       <td>${stockCoverage(totals.stock,totals.historical,12).toFixed(1)}</td>
-      <td>${stockCoverage(totals.stock,totals.forecast,6).toFixed(1)}</td>
+      <td>${stockCoverage(totals.stock,totals.forecast,12).toFixed(1)}</td>
     </tr>`:'';
     const dimensionLabel=state.stockBrand
       ?`<button class="algeria-stock-back" type="button" data-algeria-stock-back>← ${escapeHtml(state.stockBrand)}</button>`
