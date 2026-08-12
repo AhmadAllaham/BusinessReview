@@ -4914,6 +4914,49 @@ body.algeria-table-spotlight .algeria-spotlight-stage .sm-spotlight-btn{backgrou
   .side-nav::after{display:none}
 }
 
+/* Sidebar navigation: bold text and a restrained neon glow only while hovering. */
+.side-nav :is(
+  .workspace-btn,
+  .side-submenu .tab-btn,
+  .side-submenu .algeria-tab-btn,
+  .profit-impact-open-btn
+){
+  transition:
+    color .18s ease,
+    background .18s ease,
+    border-color .18s ease,
+    box-shadow .18s ease,
+    text-shadow .18s ease,
+    font-weight .18s ease,
+    transform .18s ease;
+}
+.side-nav :is(
+  .workspace-btn,
+  .side-submenu .tab-btn,
+  .side-submenu .algeria-tab-btn,
+  .profit-impact-open-btn
+):hover{
+  color:#fff!important;
+  font-weight:900!important;
+  border-color:rgba(111,245,225,.42)!important;
+  background:linear-gradient(90deg,rgba(9,174,151,.34),rgba(5,89,101,.12))!important;
+  box-shadow:
+    0 0 0 1px rgba(79,231,209,.10),
+    0 0 13px rgba(52,226,201,.18),
+    inset 0 0 12px rgba(93,255,231,.06)!important;
+  text-shadow:0 0 7px rgba(147,255,239,.42)!important;
+}
+@media(prefers-reduced-motion:reduce){
+  .side-nav :is(
+    .workspace-btn,
+    .side-submenu .tab-btn,
+    .side-submenu .algeria-tab-btn,
+    .profit-impact-open-btn
+  ){
+    transition:none;
+  }
+}
+
 
 /* Stock Level row tracking: match the shared table hover exactly. */
 #stockSection .stock-statement-table tbody tr:hover:not(.total-row) > td,

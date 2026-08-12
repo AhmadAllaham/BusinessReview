@@ -108,6 +108,23 @@
       transform:translateY(-1px);
     }
 
+    html:not(.br-night-mode) .side-nav :is(
+      .workspace-btn,
+      .side-submenu .tab-btn,
+      .side-submenu .algeria-tab-btn,
+      .profit-impact-open-btn
+    ):hover{
+      color:#fff !important;
+      font-weight:900 !important;
+      border-color:rgba(111,245,225,.42) !important;
+      background:linear-gradient(90deg,rgba(9,174,151,.34),rgba(5,89,101,.12)) !important;
+      box-shadow:
+        0 0 0 1px rgba(79,231,209,.10),
+        0 0 13px rgba(52,226,201,.18),
+        inset 0 0 12px rgba(93,255,231,.06) !important;
+      text-shadow:0 0 7px rgba(147,255,239,.42) !important;
+    }
+
     html:not(.br-night-mode) :is(
       .multi-filter-btn,
       .multi-filter-menu,

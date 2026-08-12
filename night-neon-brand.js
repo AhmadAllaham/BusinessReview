@@ -85,18 +85,24 @@
     }
 
     html.br-night-mode body .workspace-btn,
-    html.br-night-mode body .side-submenu .tab-btn {
+    html.br-night-mode body .side-submenu .tab-btn,
+    html.br-night-mode body .side-submenu .algeria-tab-btn,
+    html.br-night-mode body .profit-impact-open-btn {
       color:#b7c9d5 !important;
       border:1px solid transparent !important;
       transition:background .22s ease,border-color .22s ease,color .22s ease,box-shadow .22s ease,transform .22s ease !important;
     }
 
     html.br-night-mode body .workspace-btn:hover,
-    html.br-night-mode body .side-submenu .tab-btn:hover {
-      background:linear-gradient(90deg,rgba(33,143,130,.10),rgba(11,49,88,.16)) !important;
-      border-color:rgba(33,143,130,.24) !important;
-      color:#f6fcff !important;
-      box-shadow:0 0 16px rgba(33,143,130,.08) !important;
+    html.br-night-mode body .side-submenu .tab-btn:hover,
+    html.br-night-mode body .side-submenu .algeria-tab-btn:hover,
+    html.br-night-mode body .profit-impact-open-btn:hover {
+      background:linear-gradient(90deg,rgba(9,174,151,.28),rgba(11,49,88,.16)) !important;
+      border-color:rgba(93,235,214,.38) !important;
+      color:#fff !important;
+      font-weight:900 !important;
+      box-shadow:0 0 14px rgba(52,226,201,.18),inset 0 0 12px rgba(93,255,231,.05) !important;
+      text-shadow:0 0 7px rgba(147,255,239,.40) !important;
       transform:translateX(2px);
     }
 
