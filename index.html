@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Business Review</title>
-  <link rel="stylesheet" href="style.css?v=markets-ap-months1" />
+  <link rel="stylesheet" href="style.css?v=20260812-mda-cleared1" />
   <link rel="stylesheet" href="profit-impact.css?v=20260811-test1" />
 </head>
 <body>
@@ -68,9 +68,7 @@
         <span>MD&amp;A</span>
         <span class="nav-chevron">›</span>
       </button>
-      <div class="side-submenu" id="mdaSubmenu">
-        <button class="mda-report-btn active" data-mda-report="markets-ap" type="button">Markets A&amp;P</button>
-      </div>
+      <div class="side-submenu" id="mdaSubmenu"></div>
       <div class="side-nav-foot">Reports are limited to your assigned countries.</div>
     </aside>
 
@@ -621,63 +619,7 @@
       </div>
 
       <div id="mdaWorkspace" class="workspace-pane">
-        <section id="marketsApPanel" class="mda-report-panel active" aria-label="Markets A&P report">
-          <article class="report-card markets-ap-card">
-            <div class="report-head markets-ap-head">
-              <div>
-                <span class="eyebrow">MANAGEMENT DISCUSSION &amp; ANALYSIS</span>
-                <h2>Markets A&amp;P</h2>
-                <p>IMS Private Sales compared with Advertising &amp; Promotion expenses by market.</p>
-              </div>
-              <div class="pnl-currency-switch performance-currency-switch" role="group" aria-label="Markets A&P currency">
-                <button class="active" type="button" data-markets-ap-currency="USD" aria-pressed="true">USD</button>
-                <button type="button" data-markets-ap-currency="JOD" aria-pressed="false">JOD</button>
-              </div>
-            </div>
-
-            <div class="markets-ap-filters" aria-label="Markets A&P filters">
-              <label>Market
-                <select id="marketsApMarketFilter" aria-label="Market"></select>
-              </label>
-              <label>Year
-                <select id="marketsApYearFilter" aria-label="Year"></select>
-              </label>
-              <label>Sales Months
-                <div id="marketsApMonthFilter" class="markets-ap-month-filter">
-                  <button id="marketsApMonthButton" class="markets-ap-month-button" type="button" aria-haspopup="true" aria-expanded="false">
-                    <span>Select months</span><span aria-hidden="true">▾</span>
-                  </button>
-                  <div id="marketsApMonthMenu" class="markets-ap-month-menu" hidden>
-                    <div id="marketsApMonthOptions" class="markets-ap-month-options"></div>
-                    <div class="markets-ap-month-actions">
-                      <button id="marketsApMonthAll" type="button">Select all</button>
-                      <button id="marketsApMonthClear" type="button">Clear</button>
-                      <button id="marketsApMonthClose" type="button">Close</button>
-                    </div>
-                  </div>
-                </div>
-              </label>
-            </div>
-
-            <div id="marketsApStatus" class="markets-ap-status">Choose Markets A&amp;P to load the report.</div>
-            <div class="markets-ap-table-wrap">
-              <table id="marketsApTable" class="markets-ap-table" aria-label="Markets A&P comparison">
-                <thead>
-                  <tr>
-                    <th>Indicator</th>
-                    <th>Actual</th>
-                    <th>Budget</th>
-                    <th>LY</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr><td colspan="4" class="markets-ap-empty">Waiting for report data.</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <p id="marketsApMappingNote" class="markets-ap-mapping-note" hidden></p>
-          </article>
-        </section>
+        <section class="report-card mda-empty-workspace" aria-label="MD&A workspace"></section>
       </div>
 
     </main>
@@ -813,12 +755,11 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
-  <script src="firebase-client.js?v=20260812-markets-ap-months1"></script>
+  <script src="firebase-client.js?v=20260812-mda-cleared1"></script>
   <script src="script.js?v=20260812-date-filter-ux1"></script>
   <script src="algeria.js?v=20260812-algeria-forecast12m1"></script>
   <script src="ksa-historical-stock-restore.js?v=20260806-3"></script>
   <script src="filter-persistence.js?v=20260810-filter2"></script>
   <script src="profit-impact.js?v=20260811-test2"></script>
-  <script src="mda-markets-ap.js?v=20260812-7"></script>
 </body>
 </html>

@@ -546,111 +546,6 @@
     return { sales,profitability };
   };
 
-  // Markets A&P loads one Sales market at a time. This keeps the MD&A report
-  // responsive for administrators while preserving the user's country scope.
-  window.BREnsureMarketsAPData = async function (requested={}) {
-    await loadSalesCanonicalizer();
-    const metadata = await getDatasetMetadata(active.sales);
-    const rawManifest = Array.isArray(metadata?.smartChunkManifest)
-      ? metadata.smartChunkManifest
-      : [];
-    const authorizedManifest = Number(metadata?.chunkSchemaVersion || 0) >= 2
-      ? salesManifestForUser(rawManifest)
-      : [];
-    const smartManifest = authorizedManifest
-      .filter(entry => (entry.scopeType || 'detail') === 'detail');
-
-    let legacyRows = null;
-    const availableRows = async () => {
-      if (legacyRows) return legacyRows;
-      legacyRows = await loadDataset(active.sales);
-      return legacyRows;
-    };
-    const manifestValues = key => [...new Set(
-      smartManifest.map(entry => String(entry[key] || '').trim()).filter(Boolean)
-    )];
-
-    let markets = manifestValues('country').sort((a,b) => a.localeCompare(b));
-    if (!markets.length) {
-      const rows = await availableRows();
-      markets = [...new Set(rows.map(row => String(row.Country || row.Market || '').trim()).filter(Boolean))]
-        .sort((a,b) => a.localeCompare(b));
-    }
-
-    const requestedMarket = String(requested.market || '').trim();
-    const market = markets.find(value => countryAliasKey(value) === countryAliasKey(requestedMarket)) || markets[0] || '';
-    const marketManifest = smartManifest.filter(entry => countryAliasKey(entry.country) === countryAliasKey(market));
-    let years = [...new Set(marketManifest.map(entry => String(entry.year || '').trim()).filter(Boolean))]
-      .sort((a,b) => Number(a)-Number(b));
-    if (!years.length) {
-      const rows = await availableRows();
-      years = [...new Set(rows
-        .filter(row => countryAliasKey(row.Country || row.Market) === countryAliasKey(market))
-        .map(row => String(row.Year || row['Fiscal Year'] || '').match(/(?:19|20|21)\d{2}/)?.[0] || '')
-        .filter(Boolean))].sort((a,b) => Number(a)-Number(b));
-    }
-    const requestedYear = String(requested.year || '').trim();
-    const year = years.includes(requestedYear) ? requestedYear : years[years.length-1] || '';
-
-    const yearManifest = marketManifest.filter(entry => !year || String(entry.year || '') === year);
-    let months = [...new Set(yearManifest.map(entry => String(entry.month || '').trim()).filter(Boolean))]
-      .sort((left,right) => {
-        const leftIndex=monthOrder.indexOf(left),rightIndex=monthOrder.indexOf(right);
-        return (leftIndex < 0 ? 99 : leftIndex)-(rightIndex < 0 ? 99 : rightIndex) || left.localeCompare(right);
-      });
-    if (!months.length) {
-      const rows = await availableRows();
-      months = [...new Set(rows
-        .filter(row => countryAliasKey(row.Country || row.Market) === countryAliasKey(market))
-        .filter(row => !year || String(row.Year || row['Fiscal Year'] || '').includes(year))
-        .map(row => String(row.Month || row['Reporting Month'] || '').trim())
-        .filter(Boolean))];
-    }
-    const requestedMonths = (Array.isArray(requested.months) ? requested.months : [requested.month])
-      .map(value => String(value || '').trim())
-      .filter(Boolean);
-    let selectedMonths = months.filter(value => requestedMonths.some(month => textKey(month) === textKey(value)));
-    if (!selectedMonths.length && months.length) selectedMonths = [months[months.length-1]];
-
-    let salesRows;
-    if (smartManifest.length) {
-      // Use the same product-level rows as the Sales report. Re-aggregating a
-      // separately generated summary can drift from the total users see in
-      // Sales when source columns or canonical aliases change.
-      const selectedYears = new Set([String(year)]);
-      const previousYear = Number(year)-1;
-      if (Number.isFinite(previousYear)) selectedYears.add(String(previousYear));
-      const detailEntries = authorizedManifest.filter(entry =>
-        (entry.scopeType || 'detail') === 'detail' &&
-        countryAliasKey(entry.country) === countryAliasKey(market) &&
-        selectedYears.has(String(entry.year || '')) &&
-        (!selectedMonths.length || selectedMonths.some(month => textKey(entry.month) === textKey(month)))
-      );
-      const hasCurrentDetail = detailEntries.some(entry => String(entry.year || '') === String(year));
-
-      salesRows = hasCurrentDetail
-        ? await readManifestChunks(detailEntries)
-        : await loadSmartSalesScope({
-            countries:market ? [market] : [],
-            years:year ? [...selectedYears] : [],
-            months:selectedMonths
-          });
-    } else {
-      salesRows = await availableRows();
-    }
-    const sales = typeof window.canonicalizeSalesRows === 'function'
-      ? window.canonicalizeSalesRows(salesRows || [])
-      : (salesRows || []);
-
-    if (!data.sm) data.sm = await loadDataset(active.sm);
-    return {
-      sales,
-      sm:data.sm || [],
-      options:{markets,years,months},
-      selected:{market,year,months:selectedMonths}
-    };
-  };
-
   async function mountDadAlgeria() {
     if (!hasReport('dadAlgeria')) return [];
     if (!data.dadAlgeria) data.dadAlgeria = await loadDataset(active.dadAlgeria);
@@ -758,7 +653,6 @@
           await mountDadAlgeria();
           break;
         case 'mda':
-          await window.mountMarketsAPReport?.();
           break;
         default:
           return;
@@ -820,14 +714,6 @@
   }
 
   document.addEventListener('click',event => {
-    const mdaWorkspace = event.target instanceof Element
-      ? event.target.closest('[data-workspace="mdaWorkspace"]')
-      : null;
-    if (mdaWorkspace) {
-      if (!hasReport('mda')) return;
-      setTimeout(() => ensureReport('mda').catch(console.error),0);
-      return;
-    }
     const workspace = event.target instanceof Element
       ? event.target.closest('[data-workspace="algeriaWorkspace"]')
       : null;
