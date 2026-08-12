@@ -546,6 +546,90 @@
     return { sales,profitability };
   };
 
+  // Markets A&P loads one Sales market at a time. This keeps the MD&A report
+  // responsive for administrators while preserving the user's country scope.
+  window.BREnsureMarketsAPData = async function (requested={}) {
+    await loadSalesCanonicalizer();
+    const metadata = await getDatasetMetadata(active.sales);
+    const rawManifest = Array.isArray(metadata?.smartChunkManifest)
+      ? metadata.smartChunkManifest
+      : [];
+    const smartManifest = Number(metadata?.chunkSchemaVersion || 0) >= 2
+      ? salesManifestForUser(rawManifest).filter(entry => (entry.scopeType || 'detail') === 'detail')
+      : [];
+
+    let legacyRows = null;
+    const availableRows = async () => {
+      if (legacyRows) return legacyRows;
+      legacyRows = await loadDataset(active.sales);
+      return legacyRows;
+    };
+    const manifestValues = key => [...new Set(
+      smartManifest.map(entry => String(entry[key] || '').trim()).filter(Boolean)
+    )];
+
+    let markets = manifestValues('country').sort((a,b) => a.localeCompare(b));
+    if (!markets.length) {
+      const rows = await availableRows();
+      markets = [...new Set(rows.map(row => String(row.Country || row.Market || '').trim()).filter(Boolean))]
+        .sort((a,b) => a.localeCompare(b));
+    }
+
+    const requestedMarket = String(requested.market || '').trim();
+    const market = markets.find(value => countryAliasKey(value) === countryAliasKey(requestedMarket)) || markets[0] || '';
+    const marketManifest = smartManifest.filter(entry => countryAliasKey(entry.country) === countryAliasKey(market));
+    let years = [...new Set(marketManifest.map(entry => String(entry.year || '').trim()).filter(Boolean))]
+      .sort((a,b) => Number(a)-Number(b));
+    if (!years.length) {
+      const rows = await availableRows();
+      years = [...new Set(rows
+        .filter(row => countryAliasKey(row.Country || row.Market) === countryAliasKey(market))
+        .map(row => String(row.Year || row['Fiscal Year'] || '').match(/(?:19|20|21)\d{2}/)?.[0] || '')
+        .filter(Boolean))].sort((a,b) => Number(a)-Number(b));
+    }
+    const requestedYear = String(requested.year || '').trim();
+    const year = years.includes(requestedYear) ? requestedYear : years[years.length-1] || '';
+
+    const yearManifest = marketManifest.filter(entry => !year || String(entry.year || '') === year);
+    let months = [...new Set(yearManifest.map(entry => String(entry.month || '').trim()).filter(Boolean))]
+      .sort((left,right) => {
+        const leftIndex=monthOrder.indexOf(left),rightIndex=monthOrder.indexOf(right);
+        return (leftIndex < 0 ? 99 : leftIndex)-(rightIndex < 0 ? 99 : rightIndex) || left.localeCompare(right);
+      });
+    if (!months.length) {
+      const rows = await availableRows();
+      months = [...new Set(rows
+        .filter(row => countryAliasKey(row.Country || row.Market) === countryAliasKey(market))
+        .filter(row => !year || String(row.Year || row['Fiscal Year'] || '').includes(year))
+        .map(row => String(row.Month || row['Reporting Month'] || '').trim())
+        .filter(Boolean))];
+    }
+    const requestedMonth = String(requested.month || '').trim();
+    const month = months.find(value => textKey(value) === textKey(requestedMonth)) || months[months.length-1] || '';
+
+    let salesRows;
+    if (smartManifest.length) {
+      salesRows = await loadSmartSalesScope({
+        countries:market ? [market] : [],
+        years:year ? [year] : [],
+        months:month ? [month] : []
+      });
+    } else {
+      salesRows = await availableRows();
+    }
+    const sales = typeof window.canonicalizeSalesRows === 'function'
+      ? window.canonicalizeSalesRows(salesRows || [])
+      : (salesRows || []);
+
+    if (!data.sm) data.sm = await loadDataset(active.sm);
+    return {
+      sales,
+      sm:data.sm || [],
+      options:{markets,years,months},
+      selected:{market,year,month}
+    };
+  };
+
   async function mountDadAlgeria() {
     if (!hasReport('dadAlgeria')) return [];
     if (!data.dadAlgeria) data.dadAlgeria = await loadDataset(active.dadAlgeria);
@@ -653,6 +737,7 @@
           await mountDadAlgeria();
           break;
         case 'mda':
+          await window.mountMarketsAPReport?.();
           break;
         default:
           return;
@@ -714,6 +799,14 @@
   }
 
   document.addEventListener('click',event => {
+    const mdaWorkspace = event.target instanceof Element
+      ? event.target.closest('[data-workspace="mdaWorkspace"]')
+      : null;
+    if (mdaWorkspace) {
+      if (!hasReport('mda')) return;
+      setTimeout(() => ensureReport('mda').catch(console.error),0);
+      return;
+    }
     const workspace = event.target instanceof Element
       ? event.target.closest('[data-workspace="algeriaWorkspace"]')
       : null;

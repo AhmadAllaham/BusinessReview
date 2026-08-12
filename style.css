@@ -1989,6 +1989,87 @@ body.stock-level-view .sales-header-upload{
   }
 }
 
+/* MD&A · Markets A&P */
+.side-submenu .mda-report-btn{
+  width:100%;
+  border:0;
+  border-left:2px solid #40545b;
+  border-radius:0;
+  background:transparent;
+  color:#aec0c5;
+  padding:9px 10px;
+  text-align:left;
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
+  transition:color .18s ease,background .18s ease,font-weight .18s ease,text-shadow .18s ease,box-shadow .18s ease;
+}
+.side-submenu .mda-report-btn:hover,
+.side-submenu .mda-report-btn:focus-visible,
+.side-submenu .mda-report-btn.active{
+  color:#fff;
+  background:#21363d;
+  border-left-color:#59c7b8;
+  border-radius:0 7px 7px 0;
+  font-weight:800;
+  text-shadow:0 0 6px rgba(89,199,184,.72),0 0 13px rgba(89,199,184,.32);
+  box-shadow:inset 0 0 11px rgba(89,199,184,.10);
+}
+.mda-report-panel{display:none}.mda-report-panel.active{display:block}
+.markets-ap-card{overflow:hidden}
+.markets-ap-head{align-items:center}
+.markets-ap-filters{
+  display:grid;
+  grid-template-columns:minmax(210px,1.4fr) repeat(2,minmax(140px,.7fr));
+  gap:14px;
+  padding:18px 20px;
+  border-top:1px solid var(--border);
+  border-bottom:1px solid var(--border);
+  background:linear-gradient(135deg,rgba(12,126,114,.045),rgba(63,123,210,.025));
+}
+.markets-ap-filters label{display:grid;gap:7px;color:var(--muted);font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+.markets-ap-filters select{
+  width:100%;
+  min-height:42px;
+  border:1px solid var(--border);
+  border-radius:9px;
+  background:var(--white);
+  color:var(--ink);
+  padding:0 12px;
+  font-family:inherit;
+  font-size:14px;
+  font-weight:700;
+  line-height:1;
+  outline:none;
+}
+.markets-ap-filters select:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(16,133,121,.12),0 0 12px rgba(16,133,121,.13)}
+.markets-ap-status{margin:18px 20px 0;padding:11px 13px;border-radius:9px;background:rgba(100,116,139,.08);color:var(--muted);font-size:13px;font-weight:700}
+.markets-ap-status.ready{background:rgba(16,133,121,.08);color:var(--teal)}
+.markets-ap-status.error{background:rgba(199,55,55,.08);color:#c73737}
+.markets-ap-table-wrap{padding:16px 20px 22px;overflow:auto}
+.markets-ap-table{width:100%;border-collapse:separate;border-spacing:0;min-width:620px}
+.markets-ap-table th,.markets-ap-table td{padding:16px 18px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);text-align:right}
+.markets-ap-table th{cursor:default;padding-right:18px}.markets-ap-table th::after{display:none}
+.markets-ap-table thead th{background:#123941;color:#fff;font-size:13px;text-transform:uppercase;letter-spacing:.035em}
+.markets-ap-table thead th:first-child{text-align:left;border-radius:9px 0 0 0}
+.markets-ap-table thead th:last-child{border-radius:0 9px 0 0}
+.markets-ap-table tbody th{background:rgba(15,118,110,.055);color:var(--ink);text-align:left;font-size:14px;font-weight:850;border-left:1px solid var(--border)}
+.markets-ap-table tbody td{color:var(--ink);font-size:18px;font-weight:800;font-variant-numeric:tabular-nums}
+.markets-ap-table tbody tr:hover th,.markets-ap-table tbody tr:hover td{background:rgba(23,187,169,.075);text-shadow:0 0 7px rgba(26,174,157,.18)}
+.markets-ap-table tbody tr:last-child th{border-radius:0 0 0 9px}
+.markets-ap-table tbody tr:last-child td:last-child{border-radius:0 0 9px 0}
+.markets-ap-table .markets-ap-percent{color:var(--teal);font-size:20px;text-shadow:0 0 5px rgba(16,133,121,.18)}
+.markets-ap-empty{text-align:center!important;color:var(--muted)!important;font-size:14px!important}
+.markets-ap-mapping-note{margin:-4px 20px 22px;padding:11px 13px;border:1px solid rgba(217,119,6,.24);border-radius:9px;background:rgba(245,158,11,.08);color:#a65b00;font-size:12px;font-weight:700}
+html.br-night-mode .markets-ap-filters select{background:#10252b;color:#e9f7f5;border-color:rgba(91,220,203,.2)}
+html.br-night-mode .markets-ap-table thead th{background:#0b3036}
+html.br-night-mode .markets-ap-table tbody th{background:rgba(61,215,194,.055)}
+html.br-night-mode .markets-ap-table tbody td{color:#e9f7f5}
+html.br-night-mode .markets-ap-status.ready{color:#58dac8}
+html.br-night-mode .markets-ap-mapping-note{color:#f7bd63}
+@media(max-width:760px){.markets-ap-filters{grid-template-columns:1fr}.markets-ap-head{align-items:flex-start}.markets-ap-table-wrap{padding-inline:12px}}
+@media(prefers-reduced-motion:reduce){.side-submenu .mda-report-btn{transition:none}}
+
 /* Align the Margin Analysis heading with the P&L content */
 .pnl-sm-theme .pnl-margin-header{
   margin-bottom:0;
