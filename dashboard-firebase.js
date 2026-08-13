@@ -181,8 +181,10 @@
   const mounted = new Set();
   const datasetMetadataCache = new Map();
   const smartSalesScopeCache = new Map();
+  const smartSalesChunkCache = new Map();
   let currentSalesScope = null;
   let salesScopeTimer = 0;
+  let salesScopeRequestId = 0;
 
   const textKey = value => String(value || '').trim().toLocaleLowerCase('en-US');
   const monthOrder = [
@@ -285,35 +287,52 @@
     });
   }
 
+  async function readSmartSalesChunk(entry) {
+    const id=String(entry?.id || '');
+    if (!id) return {chunkIndex:0,rows:[]};
+    if (smartSalesChunkCache.has(id)) return smartSalesChunkCache.get(id);
+
+    const promise=(async () => {
+      let snapshot;
+      try {
+        snapshot=await BRPortal.db.collection('reportChunks').doc(id).get({source:'server'});
+      } catch (error) {
+        console.warn('Using a cached Sales chunk because Firestore is unavailable.',error);
+        snapshot=await BRPortal.db.collection('reportChunks').doc(id).get({source:'cache'});
+      }
+      if (!snapshot.exists) return {chunkIndex:Number(entry.chunkIndex)||0,rows:[]};
+      const payload=snapshot.data();
+      return {
+        chunkIndex:Number(payload.chunkIndex ?? entry.chunkIndex) || 0,
+        rows:(payload.rows || []).map(row => row.payload || {})
+      };
+    })();
+
+    smartSalesChunkCache.set(id,promise);
+    try {
+      return await promise;
+    } catch (error) {
+      smartSalesChunkCache.delete(id);
+      throw error;
+    }
+  }
+
   async function readManifestChunks(entries) {
-    const key = entries.map(entry => entry.id).sort().join('|');
+    const key=entries.map(entry => entry.id).sort().join('|');
     if (!key) return [];
     if (smartSalesScopeCache.has(key)) return smartSalesScopeCache.get(key);
 
-    const promise = (async () => {
-      const docs = [];
+    const promise=(async () => {
+      const chunks=[];
       for (let start=0; start<entries.length; start+=30) {
-        const group = entries.slice(start,start+30);
-        let snapshots;
-        try {
-          snapshots = await Promise.all(group.map(entry =>
-            BRPortal.db.collection('reportChunks').doc(entry.id).get({source:'server'})
-          ));
-        } catch (error) {
-          console.warn('Using cached Sales chunks because Firestore is unavailable.',error);
-          snapshots = await Promise.all(group.map(entry =>
-            BRPortal.db.collection('reportChunks').doc(entry.id).get({source:'cache'})
-          ));
-        }
-        snapshots.forEach(snapshot => {
-          if (snapshot.exists) docs.push(snapshot);
-        });
+        const group=entries.slice(start,start+30);
+        chunks.push(...await Promise.all(group.map(readSmartSalesChunk)));
       }
-      return docs
-        .sort((left,right) => (left.data().chunkIndex || 0)-(right.data().chunkIndex || 0))
-        .flatMap(snapshot => snapshot.data().rows || [])
-        .map(row => row.payload || {});
+      return chunks
+        .sort((left,right) => left.chunkIndex-right.chunkIndex)
+        .flatMap(chunk => chunk.rows);
     })();
+
     smartSalesScopeCache.set(key,promise);
     try {
       return await promise;
@@ -412,9 +431,11 @@
     return data.sales;
   }
 
-  async function reloadSalesScope(scope) {
+  async function reloadSalesScope(scope,requestId) {
     const smartRows = await loadSmartSalesScope(scope);
-    if (smartRows === null) return;
+    if (smartRows === null) return false;
+    // A slower, older month request must never overwrite the latest selection.
+    if (requestId !== salesScopeRequestId) return false;
     data.sales = typeof window.canonicalizeSalesRows === 'function'
       ? window.canonicalizeSalesRows(smartRows)
       : smartRows;
@@ -422,6 +443,7 @@
     const reportKey = activeTab === 'focSection' ? 'focAnalysis' : 'salesAnalysis';
     window.loadSalesRowsFromDatabase?.(data.sales,reportKey,{preserveFilters:true});
     mounted.add('sales');
+    return true;
   }
 
   function selectedSalesScope() {
@@ -439,16 +461,18 @@
   document.addEventListener('br:sales-scope-change',() => {
     if (!currentSalesScope) return;
     clearTimeout(salesScopeTimer);
+    const requestId=++salesScopeRequestId;
     salesScopeTimer=setTimeout(async () => {
       try {
         showStatus('Loading the selected Sales scope…');
-        await reloadSalesScope(selectedSalesScope());
-        showStatus('Sales is ready.',true,false);
+        const applied=await reloadSalesScope(selectedSalesScope(),requestId);
+        if (applied) showStatus('Sales is ready.',true,false);
       } catch (error) {
+        if (requestId !== salesScopeRequestId) return;
         console.error(error);
         showStatus(error?.message || 'Unable to load the selected Sales scope.',false,true);
       }
-    },120);
+    },180);
   });
 
   async function mountSales(reportKey='all') {

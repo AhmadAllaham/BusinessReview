@@ -232,6 +232,9 @@ function syncGlobalCountryFilters(sourceId,selectedValues=[]){
 
 function createMultiFilter(el,data,col,onChange,defaultValues=[]){
   const keepMenuOpen=el.dataset.keepMenuOpen==='true';
+  const deferRepeatedDateChanges=/month|date/i.test(`${el.id} ${col}`);
+  let pendingApplyTimer=0;
+  let pendingApplyCommit=null;
   el.dataset.filterLabel=col;
   const values=uniqueValues(data,col);
   const smartScopeValues = {
@@ -363,16 +366,37 @@ function createMultiFilter(el,data,col,onChange,defaultValues=[]){
     if(isGlobalCountryFilter(el.id) && !globalCountrySyncing){
       globalCountrySelection=[...new Set(selectedNow)];
     }
-    onChange();
-    if(['countryFilter','yearFilter','monthFilter'].includes(el.id)){
-      document.dispatchEvent(new CustomEvent('br:sales-scope-change',{
-        detail:{filterId:el.id,values:[...selectedNow]}
-      }));
+    const commitSelection=()=>{
+      onChange();
+      if(['countryFilter','yearFilter','monthFilter'].includes(el.id)){
+        document.dispatchEvent(new CustomEvent('br:sales-scope-change',{
+          detail:{filterId:el.id,values:[...selectedNow]}
+        }));
+      }
+      if(isGlobalCountryFilter(el.id) && !globalCountrySyncing){
+        syncGlobalCountryFilters(el.id,selectedNow);
+      }
+      updateActiveFilterChips();
+    };
+
+    if(deferRepeatedDateChanges&&keepOpen){
+      clearTimeout(pendingApplyTimer);
+      pendingApplyCommit=commitSelection;
+      // A month checkbox used to rebuild every dependent filter and start a
+      // Firestore scope load on every click. Commit once after the user pauses,
+      // so selecting several months remains responsive.
+      pendingApplyTimer=setTimeout(()=>{
+        const commit=pendingApplyCommit;
+        pendingApplyCommit=null;
+        pendingApplyTimer=0;
+        commit?.();
+      },420);
+    }else{
+      clearTimeout(pendingApplyTimer);
+      pendingApplyTimer=0;
+      pendingApplyCommit=null;
+      commitSelection();
     }
-    if(isGlobalCountryFilter(el.id) && !globalCountrySyncing){
-      syncGlobalCountryFilters(el.id,selectedNow);
-    }
-    updateActiveFilterChips();
 
     if(keepOpen){
       el.dataset.keepMenuOpen='true';
@@ -487,6 +511,13 @@ function createMultiFilter(el,data,col,onChange,defaultValues=[]){
     btn.setAttribute('aria-expanded','false');
     delete el.dataset.keepMenuOpen;
     delete el.dataset.filterSearch;
+    if(pendingApplyCommit){
+      clearTimeout(pendingApplyTimer);
+      const commit=pendingApplyCommit;
+      pendingApplyCommit=null;
+      pendingApplyTimer=0;
+      commit();
+    }
   });
 
   // Expose the current selection so the dashboard tables can read it.
