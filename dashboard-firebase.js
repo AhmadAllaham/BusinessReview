@@ -111,6 +111,15 @@
       ? []
       : [profile.countries];
   const allowedCountries = [...new Set(rawCountries.map(value => String(value || '').trim()).filter(Boolean))];
+  // Report-specific controls can use the authenticated assignment without
+  // exposing Firestore access or broadening any data permission.
+  window.BR_CURRENT_USER_SCOPE = {
+    isAdmin,
+    countries:[...allowedCountries]
+  };
+  document.dispatchEvent(new CustomEvent('br:user-scope-ready',{
+    detail:window.BR_CURRENT_USER_SCOPE
+  }));
   const GCC_COUNTRIES = [
     'GCC','UAE','United Arab Emirates','Qatar','Bahrain','Kuwait','Oman'
   ];

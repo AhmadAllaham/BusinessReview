@@ -53,8 +53,19 @@
     return markets.length === 1 && isKsa(markets[0]);
   }
 
+  function isSaudiAssignedUser() {
+    const scope=window.BR_CURRENT_USER_SCOPE;
+    if (!scope || scope.isAdmin) return false;
+    const countries=[...new Set(
+      (Array.isArray(scope.countries) ? scope.countries : [scope.countries])
+        .map(countryKey)
+        .filter(Boolean)
+    )];
+    return countries.length === 1 && isKsa(countries[0]);
+  }
+
   function adjustmentEnabled() {
-    return excludeExpectedReturn && isKsaOnlyScope();
+    return excludeExpectedReturn && isSaudiAssignedUser() && isKsaOnlyScope();
   }
 
   pnlScenarioTotals = function (rows, scenario) {
@@ -190,7 +201,7 @@
 
     control.querySelectorAll('[data-pnl-ksa-return-mode]').forEach(button => {
       button.addEventListener('click', () => {
-        if (!isKsaOnlyScope()) return;
+        if (!isSaudiAssignedUser() || !isKsaOnlyScope()) return;
         excludeExpectedReturn = button.dataset.pnlKsaReturnMode === 'excluded';
         syncControl();
         renderPnlVertical();
@@ -204,10 +215,10 @@
     const control = installControl();
     if (!control) return;
 
-    const ksaOnly = isKsaOnlyScope();
-    if (!ksaOnly) excludeExpectedReturn = false;
-    control.hidden = !ksaOnly;
-    control.classList.toggle('is-adjusted', ksaOnly && excludeExpectedReturn);
+    const canUseControl=isSaudiAssignedUser() && isKsaOnlyScope();
+    if (!canUseControl) excludeExpectedReturn = false;
+    control.hidden = !canUseControl;
+    control.classList.toggle('is-adjusted', canUseControl && excludeExpectedReturn);
 
     control.querySelectorAll('[data-pnl-ksa-return-mode]').forEach(button => {
       const mode = button.dataset.pnlKsaReturnMode;
@@ -226,6 +237,7 @@
     return originalRenderPnlVertical.apply(this, args);
   };
 
+  document.addEventListener('br:user-scope-ready',syncControl);
   installControl();
   syncControl();
 })();
