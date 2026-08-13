@@ -3,7 +3,7 @@
 
   const byId=id=>document.getElementById(id);
   const USD_TO_JOD=0.709;
-  const state={currency:'USD',pnlComparison:'standard',pnlView:'full',pnl:[],sm:[],ga:[],stock:[],stockBrand:'',fileName:''};
+  const state={currency:'USD',pnlComparison:'standard',expenseComparison:'standard',pnlView:'full',pnl:[],sm:[],ga:[],stock:[],stockBrand:'',fileName:''};
 
   function normalizeText(value){
     return String(value??'')
@@ -158,6 +158,16 @@
 
   function statementHeader(firstLabel,expenseFormat=false){
     const currency=`${state.currency} '000`;
+    if(expenseFormat&&state.expenseComparison==='fyBudget'){
+      return `<thead>
+        <tr class="sm-statement-group-head sm-fy-budget-head">
+          <th>${escapeHtml(firstLabel)}</th>
+          <th class="sm-actual-head">Actual<br><small>${currency}</small></th>
+          <th>FY Budget<br><small>${currency}</small></th>
+          <th>Remaining<br><small>${currency}</small></th>
+        </tr>
+      </thead>`;
+    }
     if(expenseFormat){
       return `<thead>
         <tr class="sm-statement-group-head">
@@ -198,9 +208,12 @@
     const table=byId(tableId);
     const count=byId(countId);
     const expenseFormat=tableId!=='algeriaPnlTable';
-    const fyBudgetFormat=!expenseFormat&&state.pnlComparison==='fyBudget';
+    const fyBudgetFormat=expenseFormat
+      ?state.expenseComparison==='fyBudget'
+      :state.pnlComparison==='fyBudget';
     const visibleRows=expenseFormat?rows:pnlVisibleRows(rows);
     if(!table) return;
+    table.classList.toggle('algeria-fy-budget-view',fyBudgetFormat);
     if(!expenseFormat) table.classList.toggle('algeria-pnl-fy-budget',fyBudgetFormat);
     if(!visibleRows.length){
       table.innerHTML=`${statementHeader(firstLabel,expenseFormat)}<tbody><tr><td colspan="${fyBudgetFormat?4:8}" class="algeria-empty-cell">Upload the Algeria workbook to display this report.</td></tr></tbody>`;
@@ -218,7 +231,7 @@
         <td>${escapeHtml(row.label)}</td>
         <td class="${amountClass(row.actual)}">${formatAmount(row.actual)}</td>
         <td class="${amountClass(row.fyBudget)}">${formatAmount(row.fyBudget)}</td>
-        <td class="${varianceClass(remaining)} ${amountClass(remaining)}">${formatAmount(remaining)}</td>
+        <td class="${expenseFormat?expenseVarianceClass(remaining):varianceClass(remaining)} ${amountClass(remaining)}">${formatAmount(remaining)}</td>
       </tr>`:`<tr class="${rowClass}">
         <td>${escapeHtml(row.label)}</td>
         <td class="${amountClass(row.actual)}">${formatAmount(row.actual)}</td>
@@ -509,6 +522,19 @@
       });
       renderStatement('algeriaPnlTable',state.pnl,'P&L Line','algeriaPnlCount');
       renderRatios();
+    });
+  });
+
+  document.querySelectorAll('[data-algeria-expense-comparison]').forEach(button=>{
+    button.addEventListener('click',()=>{
+      state.expenseComparison=button.dataset.algeriaExpenseComparison==='fyBudget'?'fyBudget':'standard';
+      document.querySelectorAll('[data-algeria-expense-comparison]').forEach(option=>{
+        const active=option.dataset.algeriaExpenseComparison===state.expenseComparison;
+        option.classList.toggle('active',active);
+        option.setAttribute('aria-pressed',String(active));
+      });
+      renderStatement('algeriaSmTable',state.sm,'S&M Expense','algeriaSmCount');
+      renderStatement('algeriaGaTable',state.ga,'G&A Expense','algeriaGaCount');
     });
   });
 

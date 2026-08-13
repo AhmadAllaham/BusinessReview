@@ -211,6 +211,12 @@
     const actualIndex = headers.indexOf("actual");
     const budgetIndex = headers.indexOf("budget");
     const lyIndex = headers.indexOf("ly");
+    const fyBudgetIndex = headers.findIndex(header =>
+      header === "fybudget" ||
+      header === "fullyearbudget" ||
+      header === "annualbudget" ||
+      header === "budgetfy"
+    );
     let labelIndex = headers.indexOf("expensescategory");
     if (labelIndex < 0) {
       labelIndex = matrix[headerIndex].findIndex((value,index) =>
@@ -233,6 +239,7 @@
           Actual:numberValue(values[actualIndex]),
           Budget:numberValue(values[budgetIndex]),
           LY:numberValue(values[lyIndex]),
+          "FY Budget":fyBudgetIndex >= 0 ? numberValue(values[fyBudgetIndex]) : 0,
           "Display Order":index + 1
         }
       };
