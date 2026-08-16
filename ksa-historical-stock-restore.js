@@ -120,8 +120,9 @@
   if (window.__BR_KSA_PNL_COMPENSATION_NOTE__) return;
   window.__BR_KSA_PNL_COMPENSATION_NOTE__ = true;
 
-  const NOTE_LABEL = 'FOC ( COMPASATION)';
-  const NOTE_VALUE = 174;
+  const NOTE_LABEL = 'FOC (COMPENSATION)';
+  const AFTER_LABEL = 'Net Income after FOC Compensation';
+  const NOTE_VALUE = -174;
 
   const normalizeMarket = value => String(value ?? '')
     .normalize('NFKC')
@@ -163,9 +164,68 @@
     return markets.length === 1 && isSaudiMarket(markets[0]);
   }
 
+  function currentNetIncome() {
+    if (
+      typeof pnlFilteredRows === 'function' &&
+      typeof pnlScenarioTotals === 'function' &&
+      typeof pnlConvertCurrency === 'function'
+    ) {
+      const totals=pnlConvertCurrency(
+        pnlScenarioTotals(pnlFilteredRows(),'Actual')
+      );
+      return Number(totals?.netIncome) || 0;
+    }
+
+    const table=document.getElementById('pnlTable');
+    const netIncomeRow=[...(table?.tBodies?.[0]?.rows || [])].find(row =>
+      normalizeMarket(row.cells?.[0]?.textContent) === 'netincome'
+    );
+    const text=String(netIncomeRow?.cells?.[1]?.textContent || '').trim();
+    const accounting=/^\(.*\)$/.test(text);
+    const number=Number(text.replace(/[(),]/g,'').replace(/[^0-9.-]/g,''));
+    return Number.isFinite(number)
+      ? accounting ? -Math.abs(number) : number
+      : 0;
+  }
+
+  function formatAmount(value) {
+    if (typeof pnlFormat === 'function') return pnlFormat(value);
+    const rounded=Math.round(Number(value) || 0);
+    return rounded < 0
+      ? `(${Math.abs(rounded).toLocaleString('en-US')})`
+      : rounded.toLocaleString('en-US');
+  }
+
+  function buildInformationalRow(label,value,className) {
+    const table=document.getElementById('pnlTable');
+    const isFyBudgetView=Boolean(
+      table?.querySelector('thead .pnl-fy-budget-head')
+    );
+    const totalColumns=isFyBudgetView ? 4 : 8;
+    const row=document.createElement('tr');
+    row.className=className;
+    row.dataset.ksaPnlCompensationNote='true';
+
+    const labelCell=document.createElement('td');
+    labelCell.textContent=label;
+    labelCell.style.fontWeight='800';
+    row.appendChild(labelCell);
+
+    const actualCell=document.createElement('td');
+    actualCell.textContent=formatAmount(value);
+    actualCell.style.fontWeight='800';
+    if (value < 0) actualCell.classList.add('pnl-amount-negative');
+    row.appendChild(actualCell);
+
+    for (let index=2; index<totalColumns; index+=1) {
+      row.appendChild(document.createElement('td'));
+    }
+    return row;
+  }
+
   function addCompensationNote() {
-    const table = document.getElementById('pnlTable');
-    const body = table?.tBodies?.[0];
+    const table=document.getElementById('pnlTable');
+    const body=table?.tBodies?.[0];
     if (!body) return;
 
     body.querySelectorAll('[data-ksa-pnl-compensation-note]')
@@ -173,42 +233,35 @@
 
     if (!shouldShowNote()) return;
 
-    const isFyBudgetView = Boolean(
-      table.querySelector('thead .pnl-fy-budget-head')
+    const netIncomeAfter=currentNetIncome()+NOTE_VALUE;
+    const compensationRow=buildInformationalRow(
+      NOTE_LABEL,
+      NOTE_VALUE,
+      'pnl-ksa-compensation-note'
     );
-    const totalColumns = isFyBudgetView ? 4 : 8;
-    const row = document.createElement('tr');
-    row.className = 'pnl-ksa-compensation-note';
-    row.dataset.ksaPnlCompensationNote = 'true';
-    row.title = 'Informational note only. Excluded from all P&L calculations, totals, ratios and KPIs.';
+    compensationRow.title='Negative FOC compensation; informational only and excluded from the original P&L calculations and KPIs.';
 
-    const labelCell = document.createElement('td');
-    labelCell.textContent = NOTE_LABEL;
-    labelCell.style.fontStyle = 'italic';
-    labelCell.style.fontWeight = '700';
-    row.appendChild(labelCell);
+    const afterRow=buildInformationalRow(
+      AFTER_LABEL,
+      netIncomeAfter,
+      'pnl-ksa-net-income-after-compensation pnl-subtotal pnl-statement-total'
+    );
+    afterRow.title='Net Income plus the negative FOC Compensation; informational only.';
 
-    const actualCell = document.createElement('td');
-    actualCell.textContent = NOTE_VALUE.toLocaleString('en-US');
-    actualCell.style.fontWeight = '700';
-    row.appendChild(actualCell);
-
-    for (let index = 2; index < totalColumns; index += 1) {
-      row.appendChild(document.createElement('td'));
-    }
-
-    const ratioSpacer = body.querySelector('.pnl-ratio-spacer');
+    const ratioSpacer=body.querySelector('.pnl-ratio-spacer');
     if (ratioSpacer) {
-      body.insertBefore(row, ratioSpacer);
+      body.insertBefore(compensationRow,ratioSpacer);
+      body.insertBefore(afterRow,ratioSpacer);
     } else {
-      body.appendChild(row);
+      body.appendChild(compensationRow);
+      body.appendChild(afterRow);
     }
   }
 
-  const originalRenderPnlVertical = window.renderPnlVertical;
+  const originalRenderPnlVertical=window.renderPnlVertical;
   if (typeof originalRenderPnlVertical === 'function') {
-    window.renderPnlVertical = function (...args) {
-      const result = originalRenderPnlVertical.apply(this, args);
+    window.renderPnlVertical=function (...args) {
+      const result=originalRenderPnlVertical.apply(this,args);
       addCompensationNote();
       return result;
     };
@@ -217,10 +270,10 @@
   if (document.readyState === 'loading') {
     document.addEventListener(
       'DOMContentLoaded',
-      () => setTimeout(addCompensationNote, 0),
+      () => setTimeout(addCompensationNote,0),
       {once:true}
     );
   } else {
-    setTimeout(addCompensationNote, 0);
+    setTimeout(addCompensationNote,0);
   }
 })();
