@@ -120,7 +120,7 @@
   if (window.__BR_KSA_PNL_COMPENSATION_NOTE__) return;
   window.__BR_KSA_PNL_COMPENSATION_NOTE__ = true;
 
-  const NOTE_LABEL = 'FOC (COMPENSATION)';
+  const NOTE_LABEL = 'FOC Compensation';
   const AFTER_LABEL = 'Net Income after FOC Compensation';
   const NOTE_VALUE = -174;
 
@@ -128,7 +128,7 @@
     .normalize('NFKC')
     .trim()
     .toLocaleLowerCase('en-US')
-    .replace(/[^\p{L}\p{N}]+/gu, '');
+    .replace(/[^\\p{L}\\p{N}]+/gu, '');
 
   function isSaudiMarket(value) {
     const market = normalizeMarket(value);
@@ -164,24 +164,26 @@
     return markets.length === 1 && isSaudiMarket(markets[0]);
   }
 
-  function currentNetIncome() {
+  function scenarioNetIncome(scenario) {
     if (
       typeof pnlFilteredRows === 'function' &&
       typeof pnlScenarioTotals === 'function' &&
       typeof pnlConvertCurrency === 'function'
     ) {
       const totals=pnlConvertCurrency(
-        pnlScenarioTotals(pnlFilteredRows(),'Actual')
+        pnlScenarioTotals(pnlFilteredRows(),scenario)
       );
       return Number(totals?.netIncome) || 0;
     }
+
+    if (scenario !== 'Actual') return 0;
 
     const table=document.getElementById('pnlTable');
     const netIncomeRow=[...(table?.tBodies?.[0]?.rows || [])].find(row =>
       normalizeMarket(row.cells?.[0]?.textContent) === 'netincome'
     );
     const text=String(netIncomeRow?.cells?.[1]?.textContent || '').trim();
-    const accounting=/^\(.*\)$/.test(text);
+    const accounting=/^\\(.*\\)$/.test(text);
     const number=Number(text.replace(/[(),]/g,'').replace(/[^0-9.-]/g,''));
     return Number.isFinite(number)
       ? accounting ? -Math.abs(number) : number
@@ -196,12 +198,62 @@
       : rounded.toLocaleString('en-US');
   }
 
-  function buildInformationalRow(label,value,className) {
+  function addClassNames(cell,...names) {
+    names
+      .flatMap(name => String(name || '').split(/\\s+/))
+      .filter(Boolean)
+      .forEach(name => cell.classList.add(name));
+  }
+
+  function amountClass(value) {
+    return typeof pnlAmountClass === 'function'
+      ? pnlAmountClass(value)
+      : Number(value) < 0 ? 'pnl-amount-negative' : '';
+  }
+
+  function varianceClass(value) {
+    return typeof pnlVarianceClass === 'function'
+      ? pnlVarianceClass(value)
+      : Number(value) < 0 ? 'pnl-variance-negative' :
+        Number(value) > 0 ? 'pnl-variance-positive' : '';
+  }
+
+  function appendAmountCell(row,value,{variance=false}={}) {
+    const cell=document.createElement('td');
+    cell.textContent=formatAmount(value);
+    addClassNames(
+      cell,
+      amountClass(value),
+      variance ? varianceClass(value) : ''
+    );
+    row.appendChild(cell);
+  }
+
+  function appendPercentCell(row,variance,comparison) {
+    const cell=document.createElement('td');
+    cell.textContent=Number(comparison) === 0
+      ? '0.0%'
+      : typeof pnlPercent === 'function'
+        ? pnlPercent(variance,comparison)
+        : `${((Number(variance) / Math.abs(Number(comparison))) * 100).toFixed(1)}%`;
+    addClassNames(
+      cell,
+      'pnl-percent',
+      varianceClass(variance),
+      amountClass(variance)
+    );
+    row.appendChild(cell);
+  }
+
+  function buildPnlRow(label,values,className) {
     const table=document.getElementById('pnlTable');
     const isFyBudgetView=Boolean(
       table?.querySelector('thead .pnl-fy-budget-head')
     );
-    const totalColumns=isFyBudgetView ? 4 : 8;
+    const actual=Number(values.actual) || 0;
+    const budget=Number(values.budget) || 0;
+    const ly=Number(values.ly) || 0;
+    const fyBudget=Number(values.fyBudget) || 0;
     const row=document.createElement('tr');
     row.className=className;
     row.dataset.ksaPnlCompensationNote='true';
@@ -211,15 +263,22 @@
     labelCell.style.fontWeight='800';
     row.appendChild(labelCell);
 
-    const actualCell=document.createElement('td');
-    actualCell.textContent=formatAmount(value);
-    actualCell.style.fontWeight='800';
-    if (value < 0) actualCell.classList.add('pnl-amount-negative');
-    row.appendChild(actualCell);
+    appendAmountCell(row,actual);
 
-    for (let index=2; index<totalColumns; index+=1) {
-      row.appendChild(document.createElement('td'));
+    if (isFyBudgetView) {
+      appendAmountCell(row,fyBudget);
+      appendAmountCell(row,fyBudget-actual,{variance:true});
+      return row;
     }
+
+    const vsBudget=actual-budget;
+    const vsLy=actual-ly;
+    appendAmountCell(row,budget);
+    appendAmountCell(row,vsBudget,{variance:true});
+    appendPercentCell(row,vsBudget,budget);
+    appendAmountCell(row,ly);
+    appendAmountCell(row,vsLy,{variance:true});
+    appendPercentCell(row,vsLy,ly);
     return row;
   }
 
@@ -233,20 +292,29 @@
 
     if (!shouldShowNote()) return;
 
-    const netIncomeAfter=currentNetIncome()+NOTE_VALUE;
-    const compensationRow=buildInformationalRow(
+    const actualNetIncome=scenarioNetIncome('Actual');
+    const budgetNetIncome=scenarioNetIncome('Budget');
+    const lyNetIncome=scenarioNetIncome('LY');
+    const fyBudgetNetIncome=scenarioNetIncome('FY Budget');
+
+    const compensationRow=buildPnlRow(
       NOTE_LABEL,
-      NOTE_VALUE,
+      {actual:NOTE_VALUE,budget:0,ly:0,fyBudget:0},
       'pnl-ksa-compensation-note'
     );
-    compensationRow.title='Negative FOC compensation; informational only and excluded from the original P&L calculations and KPIs.';
+    compensationRow.title='Negative FOC Compensation with zero comparison values and calculated variances.';
 
-    const afterRow=buildInformationalRow(
+    const afterRow=buildPnlRow(
       AFTER_LABEL,
-      netIncomeAfter,
+      {
+        actual:actualNetIncome+NOTE_VALUE,
+        budget:budgetNetIncome,
+        ly:lyNetIncome,
+        fyBudget:fyBudgetNetIncome
+      },
       'pnl-ksa-net-income-after-compensation pnl-subtotal pnl-statement-total'
     );
-    afterRow.title='Net Income plus the negative FOC Compensation; informational only.';
+    afterRow.title='Adjusted Net Income with Budget, LY, FY Budget and variances calculated like the other P&L lines.';
 
     const ratioSpacer=body.querySelector('.pnl-ratio-spacer');
     if (ratioSpacer) {
