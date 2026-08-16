@@ -9,9 +9,8 @@
 
   window.__BR_KSA_PNL_EXPECTED_RETURN__ = true;
 
-  const originalScenarioTotals = pnlScenarioTotals;
   const originalRenderPnlVertical = renderPnlVertical;
-  let excludeExpectedReturn = true;
+  let excludeExpectedReturn = false;
 
   function countryKey(value) {
     return String(value ?? '')
@@ -64,33 +63,6 @@
     )];
     return countries.length === 1 && isKsa(countries[0]);
   }
-
-  function adjustmentEnabled() {
-    return excludeExpectedReturn && isSaudiAssignedUser();
-  }
-
-  pnlScenarioTotals = function (rows, scenario) {
-    const totals = originalScenarioTotals.call(this, rows, scenario);
-    if (scenario !== 'Actual' || !adjustmentEnabled()) return totals;
-
-    const adjusted = { ...totals };
-    const numberValue = value => typeof pnlNumber === 'function'
-      ? pnlNumber(value)
-      : Number(value) || 0;
-    const actualReturn = numberValue(adjusted.actualReturn);
-    const expectedReturn = numberValue(adjusted.expectedReturn);
-    const totalReturn = actualReturn + expectedReturn;
-    const addBack = -totalReturn;
-
-    // Exclude the complete Return from Saudi Actual. Budget, LY and FY Budget remain reported.
-    adjusted.actualReturn = 0;
-    adjusted.expectedReturn = 0;
-    adjusted.netSales = numberValue(adjusted.netSales) + addBack;
-    adjusted.grossProfit = numberValue(adjusted.grossProfit) + addBack;
-    adjusted.netIncome = numberValue(adjusted.netIncome) + addBack;
-
-    return adjusted;
-  };
 
   function installStyles() {
     if (document.getElementById('pnlKsaExpectedReturnStyles')) return;
@@ -206,7 +178,9 @@
 
     control.querySelectorAll('[data-pnl-ksa-return-mode]').forEach(button => {
       button.addEventListener('click', () => {
-        if (!isSaudiAssignedUser()) return;
+        const saudiUser=isSaudiAssignedUser();
+        if (!saudiUser && !isKsaOnlyScope()) return;
+        if (saudiUser && button.dataset.pnlKsaReturnMode !== 'excluded') return;
         excludeExpectedReturn = button.dataset.pnlKsaReturnMode === 'excluded';
         syncControl();
         renderPnlVertical();
@@ -220,14 +194,19 @@
     const control = installControl();
     if (!control) return;
 
-    const canUseControl=isSaudiAssignedUser();
-    if (!canUseControl) excludeExpectedReturn = true;
+    const saudiUser=isSaudiAssignedUser();
+    const canUseControl=saudiUser || isKsaOnlyScope();
+    if (saudiUser) excludeExpectedReturn=true;
+    else if (!canUseControl) excludeExpectedReturn=false;
+
+    window.BR_KSA_RETURN_EXCLUDED=canUseControl && excludeExpectedReturn;
     control.hidden = !canUseControl;
     control.classList.toggle('is-adjusted', canUseControl && excludeExpectedReturn);
 
     control.querySelectorAll('[data-pnl-ksa-return-mode]').forEach(button => {
       const mode = button.dataset.pnlKsaReturnMode;
       const active = mode === (excludeExpectedReturn ? 'excluded' : 'reported');
+      button.hidden=saudiUser && mode === 'reported';
       button.classList.toggle('active', active);
       button.setAttribute('aria-pressed', String(active));
     });

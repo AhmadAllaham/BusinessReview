@@ -2234,16 +2234,19 @@ function pnlIsKsa(value) {
     key.includes('saudiarabia');
 }
 
-function pnlShouldExcludeSaudiReturn(rows) {
+function pnlIsSaudiAssignedUser() {
   const scope=window.BR_CURRENT_USER_SCOPE;
-  if (scope && !scope.isAdmin) {
-    const countries=[...new Set(
-      (Array.isArray(scope.countries) ? scope.countries : [scope.countries])
-        .map(pnlCountryKey)
-        .filter(Boolean)
-    )];
-    if (countries.length === 1 && pnlIsKsa(countries[0])) return true;
-  }
+  if (!scope || scope.isAdmin) return false;
+  const countries=[...new Set(
+    (Array.isArray(scope.countries) ? scope.countries : [scope.countries])
+      .map(pnlCountryKey)
+      .filter(Boolean)
+  )];
+  return countries.length === 1 && pnlIsKsa(countries[0]);
+}
+
+function pnlShouldExcludeSaudiReturn(rows) {
+  if (pnlIsSaudiAssignedUser()) return true;
 
   const markets=[...new Set(
     (Array.isArray(rows) ? rows : [])
@@ -2252,7 +2255,8 @@ function pnlShouldExcludeSaudiReturn(rows) {
       .map(pnlCountryKey)
       .filter(Boolean)
   )];
-  return markets.length === 1 && pnlIsKsa(markets[0]);
+  const isKsaOnly=markets.length === 1 && pnlIsKsa(markets[0]);
+  return isKsaOnly && window.BR_KSA_RETURN_EXCLUDED === true;
 }
 
 function pnlScenarioTotals(rows, scenario) {
