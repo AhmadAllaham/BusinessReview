@@ -73,16 +73,20 @@
     if (scenario !== 'Actual' || !adjustmentEnabled()) return totals;
 
     const adjusted = { ...totals };
-    const expectedReturn = typeof pnlNumber === 'function'
-      ? pnlNumber(adjusted.expectedReturn)
-      : Number(adjusted.expectedReturn) || 0;
-    const addBack = -expectedReturn;
+    const numberValue = value => typeof pnlNumber === 'function'
+      ? pnlNumber(value)
+      : Number(value) || 0;
+    const actualReturn = numberValue(adjusted.actualReturn);
+    const expectedReturn = numberValue(adjusted.expectedReturn);
+    const totalReturn = actualReturn + expectedReturn;
+    const addBack = -totalReturn;
 
-    // Remove only Expected Return from Actual. Budget, LY and FY Budget remain reported.
+    // Exclude the complete Return from Saudi Actual. Budget, LY and FY Budget remain reported.
+    adjusted.actualReturn = 0;
     adjusted.expectedReturn = 0;
-    adjusted.netSales = (Number(adjusted.netSales) || 0) + addBack;
-    adjusted.grossProfit = (Number(adjusted.grossProfit) || 0) + addBack;
-    adjusted.netIncome = (Number(adjusted.netIncome) || 0) + addBack;
+    adjusted.netSales = numberValue(adjusted.netSales) + addBack;
+    adjusted.grossProfit = numberValue(adjusted.grossProfit) + addBack;
+    adjusted.netIncome = numberValue(adjusted.netIncome) + addBack;
 
     return adjusted;
   };
@@ -187,10 +191,10 @@
     control.hidden = true;
     control.innerHTML = `
       <span class="pnl-ksa-return-label">
-        <strong>KSA Expected Return</strong>
+        <strong>KSA Return</strong>
         <small>Actual only · Budget unchanged</small>
       </span>
-      <span class="pnl-ksa-return-switch" role="group" aria-label="KSA Actual Expected Return treatment">
+      <span class="pnl-ksa-return-switch" role="group" aria-label="KSA Actual Return treatment">
         <button class="active" type="button" data-pnl-ksa-return-mode="reported" aria-pressed="true">Included</button>
         <button type="button" data-pnl-ksa-return-mode="excluded" aria-pressed="false">Excluded</button>
       </span>`;
@@ -228,7 +232,7 @@
     });
 
     control.title = excludeExpectedReturn
-      ? 'Actual excludes Expected Return. Budget remains unchanged.'
+      ? 'Actual excludes Return. Budget remains unchanged.'
       : 'Actual and Budget are shown as reported.';
   }
 
