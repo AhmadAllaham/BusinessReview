@@ -128,7 +128,7 @@
     .normalize('NFKC')
     .trim()
     .toLocaleLowerCase('en-US')
-    .replace(/[^\\p{L}\\p{N}]+/gu, '');
+    .replace(/[^\p{L}\p{N}]+/gu, '');
 
   function isSaudiMarket(value) {
     const market = normalizeMarket(value);
@@ -183,7 +183,7 @@
       normalizeMarket(row.cells?.[0]?.textContent) === 'netincome'
     );
     const text=String(netIncomeRow?.cells?.[1]?.textContent || '').trim();
-    const accounting=/^\\(.*\\)$/.test(text);
+    const accounting=/^\(.*\)$/.test(text);
     const number=Number(text.replace(/[(),]/g,'').replace(/[^0-9.-]/g,''));
     return Number.isFinite(number)
       ? accounting ? -Math.abs(number) : number
@@ -200,7 +200,7 @@
 
   function addClassNames(cell,...names) {
     names
-      .flatMap(name => String(name || '').split(/\\s+/))
+      .flatMap(name => String(name || '').split(/\s+/))
       .filter(Boolean)
       .forEach(name => cell.classList.add(name));
   }

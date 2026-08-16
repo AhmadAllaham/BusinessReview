@@ -11,7 +11,7 @@
 
   const originalScenarioTotals = pnlScenarioTotals;
   const originalRenderPnlVertical = renderPnlVertical;
-  let excludeExpectedReturn = false;
+  let excludeExpectedReturn = true;
 
   function countryKey(value) {
     return String(value ?? '')
@@ -216,7 +216,7 @@
     if (!control) return;
 
     const canUseControl=isSaudiAssignedUser() && isKsaOnlyScope();
-    if (!canUseControl) excludeExpectedReturn = false;
+    if (!canUseControl) excludeExpectedReturn = true;
     control.hidden = !canUseControl;
     control.classList.toggle('is-adjusted', canUseControl && excludeExpectedReturn);
 

@@ -36,7 +36,7 @@
   const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(config);
   const auth = app.auth();
   const db = app.firestore();
-  const ASSET_VERSION = '20260816-ksa-foc-full-row1';
+  const ASSET_VERSION = '20260816-ksa-foc-return-excluded1';
 
   // Persist immutable monthly report chunks locally. After the first successful
   // load, reopening the same dataset can use IndexedDB instead of downloading
