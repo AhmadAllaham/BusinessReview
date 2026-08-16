@@ -178,9 +178,7 @@
 
     control.querySelectorAll('[data-pnl-ksa-return-mode]').forEach(button => {
       button.addEventListener('click', () => {
-        const saudiUser=isSaudiAssignedUser();
-        if (!saudiUser && !isKsaOnlyScope()) return;
-        if (saudiUser && button.dataset.pnlKsaReturnMode !== 'excluded') return;
+        if (isSaudiAssignedUser() || !isKsaOnlyScope()) return;
         excludeExpectedReturn = button.dataset.pnlKsaReturnMode === 'excluded';
         syncControl();
         renderPnlVertical();
@@ -195,7 +193,7 @@
     if (!control) return;
 
     const saudiUser=isSaudiAssignedUser();
-    const canUseControl=saudiUser || isKsaOnlyScope();
+    const canUseControl=!saudiUser && isKsaOnlyScope();
     if (saudiUser) excludeExpectedReturn=true;
     else if (!canUseControl) excludeExpectedReturn=false;
 
@@ -206,7 +204,7 @@
     control.querySelectorAll('[data-pnl-ksa-return-mode]').forEach(button => {
       const mode = button.dataset.pnlKsaReturnMode;
       const active = mode === (excludeExpectedReturn ? 'excluded' : 'reported');
-      button.hidden=saudiUser && mode === 'reported';
+      button.hidden=false;
       button.classList.toggle('active', active);
       button.setAttribute('aria-pressed', String(active));
     });
