@@ -2215,11 +2215,62 @@ function pnlFilteredRows() {
   );
 }
 
+function pnlCountryKey(value) {
+  return String(value ?? '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLocaleLowerCase('en-US')
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+function pnlIsKsa(value) {
+  const key=pnlCountryKey(value);
+  return key === 'ksa' ||
+    key === 'saudi' ||
+    key === 'saudiarabia' ||
+    key === 'kingdomofsaudiarabia' ||
+    key.startsWith('ksa') ||
+    key.includes('saudiarabia');
+}
+
+function pnlShouldExcludeSaudiReturn(rows) {
+  const scope=window.BR_CURRENT_USER_SCOPE;
+  if (scope && !scope.isAdmin) {
+    const countries=[...new Set(
+      (Array.isArray(scope.countries) ? scope.countries : [scope.countries])
+        .map(pnlCountryKey)
+        .filter(Boolean)
+    )];
+    if (countries.length === 1 && pnlIsKsa(countries[0])) return true;
+  }
+
+  const markets=[...new Set(
+    (Array.isArray(rows) ? rows : [])
+      .map(row => String(row?.market || '').trim())
+      .filter(market => market && !pnlCountryKey(market).includes('totalcompany'))
+      .map(pnlCountryKey)
+      .filter(Boolean)
+  )];
+  return markets.length === 1 && pnlIsKsa(markets[0]);
+}
+
 function pnlScenarioTotals(rows, scenario) {
   const result = Object.fromEntries(pnlLineConfig.map(x => [x.key, 0]));
   rows.filter(r => r.scenario === scenario).forEach(r => {
     pnlLineConfig.forEach(line => result[line.key] += pnlNumber(r[line.key]));
   });
+
+  if (scenario === 'Actual' && pnlShouldExcludeSaudiReturn(rows)) {
+    const totalReturn=pnlNumber(result.actualReturn)+pnlNumber(result.expectedReturn);
+    const addBack=-totalReturn;
+    result.actualReturn=0;
+    result.expectedReturn=0;
+    result.netSales=pnlNumber(result.netSales)+addBack;
+    result.grossProfit=pnlNumber(result.grossProfit)+addBack;
+    result.netIncome=pnlNumber(result.netIncome)+addBack;
+  }
+
   return result;
 }
 
