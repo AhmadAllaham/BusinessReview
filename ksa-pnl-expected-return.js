@@ -23,12 +23,13 @@
   }
 
   function isKsa(value) {
-    return [
-      'ksa',
-      'saudi',
-      'saudiarabia',
-      'kingdomofsaudiarabia'
-    ].includes(countryKey(value));
+    const key=countryKey(value);
+    return key === 'ksa' ||
+      key === 'saudi' ||
+      key === 'saudiarabia' ||
+      key === 'kingdomofsaudiarabia' ||
+      key.startsWith('ksa') ||
+      key.includes('saudiarabia');
   }
 
   function selectedPnlMarkets() {
@@ -65,7 +66,7 @@
   }
 
   function adjustmentEnabled() {
-    return excludeExpectedReturn && isSaudiAssignedUser() && isKsaOnlyScope();
+    return excludeExpectedReturn && isSaudiAssignedUser();
   }
 
   pnlScenarioTotals = function (rows, scenario) {
@@ -205,7 +206,7 @@
 
     control.querySelectorAll('[data-pnl-ksa-return-mode]').forEach(button => {
       button.addEventListener('click', () => {
-        if (!isSaudiAssignedUser() || !isKsaOnlyScope()) return;
+        if (!isSaudiAssignedUser()) return;
         excludeExpectedReturn = button.dataset.pnlKsaReturnMode === 'excluded';
         syncControl();
         renderPnlVertical();
@@ -219,7 +220,7 @@
     const control = installControl();
     if (!control) return;
 
-    const canUseControl=isSaudiAssignedUser() && isKsaOnlyScope();
+    const canUseControl=isSaudiAssignedUser();
     if (!canUseControl) excludeExpectedReturn = true;
     control.hidden = !canUseControl;
     control.classList.toggle('is-adjusted', canUseControl && excludeExpectedReturn);
