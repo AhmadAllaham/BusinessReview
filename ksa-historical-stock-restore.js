@@ -159,9 +159,36 @@
       .filter(value => value && value !== '__ALL__');
   }
 
+  function selectedPnlSalesTypes() {
+    const filter=document.getElementById('pnlSalesTypeFilter');
+    if (!filter) return [];
+
+    if (typeof filter._getSelected === 'function') {
+      return filter._getSelected().map(String).filter(Boolean);
+    }
+
+    if (typeof window.getSelected === 'function') {
+      return (window.getSelected('pnlSalesTypeFilter') || [])
+        .map(String)
+        .filter(Boolean);
+    }
+
+    return [...filter.querySelectorAll('.multi-options input:checked')]
+      .map(input => String(input.value || ''))
+      .filter(value => value && value !== '__ALL__');
+  }
+
+  function includesPrivateSalesType() {
+    const salesTypes=selectedPnlSalesTypes();
+    return !salesTypes.length ||
+      salesTypes.some(value => normalizeMarket(value) === 'private');
+  }
+
   function shouldShowNote() {
     const markets = selectedPnlMarkets();
-    return markets.length === 1 && isSaudiMarket(markets[0]);
+    return markets.length === 1 &&
+      isSaudiMarket(markets[0]) &&
+      includesPrivateSalesType();
   }
 
   function scenarioNetIncome(scenario) {
