@@ -4484,6 +4484,27 @@ renderSmExpenses=function(){
 
 // Export the currently displayed, permission-filtered report tables to Excel.
 (function(){
+  let exportXlsxPromise=null;
+
+  function ensureExportXlsx(){
+    if (typeof XLSX !== "undefined") return Promise.resolve();
+    if (exportXlsxPromise) return exportXlsxPromise;
+
+    exportXlsxPromise=new Promise((resolve,reject)=>{
+      const runtime=document.createElement("script");
+      runtime.src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+      runtime.dataset.xlsxExportRuntime="true";
+      runtime.onload=()=>resolve();
+      runtime.onerror=()=>reject(new Error("Excel export library could not be loaded."));
+      document.head.appendChild(runtime);
+    }).catch(error=>{
+      exportXlsxPromise=null;
+      throw error;
+    });
+
+    return exportXlsxPromise;
+  }
+
   const exports = {
     sales:{
       file:"Sales_Analysis",
@@ -4557,7 +4578,7 @@ renderSmExpenses=function(){
     if (!config) return;
     button.disabled=true;
     try {
-      await ensureXlsx();
+      await ensureExportXlsx();
       const workbook=XLSX.utils.book_new();
       config.sheets.forEach(sheetConfig=>{
         const table=document.getElementById(sheetConfig.tableId);
